@@ -1,0 +1,221 @@
+<?php
+
+namespace App\Http\Controllers\Logs\Transfer;
+
+use App\Http\Controllers\Controller;
+use App\Models\Transfer;
+use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+
+class TransferController extends Controller
+{
+    /**
+     * Display a listing of transfer logs.
+     */
+    public function index(Request $request): JsonResponse
+    {
+        try {
+            $transfers = Transfer::with(['fromFarm', 'toFarm', 'livestock'])
+                ->orderByDesc('created_at')
+                ->get();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Transfers retrieved successfully',
+                'data' => $transfers,
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Error fetching transfers: ' . $e->getMessage());
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Failed to retrieve transfers',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Fetch transfers filtered by farm and livestock UUIDs.
+     */
+    public function fetchTransfersWithUuid(array $farmUuids, array $livestockUuids): array
+    {
+        return Transfer::with([
+                'toFarm:uuid,name',
+                'livestock:uuid,name',
+            ])
+            ->whereIn('farmUuid', $farmUuids)
+            ->whereIn('livestockUuid', $livestockUuids)
+            ->get()
+            ->map(function (Transfer $transfer) {
+                return [
+                    'id' => $transfer->id,
+                    'uuid' => $transfer->uuid,
+                    'farmUuid' => $transfer->farmUuid,
+                    'livestockUuid' => $transfer->livestockUuid,
+                    'toFarmUuid' => $transfer->toFarmUuid,
+                    'transporterId' => $transfer->transporterId,
+                    'reason' => $transfer->reason,
+                    'price' => $transfer->price,
+                    'transferDate' => $transfer->transferDate,
+                    'remarks' => $transfer->remarks,
+                    'status' => $transfer->status,
+                    'toFarmName' => optional($transfer->toFarm)->name,
+                    'livestockName' => optional($transfer->livestock)->name,
+                    'createdAt' => $transfer->created_at?->toIso8601String(),
+                    'updatedAt' => $transfer->updated_at?->toIso8601String(),
+                ];
+            })
+            ->toArray();
+    }
+
+    /**
+     * Process transfer records from the mobile app.
+     */
+    public function processTransfers(array $transfers, string $livestockUuid): array
+    {
+        $syncedTransfers = [];
+
+        Log::info('========== PROCESSING TRANSFERS START ==========');
+        Log::info('Total transfers to process: ' . count($transfers));
+        Log::info("Livestock UUID: {$livestockUuid}");
+
+        foreach ($transfers as $transferData) {
+            $syncAction = $transferData['syncAction'] ?? 'create';
+            $uuid = $transferData['uuid'] ?? null;
+
+            try {
+                if (!$uuid) {
+                    Log::warning('⚠️ Transfer without UUID skipped', ['transfer' => $transferData]);
+                    continue;
+                }
+
+                $transferData['livestockUuid'] = $livestockUuid;
+
+                $transferDate = isset($transferData['transferDate'])
+                    ? Carbon::parse($transferData['transferDate'])->format('Y-m-d H:i:s')
+                    : now()->format('Y-m-d H:i:s');
+
+                $createdAt = isset($transferData['createdAt'])
+                    ? Carbon::parse($transferData['createdAt'])->format('Y-m-d H:i:s')
+                    : now();
+
+                $updatedAt = isset($transferData['updatedAt'])
+                    ? Carbon::parse($transferData['updatedAt'])->format('Y-m-d H:i:s')
+                    : now();
+
+                $price = isset($transferData['price'])
+                    ? (string)$transferData['price']
+                    : null;
+
+                switch ($syncAction) {
+                    case 'create':
+                        $existing = Transfer::where('uuid', $uuid)->first();
+
+                        if ($existing) {
+                            $local = Carbon::parse($updatedAt);
+                            $server = Carbon::parse($existing->updated_at);
+
+                            if ($local->greaterThan($server)) {
+                                $existing->update([
+                                    'farmUuid' => $transferData['farmUuid'] ?? $existing->farmUuid,
+                                    'livestockUuid' => $livestockUuid,
+                                    'toFarmUuid' => $transferData['toFarmUuid'] ?? $existing->toFarmUuid,
+                                    'transporterId' => $transferData['transporterId'] ?? $existing->transporterId,
+                                    'reason' => $transferData['reason'] ?? $existing->reason,
+                                    'price' => $price,
+                                    'transferDate' => $transferDate,
+                                    'remarks' => $transferData['remarks'] ?? $existing->remarks,
+                                    'status' => $transferData['status'] ?? $existing->status,
+                                    'updated_at' => $updatedAt,
+                                ]);
+                                Log::info("✅ Transfer updated (local newer): UUID {$uuid}");
+                            } else {
+                                Log::info("⏭️ Transfer skipped (server newer): UUID {$uuid}");
+                            }
+                        } else {
+                            Transfer::create([
+                                'uuid' => $uuid,
+                                'farmUuid' => $transferData['farmUuid'] ?? null,
+                                'livestockUuid' => $livestockUuid,
+                                'toFarmUuid' => $transferData['toFarmUuid'] ?? null,
+                                'transporterId' => $transferData['transporterId'] ?? null,
+                                'reason' => $transferData['reason'] ?? null,
+                                'price' => $price,
+                                'transferDate' => $transferDate,
+                                'remarks' => $transferData['remarks'] ?? null,
+                                'status' => $transferData['status'] ?? null,
+                                'created_at' => $createdAt,
+                                'updated_at' => $updatedAt,
+                            ]);
+                            Log::info("✅ Transfer created: UUID {$uuid}");
+                        }
+
+                        $syncedTransfers[] = ['uuid' => $uuid];
+                        break;
+
+                    case 'update':
+                        $transfer = Transfer::where('uuid', $uuid)->first();
+
+                        if ($transfer) {
+                            $local = Carbon::parse($updatedAt);
+                            $server = Carbon::parse($transfer->updated_at);
+
+                            if ($local->greaterThan($server)) {
+                                $transfer->update([
+                                    'farmUuid' => $transferData['farmUuid'] ?? $transfer->farmUuid,
+                                    'toFarmUuid' => $transferData['toFarmUuid'] ?? $transfer->toFarmUuid,
+                                    'transporterId' => $transferData['transporterId'] ?? $transfer->transporterId,
+                                    'reason' => $transferData['reason'] ?? $transfer->reason,
+                                    'price' => $price ?? $transfer->price,
+                                    'transferDate' => $transferDate,
+                                    'remarks' => $transferData['remarks'] ?? $transfer->remarks,
+                                    'status' => $transferData['status'] ?? $transfer->status,
+                                    'updated_at' => $updatedAt,
+                                ]);
+                                Log::info("✅ Transfer updated: UUID {$uuid}");
+                            } else {
+                                Log::info("⏭️ Transfer update skipped (server newer): UUID {$uuid}");
+                            }
+                        } else {
+                            Log::warning("⚠️ Transfer not found for update: UUID {$uuid}");
+                        }
+
+                        $syncedTransfers[] = ['uuid' => $uuid];
+                        break;
+
+                    case 'deleted':
+                        $transfer = Transfer::where('uuid', $uuid)->first();
+                        if ($transfer) {
+                            $transfer->delete();
+                            Log::info("✅ Transfer deleted: UUID {$uuid}");
+                        } else {
+                            Log::info("⏭️ Transfer already deleted on server: UUID {$uuid}");
+                        }
+                        $syncedTransfers[] = ['uuid' => $uuid];
+                        break;
+
+                    default:
+                        Log::warning("⚠️ Unknown sync action for transfer: {$syncAction}", ['uuid' => $uuid]);
+                        break;
+                }
+            } catch (\Exception $e) {
+                Log::error('❌ ERROR PROCESSING TRANSFER', [
+                    'uuid' => $uuid ?? 'unknown',
+                    'syncAction' => $syncAction ?? 'unknown',
+                    'error' => $e->getMessage(),
+                    'transferData' => $transferData,
+                ]);
+                continue;
+            }
+        }
+
+        Log::info('========== PROCESSING TRANSFERS END ==========');
+        Log::info('Total transfers synced: ' . count($syncedTransfers));
+
+        return $syncedTransfers;
+    }
+}
+
