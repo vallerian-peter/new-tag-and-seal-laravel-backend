@@ -9,12 +9,6 @@ use App\Http\Controllers\Logs\Deworming\DewormingController;
 use App\Http\Controllers\Logs\Medication\MedicationController;
 use App\Http\Controllers\Logs\Vaccination\VaccinationController;
 use App\Http\Controllers\Logs\Disposal\DisposalController;
-use App\Http\Controllers\Logs\Milking\MilkingController;
-use App\Http\Controllers\Logs\Pregnancy\PregnancyController;
-use App\Http\Controllers\Logs\Calving\CalvingController;
-use App\Http\Controllers\Logs\Dryoff\DryoffController;
-use App\Http\Controllers\Logs\Insemination\InseminationController;
-use App\Http\Controllers\Logs\Transfer\TransferController;
 
 class LogController extends Controller
 {
@@ -24,26 +18,14 @@ class LogController extends Controller
     protected $medicationController;
     protected $vaccinationController;
     protected $disposalController;
-    protected $milkingController;
-    protected $pregnancyController;
-    protected $calvingController;
-    protected $dryoffController;
-    protected $inseminationController;
-    protected $transferController;
-
+    
     public function __construct(
         FeedingController $feedingController,
         WeightChangeController $weightChangeController,
         DewormingController $dewormingController,
         MedicationController $medicationController,
         VaccinationController $vaccinationController,
-        DisposalController $disposalController,
-        MilkingController $milkingController,
-        PregnancyController $pregnancyController,
-        CalvingController $calvingController,
-        DryoffController $dryoffController,
-        InseminationController $inseminationController,
-        TransferController $transferController
+        DisposalController $disposalController
     ) {
         $this->feedingController = $feedingController;
         $this->weightChangeController = $weightChangeController;
@@ -51,12 +33,6 @@ class LogController extends Controller
         $this->medicationController = $medicationController;
         $this->vaccinationController = $vaccinationController;
         $this->disposalController = $disposalController;
-        $this->milkingController = $milkingController;
-        $this->pregnancyController = $pregnancyController;
-        $this->calvingController = $calvingController;
-        $this->dryoffController = $dryoffController;
-        $this->inseminationController = $inseminationController;
-        $this->transferController = $transferController;
     }
 
     /**
@@ -76,12 +52,6 @@ class LogController extends Controller
                 'medications' => [],
                 'vaccinations' => [],
                 'disposals' => [],
-                'milkings' => [],
-                'pregnancies' => [],
-                'calvings' => [],
-                'dryoffs' => [],
-                'inseminations' => [],
-                'transfers' => [],
             ];
         }
 
@@ -92,12 +62,6 @@ class LogController extends Controller
             'medications' => $this->medicationController->fetchMedicationsWithUuid($farmUuids, $livestockUuids),
             'vaccinations' => $this->vaccinationController->fetchVaccinationsWithUuid($farmUuids, $livestockUuids),
             'disposals' => $this->disposalController->fetchDisposalsWithUuid($farmUuids, $livestockUuids),
-            'milkings' => $this->milkingController->fetchMilkingsWithUuid($farmUuids, $livestockUuids),
-            'pregnancies' => $this->pregnancyController->fetchPregnanciesWithUuid($farmUuids, $livestockUuids),
-            'calvings' => $this->calvingController->fetchCalvingsWithUuid($farmUuids, $livestockUuids),
-            'dryoffs' => $this->dryoffController->fetchDryoffsWithUuid($farmUuids, $livestockUuids),
-            'inseminations' => $this->inseminationController->fetchInseminationsWithUuid($farmUuids, $livestockUuids),
-            'transfers' => $this->transferController->fetchTransfersWithUuid($farmUuids, $livestockUuids),
         ];
     }
 }

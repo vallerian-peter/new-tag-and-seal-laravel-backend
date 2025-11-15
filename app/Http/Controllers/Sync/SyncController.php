@@ -3,16 +3,6 @@
 namespace App\Http\Controllers\Sync;
 
 use App\Models\User;
-use App\Models\Farm;
-use Illuminate\Support\Facades\Log;
-use App\Http\Controllers\CalvingProblem\CalvingProblemController;
-use App\Http\Controllers\CalvingType\CalvingTypeController;
-use App\Http\Controllers\HeatType\HeatTypeController;
-use App\Http\Controllers\InseminationService\InseminationServiceController;
-use App\Http\Controllers\MilkingMethod\MilkingMethodController;
-use App\Http\Controllers\ReproductiveProblem\ReproductiveProblemController;
-use App\Http\Controllers\SemenStrawType\SemenStrawTypeController;
-use App\Http\Controllers\TestResult\TestResultController;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Http\Controllers\Controller;
@@ -28,25 +18,16 @@ use App\Http\Controllers\Logs\Deworming\DewormingController;
 use App\Http\Controllers\Logs\Medication\MedicationController;
 use App\Http\Controllers\Logs\Vaccination\VaccinationController;
 use App\Http\Controllers\Logs\Disposal\DisposalController;
-use App\Http\Controllers\Logs\Milking\MilkingController;
-use App\Http\Controllers\Logs\Pregnancy\PregnancyController;
-use App\Http\Controllers\Logs\Calving\CalvingController;
-use App\Http\Controllers\Logs\Dryoff\DryoffController;
-use App\Http\Controllers\Logs\Insemination\InseminationController;
-use App\Http\Controllers\Logs\Transfer\TransferController;
 use App\Http\Controllers\FeedingType\FeedingTypeController;
 use App\Http\Controllers\AdministrationRoute\AdministrationRouteController;
 use App\Http\Controllers\MedicineType\MedicineTypeController;
 use App\Http\Controllers\Medicine\MedicineController;
 use App\Http\Controllers\Vaccine\VaccineController;
-use App\Http\Controllers\Vaccine\VaccineTypeController;
-use App\Http\Controllers\DisposalType\DisposalTypeController;
 use App\Http\Controllers\LegalStatus\LegalStatusController;
 use App\Http\Controllers\SchoolLevel\SchoolLevelController;
 use App\Http\Controllers\LivestockType\LivestockTypeController;
 use App\Http\Controllers\IdentityCardType\IdentityCardTypeController;
 use App\Http\Controllers\LivestockObtainedMethod\LivestockObtainedMethodController;
-use App\Http\Controllers\Disease\DiseaseController;
 
 class SyncController extends Controller
 {
@@ -69,26 +50,9 @@ class SyncController extends Controller
     protected $medicineController;
     protected $logController;
     protected $vaccineController;
-    protected $vaccineTypeController;
     protected $medicationController;
     protected $vaccinationController;
     protected $disposalController;
-    protected $disposalTypeController;
-    protected $diseaseController;
-    protected $milkingController;
-    protected $pregnancyController;
-    protected $calvingController;
-    protected $dryoffController;
-    protected $inseminationController;
-    protected $transferController;
-    protected $heatTypeController;
-    protected $semenStrawTypeController;
-    protected $inseminationServiceController;
-    protected $milkingMethodController;
-    protected $calvingTypeController;
-    protected $calvingProblemController;
-    protected $reproductiveProblemController;
-    protected $testResultController;
 
     public function __construct(
         LocationController $locationController,
@@ -112,24 +76,7 @@ class SyncController extends Controller
         MedicineTypeController $medicineTypeController,
         MedicineController $medicineController,
         LogController $logController,
-        VaccineController $vaccineController,
-        VaccineTypeController $vaccineTypeController,
-        DisposalTypeController $disposalTypeController,
-        DiseaseController $diseaseController,
-        MilkingController $milkingController,
-        PregnancyController $pregnancyController,
-        CalvingController $calvingController,
-        DryoffController $dryoffController,
-        InseminationController $inseminationController,
-        TransferController $transferController,
-        HeatTypeController $heatTypeController,
-        SemenStrawTypeController $semenStrawTypeController,
-        InseminationServiceController $inseminationServiceController,
-        MilkingMethodController $milkingMethodController,
-        CalvingTypeController $calvingTypeController,
-        CalvingProblemController $calvingProblemController,
-        ReproductiveProblemController $reproductiveProblemController,
-        TestResultController $testResultController
+        VaccineController $vaccineController
     ) {
         $this->locationController = $locationController;
         $this->identityCardTypeController = $identityCardTypeController;
@@ -153,23 +100,6 @@ class SyncController extends Controller
         $this->medicineController = $medicineController;
         $this->logController = $logController;
         $this->vaccineController = $vaccineController;
-        $this->vaccineTypeController = $vaccineTypeController;
-        $this->disposalTypeController = $disposalTypeController;
-        $this->diseaseController = $diseaseController;
-        $this->milkingController = $milkingController;
-        $this->pregnancyController = $pregnancyController;
-        $this->calvingController = $calvingController;
-        $this->dryoffController = $dryoffController;
-        $this->inseminationController = $inseminationController;
-        $this->transferController = $transferController;
-        $this->heatTypeController = $heatTypeController;
-        $this->semenStrawTypeController = $semenStrawTypeController;
-        $this->inseminationServiceController = $inseminationServiceController;
-        $this->milkingMethodController = $milkingMethodController;
-        $this->calvingTypeController = $calvingTypeController;
-        $this->calvingProblemController = $calvingProblemController;
-        $this->reproductiveProblemController = $reproductiveProblemController;
-        $this->testResultController = $testResultController;
     }
 
     /**
@@ -270,17 +200,6 @@ class SyncController extends Controller
                     'administrationRoutes' => $this->administrationRouteController->fetchAll(),
                     'medicineTypes' => $this->medicineTypeController->fetchAll(),
                     'medicines' => $this->medicineController->fetchAll(),
-                    'vaccineTypes' => $this->vaccineTypeController->fetchAll(),
-                    'disposalTypes' => $this->disposalTypeController->fetchAll(),
-                    'diseases' => $this->diseaseController->fetchAll(),
-                    'heatTypes' => $this->heatTypeController->fetchAll(),
-                    'semenStrawTypes' => $this->semenStrawTypeController->fetchAll(),
-                    'inseminationServices' => $this->inseminationServiceController->fetchAll(),
-                    'milkingMethods' => $this->milkingMethodController->fetchAll(),
-                    'calvingTypes' => $this->calvingTypeController->fetchAll(),
-                    'calvingProblems' => $this->calvingProblemController->fetchAll(),
-                    'reproductiveProblems' => $this->reproductiveProblemController->fetchAll(),
-                    'testResults' => $this->testResultController->fetchAll(),
                 ],
 
                 // 3. Livestock reference data (species, types, breeds, methods)
@@ -338,11 +257,8 @@ class SyncController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
-            Log::error('Splash sync error', [
-                'user_id' => $userId,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
+            print_r($e->getMessage());
+
             return response()->json([
                 'status' => false,
                 'message' => 'Failed to complete splash sync',
@@ -543,7 +459,6 @@ class SyncController extends Controller
             $syncedData = [
                 'syncedFarms' => [],
                 'syncedLivestock' => [],
-                'syncedVaccines' => [],
                 'syncedLogs' => [
                     'feedings' => [],
                     'weightChanges' => [],
@@ -551,12 +466,6 @@ class SyncController extends Controller
                     'medications' => [],
                     'vaccinations' => [],
                     'disposals' => [],
-                    'milkings' => [],
-                    'pregnancies' => [],
-                    'calvings' => [],
-                    'dryoffs' => [],
-                    'inseminations' => [],
-                    'transfers' => [],
                 ],
                 // Add more collections as they're implemented
             ];
@@ -567,10 +476,6 @@ class SyncController extends Controller
 
             $syncedData['syncedLivestock'] = isset($data['livestock']) && is_array($data['livestock'])
                 ? $this->processLivestockSync($data['livestock'], $user, $userId)
-                : [];
-
-            $syncedData['syncedVaccines'] = isset($data['vaccines']) && is_array($data['vaccines'])
-                ? $this->processVaccineSync($data['vaccines'], $user, $userId)
                 : [];
 
             $logsPayload = $data['logs'] ?? [];
@@ -622,54 +527,6 @@ class SyncController extends Controller
             fn (array $collection, string $livestockUuid) => $this->disposalController->processDisposals($collection, $livestockUuid)
         );
 
-            $syncedData['syncedLogs']['milkings'] = $this->processLogSync(
-                $logsPayload['milkings'] ?? [],
-                $user,
-                $userId,
-                'milking',
-                fn (array $collection, string $livestockUuid) => $this->milkingController->processMilkings($collection, $livestockUuid)
-            );
-
-            $syncedData['syncedLogs']['pregnancies'] = $this->processLogSync(
-                $logsPayload['pregnancies'] ?? [],
-                $user,
-                $userId,
-                'pregnancy',
-                fn (array $collection, string $livestockUuid) => $this->pregnancyController->processPregnancies($collection, $livestockUuid)
-            );
-
-            $syncedData['syncedLogs']['calvings'] = $this->processLogSync(
-                $logsPayload['calvings'] ?? [],
-                $user,
-                $userId,
-                'calving',
-                fn (array $collection, string $livestockUuid) => $this->calvingController->processCalvings($collection, $livestockUuid)
-            );
-
-            $syncedData['syncedLogs']['dryoffs'] = $this->processLogSync(
-                $logsPayload['dryoffs'] ?? [],
-                $user,
-                $userId,
-                'dryoff',
-                fn (array $collection, string $livestockUuid) => $this->dryoffController->processDryoffs($collection, $livestockUuid)
-            );
-
-            $syncedData['syncedLogs']['inseminations'] = $this->processLogSync(
-                $logsPayload['inseminations'] ?? [],
-                $user,
-                $userId,
-                'insemination',
-                fn (array $collection, string $livestockUuid) => $this->inseminationController->processInseminations($collection, $livestockUuid)
-            );
-
-            $syncedData['syncedLogs']['transfers'] = $this->processLogSync(
-                $logsPayload['transfers'] ?? [],
-                $user,
-                $userId,
-                'transfer',
-                fn (array $collection, string $livestockUuid) => $this->transferController->processTransfers($collection, $livestockUuid)
-            );
-
             // TODO: Process other collections (vaccines, feeds, etc.)
             // Follow the same pattern:
             // 1. Check user role
@@ -679,7 +536,6 @@ class SyncController extends Controller
             \Log::info("Sync summary", [
                 'syncedFarmsCount' => count($syncedData['syncedFarms']),
                 'syncedLivestockCount' => count($syncedData['syncedLivestock']),
-                'syncedVaccinesCount' => count($syncedData['syncedVaccines']),
                 'syncedFeedingsCount' => isset($syncedData['syncedLogs']['feedings'])
                     ? count($syncedData['syncedLogs']['feedings'])
                     : 0,
@@ -697,24 +553,6 @@ class SyncController extends Controller
                 : 0,
             'syncedDisposalsCount' => isset($syncedData['syncedLogs']['disposals'])
                 ? count($syncedData['syncedLogs']['disposals'])
-                : 0,
-            'syncedMilkingsCount' => isset($syncedData['syncedLogs']['milkings'])
-                ? count($syncedData['syncedLogs']['milkings'])
-                : 0,
-            'syncedPregnanciesCount' => isset($syncedData['syncedLogs']['pregnancies'])
-                ? count($syncedData['syncedLogs']['pregnancies'])
-                : 0,
-            'syncedCalvingsCount' => isset($syncedData['syncedLogs']['calvings'])
-                ? count($syncedData['syncedLogs']['calvings'])
-                : 0,
-            'syncedDryoffsCount' => isset($syncedData['syncedLogs']['dryoffs'])
-                ? count($syncedData['syncedLogs']['dryoffs'])
-                : 0,
-            'syncedInseminationsCount' => isset($syncedData['syncedLogs']['inseminations'])
-                ? count($syncedData['syncedLogs']['inseminations'])
-                : 0,
-            'syncedTransfersCount' => isset($syncedData['syncedLogs']['transfers'])
-                ? count($syncedData['syncedLogs']['transfers'])
                 : 0,
             ]);
             \Log::info("========== POST SYNC END ==========");
@@ -787,27 +625,6 @@ class SyncController extends Controller
         \Log::info("Livestock sync complete for user {$userId}", ['count' => count($syncedLivestock)]);
 
         return $syncedLivestock;
-    }
-
-    private function processVaccineSync(array $vaccines, User $user, int $userId): array
-    {
-        if (empty($vaccines)) {
-            \Log::info("No vaccines provided for sync.");
-            return [];
-        }
-
-        if (strtolower($user->role) !== 'farmer') {
-            \Log::warning("Non-farmer attempting to sync vaccines", [
-                'userId' => $userId,
-                'role' => $user->role,
-            ]);
-            return [];
-        }
-
-        $farmerId = $user->roleId;
-        $allowedFarmUuids = Farm::where('farmerId', $farmerId)->pluck('uuid')->toArray();
-
-        return $this->vaccineController->processVaccines($vaccines, $allowedFarmUuids);
     }
 
     /**
