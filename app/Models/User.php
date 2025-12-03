@@ -4,6 +4,9 @@ namespace App\Models;
 
 use App\Enums\UserRole;
 use App\Enums\UserStatus;
+use App\Models\Farmer;
+use App\Models\SystemUser;
+use App\Models\FarmUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -188,10 +191,12 @@ class User extends Authenticatable
             case UserRole::FARMER:
                 return $this->belongsTo(Farmer::class, 'roleId');
             case UserRole::SYSTEM_USER:
+                return $this->belongsTo(SystemUser::class, 'roleId');
             case UserRole::EXTENSION_OFFICER:
             case UserRole::VET:
-            case UserRole::FARM_INVITED_USER:
                 return $this->belongsTo(SystemUser::class, 'roleId');
+            case UserRole::FARM_INVITED_USER:
+                return $this->belongsTo(FarmUser::class, 'roleId');
             default:
                 return null;
         }

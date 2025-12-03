@@ -9,6 +9,7 @@ class ReproductiveProblemController extends Controller
 {
     /**
      * Fetch all reproductive problems for reference data sync.
+     * Reproductive problems are generic and apply to all livestock types.
      *
      * @return array
      */

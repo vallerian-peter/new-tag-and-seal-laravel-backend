@@ -20,6 +20,7 @@ class SpecieController extends Controller
                 return [
                     'id' => $specie->id,
                     'name' => $specie->name,
+                    'livestockTypeId' => $specie->livestockTypeId ?? null,
                 ];
             })
             ->toArray();

@@ -18,16 +18,28 @@ use App\Http\Controllers\Logs\Deworming\DewormingController;
 use App\Http\Controllers\Logs\Medication\MedicationController;
 use App\Http\Controllers\Logs\Vaccination\VaccinationController;
 use App\Http\Controllers\Logs\Disposal\DisposalController;
+use App\Http\Controllers\Logs\Birth\BirthEventController;
+use App\Http\Controllers\Logs\AbortedPregnancy\AbortedPregnancyController;
+use App\Http\Controllers\Logs\Milking\MilkingController;
+use App\Http\Controllers\Logs\Pregnancy\PregnancyController;
+use App\Http\Controllers\Logs\Insemination\InseminationController;
+use App\Http\Controllers\Logs\Dryoff\DryoffController;
+use App\Http\Controllers\Logs\Transfer\TransferController;
 use App\Http\Controllers\FeedingType\FeedingTypeController;
 use App\Http\Controllers\AdministrationRoute\AdministrationRouteController;
 use App\Http\Controllers\MedicineType\MedicineTypeController;
 use App\Http\Controllers\Medicine\MedicineController;
 use App\Http\Controllers\Vaccine\VaccineController;
+use App\Http\Controllers\Vaccine\VaccineTypeController;
+use App\Http\Controllers\FarmUser\FarmUserController;
 use App\Http\Controllers\LegalStatus\LegalStatusController;
 use App\Http\Controllers\SchoolLevel\SchoolLevelController;
 use App\Http\Controllers\LivestockType\LivestockTypeController;
 use App\Http\Controllers\IdentityCardType\IdentityCardTypeController;
 use App\Http\Controllers\LivestockObtainedMethod\LivestockObtainedMethodController;
+use App\Http\Controllers\BirthType\BirthTypeController;
+use App\Http\Controllers\BirthProblem\BirthProblemController;
+use App\Http\Controllers\ReproductiveProblem\ReproductiveProblemController;
 
 class SyncController extends Controller
 {
@@ -50,9 +62,21 @@ class SyncController extends Controller
     protected $medicineController;
     protected $logController;
     protected $vaccineController;
+    protected $vaccineTypeController;
+    protected $farmUserController;
     protected $medicationController;
     protected $vaccinationController;
     protected $disposalController;
+    protected $birthEventController;
+    protected $abortedPregnancyController;
+    protected $milkingController;
+    protected $pregnancyController;
+    protected $inseminationController;
+    protected $dryoffController;
+    protected $transferController;
+    protected $birthTypeController;
+    protected $birthProblemController;
+    protected $reproductiveProblemController;
 
     public function __construct(
         LocationController $locationController,
@@ -71,12 +95,24 @@ class SyncController extends Controller
         MedicationController $medicationController,
         VaccinationController $vaccinationController,
         DisposalController $disposalController,
+        BirthEventController $birthEventController,
+        AbortedPregnancyController $abortedPregnancyController,
+        MilkingController $milkingController,
+        PregnancyController $pregnancyController,
+        InseminationController $inseminationController,
+        DryoffController $dryoffController,
+        TransferController $transferController,
         FeedingTypeController $feedingTypeController,
         AdministrationRouteController $administrationRouteController,
         MedicineTypeController $medicineTypeController,
         MedicineController $medicineController,
         LogController $logController,
-        VaccineController $vaccineController
+        VaccineController $vaccineController,
+        VaccineTypeController $vaccineTypeController,
+        FarmUserController $farmUserController,
+        BirthTypeController $birthTypeController,
+        BirthProblemController $birthProblemController,
+        ReproductiveProblemController $reproductiveProblemController
     ) {
         $this->locationController = $locationController;
         $this->identityCardTypeController = $identityCardTypeController;
@@ -94,12 +130,24 @@ class SyncController extends Controller
         $this->medicationController = $medicationController;
         $this->vaccinationController = $vaccinationController;
         $this->disposalController = $disposalController;
+        $this->birthEventController = $birthEventController;
+        $this->abortedPregnancyController = $abortedPregnancyController;
+        $this->milkingController = $milkingController;
+        $this->pregnancyController = $pregnancyController;
+        $this->inseminationController = $inseminationController;
+        $this->dryoffController = $dryoffController;
+        $this->transferController = $transferController;
         $this->feedingTypeController = $feedingTypeController;
         $this->administrationRouteController = $administrationRouteController;
         $this->medicineTypeController = $medicineTypeController;
         $this->medicineController = $medicineController;
         $this->logController = $logController;
         $this->vaccineController = $vaccineController;
+        $this->vaccineTypeController = $vaccineTypeController;
+        $this->farmUserController = $farmUserController;
+        $this->birthTypeController = $birthTypeController;
+        $this->birthProblemController = $birthProblemController;
+        $this->reproductiveProblemController = $reproductiveProblemController;
     }
 
     /**
@@ -191,7 +239,6 @@ class SyncController extends Controller
                 ],
 
                 // 2. Reference data (for forms, validations, etc.)
-                // TODO: Add more reference data here,(logs reference data should be added here)
                 'referenceData' => [
                     'identityCardTypes' => $this->identityCardTypeController->fetchAll(),
                     'schoolLevels' => $this->schoolLevelController->fetchAll(),
@@ -200,14 +247,18 @@ class SyncController extends Controller
                     'administrationRoutes' => $this->administrationRouteController->fetchAll(),
                     'medicineTypes' => $this->medicineTypeController->fetchAll(),
                     'medicines' => $this->medicineController->fetchAll(),
+                    'birthTypes' => $this->birthTypeController->fetchAll(),
+                    'birthProblems' => $this->birthProblemController->fetchAll(),
+                    'reproductiveProblems' => $this->reproductiveProblemController->fetchAll(),
                 ],
 
-                // 3. Livestock reference data (species, types, breeds, methods)
+                // 3. Livestock reference data (species, types, breeds, methods, vaccine types)
                 'livestockReferenceData' => [
                     'species' => $this->specieController->fetchAll(),
                     'livestockTypes' => $this->livestockTypeController->fetchAll(),
                     'breeds' => $this->breedController->fetchAll(),
                     'livestockObtainedMethods' => $this->livestockObtainedMethodController->fetchAll(),
+                    'vaccineTypes' => $this->vaccineTypeController->fetchAll(),
                 ],
 
                 // 4. Logs specific data (populated based on role)
@@ -225,28 +276,37 @@ class SyncController extends Controller
             ];
 
             // Get role-specific data
-            switch ($user->role) {
-                case 'Farmer':
-                case 'farmer':
-                    $data['userSpecificData'] = $this->getFarmerData($user->roleId);
-                    break;
-
-                case 'Extension Officer':
-                case 'extension officer':
-                case 'Vet':
-                case 'vet':
-                case 'Farm Invited User':
-                    $data['userSpecificData'] = $this->getFieldWorkerData($user->roleId);
-                    break;
-
-                case 'System User':
-                case 'system user':
-                    $data['userSpecificData'] = $this->getSystemUserData();
-                    break;
-
-                default:
-                    $data['userSpecificData'] = [];
-                    break;
+            // Normalize role to lowercase for comparison
+            $normalizedRole = strtolower(trim($user->role ?? ''));
+            
+            // Check role and assign appropriate data
+            if (in_array($normalizedRole, ['farmer'])) {
+                $data['userSpecificData'] = $this->getFarmerData($user->roleId);
+            } elseif (in_array($normalizedRole, [
+                'extension officer',
+                'vet',
+                'farm invited user',
+                'farminviteduser',
+                'farm_invited_user',
+                'farm-invited-user',
+            ])) {
+                $data['userSpecificData'] = $this->getFieldWorkerData($user->roleId);
+            } elseif (in_array($normalizedRole, ['system user', 'systemuser'])) {
+                $data['userSpecificData'] = $this->getSystemUserData();
+            } else {
+                // Return empty object structure (not array) for unknown roles
+                \Log::warning("Unknown user role for splash sync: '{$user->role}' (normalized: '{$normalizedRole}')");
+                $data['userSpecificData'] = [
+                    'type' => 'unknown',
+                    'farms' => [],
+                    'livestock' => [],
+                    'logs' => [],
+                    'vaccines' => [],
+                    'farmUsers' => [],
+                    'farmsCount' => 0,
+                    'livestockCount' => 0,
+                    'vaccinesCount' => 0,
+                ];
             }
 
             return response()->json([
@@ -301,34 +361,154 @@ class SyncController extends Controller
             $vaccines = $this->vaccineController->fetchByFarmUuids($farmUuids);
         }
 
+        // Get all farm users assigned to the farmer's farms
+        $farmUsers = [];
+        if (!empty($farmUuids)) {
+            $farmUsers = $this->farmUserController->fetchByFarmUuids($farmUuids);
+        }
+
         return [
             'type' => 'farmer',
             'farms' => $farms,
             'livestock' => $livestock,
             'logs' => $logs,
             'vaccines' => $vaccines,
+            'farmUsers' => $farmUsers,
             'farmsCount' => count($farms),
             'livestockCount' => count($livestock),
             'vaccinesCount' => count($vaccines),
+            'farmUsersCount' => count($farmUsers),
         ];
     }
 
     /**
      * Get field worker data (extension officer, vet, farm invited user).
-     * They might have access to specific farms they're assigned to.
+     * They have access to specific farms they're assigned to.
      *
-     * @param int $userId
+     * @param int $farmUserId (This is User.roleId which points to FarmUser.id)
      * @return array
      */
-    private function getFieldWorkerData(int $userId): array
+    private function getFieldWorkerData(int $farmUserId): array
     {
-        // TODO: Implement logic for field workers assigned to farms
-        // For now, return empty data structure
-        return [
-            'type' => 'field_worker',
-            'assignedFarms' => [],
-            'accessibleLivestock' => [],
-        ];
+        try {
+            // Step 1: Get FarmUser record
+            $farmUser = \App\Models\FarmUser::find($farmUserId);
+            
+            if (!$farmUser) {
+                \Log::warning("FarmUser not found for roleId: {$farmUserId}");
+                return [
+                    'type' => 'field_worker',
+                    'farmUser' => null,
+                    'farms' => [],
+                    'livestock' => [],
+                    'logs' => [],
+                    'vaccines' => [],
+                    'farmsCount' => 0,
+                    'livestockCount' => 0,
+                    'vaccinesCount' => 0,
+                ];
+            }
+
+            // Step 2: Get assigned farm UUIDs (supports multiple farms)
+            $farmUuids = $farmUser->getFarmUuidsArray();
+            
+            \Log::info("Fetching data for FarmUser ID: {$farmUserId}, FarmUuids: " . json_encode($farmUuids) . ", RoleTitle: {$farmUser->roleTitle}");
+
+            if (empty($farmUuids)) {
+                \Log::warning("FarmUser {$farmUserId} has no assigned farmUuids");
+                return [
+                    'type' => 'field_worker',
+                    'farmUser' => [
+                        'uuid' => $farmUser->uuid,
+                        'farmUuid' => null,
+                        'farmUuids' => [],
+                        'roleTitle' => $farmUser->roleTitle,
+                        'firstName' => $farmUser->firstName,
+                        'lastName' => $farmUser->lastName,
+                        'email' => $farmUser->email,
+                    ],
+                    'farms' => [],
+                    'livestock' => [],
+                    'logs' => [],
+                    'vaccines' => [],
+                    'farmsCount' => 0,
+                    'livestockCount' => 0,
+                    'vaccinesCount' => 0,
+                ];
+            }
+            
+            // Step 3: Get farm details for all assigned farms
+            $farms = $this->farmController->fetchByUuids($farmUuids);
+            
+            // Step 4: Get livestock for all assigned farms
+            $livestock = [];
+            if (!empty($farmUuids)) {
+                $livestock = $this->livestockController->fetchByFarmUuids($farmUuids);
+            }
+            
+            // Step 5: Get logs for assigned livestock/farms
+            $logs = [];
+            $livestockUuids = array_column($livestock, 'uuid');
+            if (!empty($farmUuids) && !empty($livestockUuids)) {
+                $logs = $this->logController->fetchLogsByFarmLivestockUuids(
+                    $farmUuids, 
+                    $livestockUuids
+                );
+            }
+            
+            // Step 6: Get vaccines for all assigned farms
+            $vaccines = [];
+            if (!empty($farmUuids)) {
+                $vaccines = $this->vaccineController->fetchByFarmUuids($farmUuids);
+            }
+            
+            \Log::info("FarmUser sync data fetched - Farms: " . count($farms) . 
+                      ", Livestock: " . count($livestock) . 
+                      ", Logs: " . (is_array($logs) ? count($logs) : 0) . 
+                      ", Vaccines: " . count($vaccines));
+            
+            return [
+                'type' => 'field_worker',
+                'farmUser' => [
+                    'uuid' => $farmUser->uuid,
+                    'farmUuid' => $farmUuids[0] ?? null, // Legacy single farm support
+                    'farmUuids' => $farmUuids, // Multiple farms array
+                    'roleTitle' => $farmUser->roleTitle,
+                    'firstName' => $farmUser->firstName,
+                    'middleName' => $farmUser->middleName,
+                    'lastName' => $farmUser->lastName,
+                    'phone' => $farmUser->phone,
+                    'email' => $farmUser->email,
+                    'gender' => $farmUser->gender,
+                    'createdAt' => $farmUser->created_at?->toIso8601String(),
+                    'updatedAt' => $farmUser->updated_at?->toIso8601String(),
+                ],
+                'farms' => $farms,
+                'livestock' => $livestock,
+                'logs' => $logs,
+                'vaccines' => $vaccines,
+                'farmsCount' => count($farms),
+                'livestockCount' => count($livestock),
+                'logsCount' => is_array($logs) ? count($logs) : 0,
+                'vaccinesCount' => count($vaccines),
+            ];
+        } catch (\Exception $e) {
+            \Log::error("Error fetching field worker data for roleId {$farmUserId}: " . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return [
+                'type' => 'field_worker',
+                'farmUser' => null,
+                'farms' => [],
+                'livestock' => [],
+                'logs' => [],
+                'vaccines' => [],
+                'farmsCount' => 0,
+                'livestockCount' => 0,
+                'vaccinesCount' => 0,
+                'error' => $e->getMessage(),
+            ];
+        }
     }
 
     /**
@@ -466,7 +646,16 @@ class SyncController extends Controller
                     'medications' => [],
                     'vaccinations' => [],
                     'disposals' => [],
+                    'birthEvents' => [],
+                    'abortedPregnancies' => [],
+                    'milkings' => [],
+                    'pregnancies' => [],
+                    'inseminations' => [],
+                    'dryoffs' => [],
+                    'transfers' => [],
                 ],
+                'syncedVaccines' => [],
+                'syncedFarmUsers' => [],
                 // Add more collections as they're implemented
             ];
 
@@ -527,7 +716,73 @@ class SyncController extends Controller
             fn (array $collection, string $livestockUuid) => $this->disposalController->processDisposals($collection, $livestockUuid)
         );
 
-            // TODO: Process other collections (vaccines, feeds, etc.)
+        $syncedData['syncedLogs']['birthEvents'] = $this->processLogSync(
+            $logsPayload['birthEvents'] ?? [],
+            $user,
+            $userId,
+            'birth event',
+            fn (array $collection, string $livestockUuid) => $this->birthEventController->processBirthEvents($collection, $livestockUuid)
+        );
+
+        $syncedData['syncedLogs']['abortedPregnancies'] = $this->processLogSync(
+            $logsPayload['abortedPregnancies'] ?? [],
+            $user,
+            $userId,
+            'aborted pregnancy',
+            fn (array $collection, string $livestockUuid) => $this->abortedPregnancyController->processAbortedPregnancies($collection, $livestockUuid)
+        );
+
+        $syncedData['syncedLogs']['milkings'] = $this->processLogSync(
+            $logsPayload['milkings'] ?? [],
+            $user,
+            $userId,
+            'milking',
+            fn (array $collection, string $livestockUuid) => $this->milkingController->processMilkings($collection, $livestockUuid)
+        );
+
+        $syncedData['syncedLogs']['pregnancies'] = $this->processLogSync(
+            $logsPayload['pregnancies'] ?? [],
+            $user,
+            $userId,
+            'pregnancy',
+            fn (array $collection, string $livestockUuid) => $this->pregnancyController->processPregnancies($collection, $livestockUuid)
+        );
+
+        $syncedData['syncedLogs']['inseminations'] = $this->processLogSync(
+            $logsPayload['inseminations'] ?? [],
+            $user,
+            $userId,
+            'insemination',
+            fn (array $collection, string $livestockUuid) => $this->inseminationController->processInseminations($collection, $livestockUuid)
+        );
+
+        $syncedData['syncedLogs']['dryoffs'] = $this->processLogSync(
+            $logsPayload['dryoffs'] ?? [],
+            $user,
+            $userId,
+            'dryoff',
+            fn (array $collection, string $livestockUuid) => $this->dryoffController->processDryoffs($collection, $livestockUuid)
+        );
+
+        $syncedData['syncedLogs']['transfers'] = $this->processLogSync(
+            $logsPayload['transfers'] ?? [],
+            $user,
+            $userId,
+            'transfer',
+            fn (array $collection, string $livestockUuid) => $this->transferController->processTransfers($collection, $livestockUuid)
+        );
+
+            // Process vaccines
+            $syncedData['syncedVaccines'] = isset($data['vaccines']) && is_array($data['vaccines'])
+                ? $this->processVaccineSync($data['vaccines'], $user, $userId)
+                : [];
+
+            // Process farm users
+            $syncedData['syncedFarmUsers'] = isset($data['farmUsers']) && is_array($data['farmUsers'])
+                ? $this->processFarmUserSync($data['farmUsers'], $user, $userId)
+                : [];
+
+            // TODO: Process other collections (feeds, etc.)
             // Follow the same pattern:
             // 1. Check user role
             // 2. Get appropriate roleId (farmerId, vetId, etc.)
@@ -553,6 +808,33 @@ class SyncController extends Controller
                 : 0,
             'syncedDisposalsCount' => isset($syncedData['syncedLogs']['disposals'])
                 ? count($syncedData['syncedLogs']['disposals'])
+                : 0,
+            'syncedBirthEventsCount' => isset($syncedData['syncedLogs']['birthEvents'])
+                ? count($syncedData['syncedLogs']['birthEvents'])
+                : 0,
+            'syncedAbortedPregnanciesCount' => isset($syncedData['syncedLogs']['abortedPregnancies'])
+                ? count($syncedData['syncedLogs']['abortedPregnancies'])
+                : 0,
+            'syncedMilkingsCount' => isset($syncedData['syncedLogs']['milkings'])
+                ? count($syncedData['syncedLogs']['milkings'])
+                : 0,
+            'syncedPregnanciesCount' => isset($syncedData['syncedLogs']['pregnancies'])
+                ? count($syncedData['syncedLogs']['pregnancies'])
+                : 0,
+            'syncedInseminationsCount' => isset($syncedData['syncedLogs']['inseminations'])
+                ? count($syncedData['syncedLogs']['inseminations'])
+                : 0,
+            'syncedDryoffsCount' => isset($syncedData['syncedLogs']['dryoffs'])
+                ? count($syncedData['syncedLogs']['dryoffs'])
+                : 0,
+            'syncedTransfersCount' => isset($syncedData['syncedLogs']['transfers'])
+                ? count($syncedData['syncedLogs']['transfers'])
+                : 0,
+            'syncedVaccinesCount' => isset($syncedData['syncedVaccines'])
+                ? count($syncedData['syncedVaccines'])
+                : 0,
+            'syncedFarmUsersCount' => isset($syncedData['syncedFarmUsers'])
+                ? count($syncedData['syncedFarmUsers'])
                 : 0,
             ]);
             \Log::info("========== POST SYNC END ==========");
@@ -585,12 +867,9 @@ class SyncController extends Controller
             return [];
         }
 
+        // Only farmers can sync/create farms - farm invited users work with existing assigned farms
         if (strtolower($user->role) !== 'farmer') {
-            \Log::warning("Non-farmer attempting to sync farms", [
-                'userId' => $userId,
-                'role' => $user->role,
-                'roleId' => $user->roleId,
-            ]);
+            \Log::info("Non-farmer user (Role: {$user->role}) - Farm invited users don't create farms, only work with assigned ones");
             return [];
         }
 
@@ -610,15 +889,47 @@ class SyncController extends Controller
             return [];
         }
 
-        if (strtolower($user->role) !== 'farmer') {
-            \Log::warning("Non-farmer attempting to sync livestock", [
+        // For farmers, use their farmerId directly
+        if (strtolower($user->role) === 'farmer') {
+            $farmerId = $user->roleId;
+            \Log::info("Processing livestock for Farmer ID: {$farmerId}, User ID: {$userId}");
+
+            $syncedLivestock = $this->livestockController->processLivestock($livestock, $farmerId);
+            \Log::info("Livestock sync complete for user {$userId}", ['count' => count($syncedLivestock)]);
+
+            return $syncedLivestock;
+        }
+
+        // For farm invited users, validate access and get farmer ID from livestock
+        $assignedFarmUuids = $this->getAssignedFarmUuidsForUser($user);
+        
+        if (empty($assignedFarmUuids)) {
+            \Log::warning("User has no assigned farms", [
                 'userId' => $userId,
                 'role' => $user->role,
             ]);
             return [];
         }
 
-        $farmerId = $user->roleId;
+        // Validate access: Filter livestock to only those in assigned farms
+        $livestock = $this->validateLivestockAccess($livestock, $assignedFarmUuids, $userId);
+        
+        if (empty($livestock)) {
+            \Log::info("No livestock passed access validation for user {$userId}");
+            return [];
+        }
+
+        // Get farmer ID from the livestock's farm
+        $farmerId = $this->getFarmerIdForLivestock($livestock, $user);
+        
+        if (!$farmerId) {
+            \Log::warning("Could not determine farmer ID for livestock sync", [
+                'userId' => $userId,
+                'role' => $user->role,
+            ]);
+            return [];
+        }
+
         \Log::info("Processing livestock for User ID: {$userId}, Farmer ID: {$farmerId}, Role: {$user->role}");
 
         $syncedLivestock = $this->livestockController->processLivestock($livestock, $farmerId);
@@ -642,8 +953,11 @@ class SyncController extends Controller
             return [];
         }
 
-        if (strtolower($user->role) !== 'farmer') {
-            \Log::warning("Non-farmer attempting to sync {$logLabel}s", [
+        // Get assigned farm UUIDs for access validation
+        $assignedFarmUuids = $this->getAssignedFarmUuidsForUser($user);
+        
+        if (empty($assignedFarmUuids) && strtolower($user->role) !== 'farmer') {
+            \Log::warning("User has no assigned farms - cannot sync logs", [
                 'userId' => $userId,
                 'role' => $user->role,
             ]);
@@ -652,6 +966,7 @@ class SyncController extends Controller
 
         \Log::info(strtoupper("========== PROCESSING {$logLabel}s START =========="));
         \Log::info("Total {$logLabel}s to process: " . count($logs));
+        \Log::info("User Role: {$user->role}, User ID: {$userId}");
 
         $groupedLogs = [];
         foreach ($logs as $entry) {
@@ -660,6 +975,18 @@ class SyncController extends Controller
                 \Log::warning(ucfirst($logLabel) . " entry missing livestockUuid", ['entry' => $entry]);
                 continue;
             }
+
+            // Validate access for farm invited users
+            if (strtolower($user->role) !== 'farmer' && !empty($assignedFarmUuids)) {
+                if (!$this->validateLivestockBelongsToFarms($livestockUuid, $assignedFarmUuids)) {
+                    \Log::warning("Log for livestock {$livestockUuid} rejected - not in assigned farms", [
+                        'userId' => $userId,
+                        'assignedFarms' => $assignedFarmUuids,
+                    ]);
+                    continue;
+                }
+            }
+
             $groupedLogs[$livestockUuid][] = $entry;
         }
 
@@ -676,6 +1003,264 @@ class SyncController extends Controller
         \Log::info("Total {$logLabel}s synced: " . count($synced));
 
         return $synced;
+    }
+
+    private function processVaccineSync(array $vaccines, User $user, int $userId): array
+    {
+        if (empty($vaccines)) {
+            \Log::info("No vaccines provided for sync.");
+            return [];
+        }
+
+        // Get assigned farm UUIDs for access validation
+        $assignedFarmUuids = $this->getAssignedFarmUuidsForUser($user);
+        
+        if (empty($assignedFarmUuids) && strtolower($user->role) !== 'farmer') {
+            \Log::warning("User has no assigned farms - cannot sync vaccines", [
+                'userId' => $userId,
+                'role' => $user->role,
+            ]);
+            return [];
+        }
+
+        // Validate access: Filter vaccines to only those in assigned farms
+        if (strtolower($user->role) !== 'farmer' && !empty($assignedFarmUuids)) {
+            $vaccines = $this->validateVaccineAccess($vaccines, $assignedFarmUuids, $userId);
+            
+            if (empty($vaccines)) {
+                \Log::info("No vaccines passed access validation for user {$userId}");
+                return [];
+            }
+        }
+
+        // Get farmer ID for vaccine processing
+        // For farmers: Use their roleId directly
+        // For farm invited users: Extract from vaccines' farmUuid → Farm.farmerId
+        $farmerId = null;
+        if (strtolower($user->role) === 'farmer') {
+            $farmerId = $user->roleId;
+        } else {
+            // Get farmer ID from the first vaccine's farm
+            if (!empty($vaccines)) {
+                $firstVaccine = $vaccines[0];
+                $farmUuid = $firstVaccine['farmUuid'] ?? null;
+                
+                if ($farmUuid) {
+                    $farm = \App\Models\Farm::where('uuid', $farmUuid)->first();
+                    if ($farm) {
+                        $farmerId = $farm->farmerId;
+                    }
+                }
+            }
+        }
+
+        if (!$farmerId) {
+            \Log::warning("Could not determine farmer ID for vaccine sync", [
+                'userId' => $userId,
+                'role' => $user->role,
+            ]);
+            return [];
+        }
+
+        \Log::info("Processing vaccines for User ID: {$userId}, Farmer ID: {$farmerId}, Role: {$user->role}");
+
+        // Process vaccines using VaccineController
+        $syncedVaccines = $this->vaccineController->processVaccines($vaccines, $farmerId);
+        \Log::info("Vaccine sync complete for user {$userId}", ['count' => count($syncedVaccines)]);
+
+        return $syncedVaccines;
+    }
+
+    private function processFarmUserSync(array $farmUsers, User $user, int $userId): array
+    {
+        if (empty($farmUsers)) {
+            \Log::info("No farm users provided for sync.");
+            return [];
+        }
+
+        if (strtolower($user->role) !== 'farmer') {
+            \Log::warning("Non-farmer attempting to sync farm users", [
+                'userId' => $userId,
+                'role' => $user->role,
+            ]);
+            return [];
+        }
+
+        $farmerId = $user->roleId;
+        \Log::info("Processing farm users for User ID: {$userId}, Farmer ID: {$farmerId}, Role: {$user->role}");
+
+        // Pass User ID (for createdBy/updatedBy foreign key) and Farmer ID (for reference)
+        $syncedFarmUsers = $this->farmUserController->processFarmUsers($farmUsers, $farmerId, $userId);
+        \Log::info("Farm user sync complete for user {$userId}", ['count' => count($syncedFarmUsers)]);
+
+        return $syncedFarmUsers;
+    }
+
+    // ============================================================================
+    // HELPER METHODS - Access Control & Validation
+    // ============================================================================
+
+    /**
+     * Get assigned farm UUIDs for a user (for farm invited users)
+     *
+     * @param User $user
+     * @return array Array of farm UUIDs
+     */
+    private function getAssignedFarmUuidsForUser(User $user): array
+    {
+        // Farmers have access to all their farms (handled differently)
+        if (strtolower($user->role) === 'farmer') {
+            return [];
+        }
+
+        // For farm invited users, extension officers, vets
+        if (in_array(strtolower($user->role), ['farm invited user', 'extension officer', 'vet'])) {
+            $farmUser = \App\Models\FarmUser::find($user->roleId);
+            
+            if (!$farmUser) {
+                \Log::warning("FarmUser not found for roleId: {$user->roleId}");
+                return [];
+            }
+
+            $farmUuids = $farmUser->getFarmUuidsArray();
+            \Log::info("Assigned farm UUIDs for user {$user->id}: " . json_encode($farmUuids));
+            
+            return $farmUuids;
+        }
+
+        return [];
+    }
+
+    /**
+     * Validate livestock belongs to assigned farms and filter access
+     *
+     * @param array $livestock
+     * @param array $assignedFarmUuids
+     * @param int $userId
+     * @return array Filtered livestock array
+     */
+    private function validateLivestockAccess(array $livestock, array $assignedFarmUuids, int $userId): array
+    {
+        if (empty($assignedFarmUuids)) {
+            return [];
+        }
+
+        $filtered = [];
+        foreach ($livestock as $item) {
+            $farmUuid = $item['farmUuid'] ?? null;
+            
+            if (!$farmUuid || !in_array($farmUuid, $assignedFarmUuids)) {
+                \Log::warning("Livestock rejected - farm not assigned", [
+                    'userId' => $userId,
+                    'livestockUuid' => $item['uuid'] ?? 'unknown',
+                    'farmUuid' => $farmUuid,
+                    'assignedFarms' => $assignedFarmUuids,
+                ]);
+                continue;
+            }
+
+            $filtered[] = $item;
+        }
+
+        \Log::info("Livestock access validated - " . count($filtered) . " of " . count($livestock) . " items allowed");
+        
+        return $filtered;
+    }
+
+    /**
+     * Check if livestock belongs to assigned farms
+     *
+     * @param string $livestockUuid
+     * @param array $assignedFarmUuids
+     * @return bool
+     */
+    private function validateLivestockBelongsToFarms(string $livestockUuid, array $assignedFarmUuids): bool
+    {
+        if (empty($assignedFarmUuids)) {
+            return false;
+        }
+
+        $livestock = \App\Models\Livestock::where('uuid', $livestockUuid)->first();
+        
+        if (!$livestock) {
+            \Log::warning("Livestock not found: {$livestockUuid}");
+            return false;
+        }
+
+        $farmUuid = $livestock->farmUuid;
+        $belongsTo = in_array($farmUuid, $assignedFarmUuids);
+
+        if (!$belongsTo) {
+            \Log::debug("Livestock {$livestockUuid} (farm: {$farmUuid}) not in assigned farms: " . json_encode($assignedFarmUuids));
+        }
+
+        return $belongsTo;
+    }
+
+    /**
+     * Get farmer ID from livestock data (for validation)
+     *
+     * @param array $livestock
+     * @param User $user
+     * @return int|null
+     */
+    private function getFarmerIdForLivestock(array $livestock, User $user): ?int
+    {
+        // For farmers, use their roleId (farmerId)
+        if (strtolower($user->role) === 'farmer') {
+            return $user->roleId;
+        }
+
+        // For farm invited users, get farmer ID from the livestock's farm
+        if (!empty($livestock)) {
+            $firstLivestock = $livestock[0];
+            $farmUuid = $firstLivestock['farmUuid'] ?? null;
+            
+            if ($farmUuid) {
+                $farm = \App\Models\Farm::where('uuid', $farmUuid)->first();
+                if ($farm) {
+                    return $farm->farmerId;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Validate vaccines belong to assigned farms and filter access
+     *
+     * @param array $vaccines
+     * @param array $assignedFarmUuids
+     * @param int $userId
+     * @return array Filtered vaccines array
+     */
+    private function validateVaccineAccess(array $vaccines, array $assignedFarmUuids, int $userId): array
+    {
+        if (empty($assignedFarmUuids)) {
+            return [];
+        }
+
+        $filtered = [];
+        foreach ($vaccines as $vaccine) {
+            $farmUuid = $vaccine['farmUuid'] ?? null;
+            
+            if (!$farmUuid || !in_array($farmUuid, $assignedFarmUuids)) {
+                \Log::warning("Vaccine rejected - farm not assigned", [
+                    'userId' => $userId,
+                    'vaccineUuid' => $vaccine['uuid'] ?? 'unknown',
+                    'farmUuid' => $farmUuid,
+                    'assignedFarms' => $assignedFarmUuids,
+                ]);
+                continue;
+            }
+
+            $filtered[] = $vaccine;
+        }
+
+        \Log::info("Vaccine access validated - " . count($filtered) . " of " . count($vaccines) . " items allowed");
+        
+        return $filtered;
     }
 
 }

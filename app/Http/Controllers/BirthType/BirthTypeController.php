@@ -1,23 +1,21 @@
 <?php
 
-namespace App\Http\Controllers\CalvingType;
+namespace App\Http\Controllers\BirthType;
 
 use App\Http\Controllers\Controller;
-use App\Models\CalvingType;
 use App\Models\BirthType;
 use Illuminate\Http\Request;
 
-class CalvingTypeController extends Controller
+class BirthTypeController extends Controller
 {
     /**
-     * Fetch all calving types for reference data sync.
+     * Fetch all birth types for reference data sync.
      *
      * @param Request|null $request
      * @return array
      */
     public function fetchAll(?Request $request = null): array
     {
-        // Use BirthType model (table renamed to birth_types)
         $query = BirthType::query();
 
         // Filter by livestock type if provided
@@ -39,7 +37,7 @@ class CalvingTypeController extends Controller
     }
 
     /**
-     * Get calving types by livestock type.
+     * Get birth types by livestock type.
      *
      * @param int $livestockTypeId
      * @return array

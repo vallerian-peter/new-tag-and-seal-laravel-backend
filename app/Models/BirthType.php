@@ -5,10 +5,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class CalvingProblem extends Model
+class BirthType extends Model
 {
-    protected $table = 'birth_problems'; // Table renamed to birth_problems
-    
+    protected $table = 'birth_types';
+
     protected $fillable = [
         'name',
         'livestockTypeId',
@@ -19,3 +19,4 @@ class CalvingProblem extends Model
         return $this->belongsTo(LivestockType::class, 'livestockTypeId');
     }
 }
+

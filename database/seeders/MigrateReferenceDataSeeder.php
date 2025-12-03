@@ -91,12 +91,16 @@ class MigrateReferenceDataSeeder extends Seeder
 
     /**
      * Migrate Species
+     *
+     * - Copies existing species from old database (usually just "Cattle")
+     * - Ensures core species from requirements exist (Cattle, Pig, Goat, Sheep, Chicken)
+     * - Links species to livestock types via livestockTypeId when names match
      */
     private function migrateSpecies(): void
     {
         $this->command->info('  🐄 Migrating species...');
 
-        // Get data from old database
+        // 1) Copy existing species from old database (if available)
         $oldData = DB::connection($this->oldDb)
             ->table('species')
             ->select('id', 'name', 'created_at', 'updated_at')
@@ -104,22 +108,76 @@ class MigrateReferenceDataSeeder extends Seeder
 
         if ($oldData->isEmpty()) {
             $this->command->warn('  ⚠️  No species found in old database');
-            return;
+        } else {
+            foreach ($oldData as $item) {
+                DB::table('species')->updateOrInsert(
+                    ['id' => $item->id],
+                    [
+                        'name' => $item->name,
+                        'created_at' => $item->created_at,
+                        'updated_at' => $item->updated_at,
+                    ]
+                );
+            }
+
+            $this->command->info("  ✅ Migrated {$oldData->count()} species from old database");
         }
 
-        // Insert into new database
-        foreach ($oldData as $item) {
+        // 2) Ensure core species from requirements exist
+        $defaultSpecies = [
+            'Cattle',
+            'Pig',
+            'Goat',
+            'Sheep',
+            'Chicken',
+        ];
+
+        foreach ($defaultSpecies as $name) {
             DB::table('species')->updateOrInsert(
-                ['id' => $item->id],
+                ['name' => $name],
                 [
-                    'name' => $item->name,
-                    'created_at' => $item->created_at,
-                    'updated_at' => $item->updated_at,
+                    'updated_at' => now(),
+                    'created_at' => now(),
                 ]
             );
         }
 
-        $this->command->info("  ✅ Migrated {$oldData->count()} species");
+        // 3) Link species to livestock types via livestockTypeId when names match
+        //    Mapping is name-based:
+        //    - Cattle   -> Livestock type "Cattle"
+        //    - Pig      -> Livestock type "Swine" (per old reference data)
+        //    - Goat     -> Livestock type "Goat"
+        //    - Sheep    -> Livestock type "Sheep or Lamb"
+        //    - Chicken  -> Livestock type "Chicken" (if it exists)
+        $mapping = [
+            'cattle'  => 'cattle',
+            'pig'     => 'swine',
+            'goat'    => 'goat',
+            'sheep'   => 'sheep or lamb',
+            'chicken' => 'chicken',
+        ];
+
+        foreach ($mapping as $speciesName => $livestockTypeName) {
+            $species = DB::table('species')
+                ->whereRaw('LOWER(name) = ?', [$speciesName])
+                ->first();
+
+            if (!$species) {
+                continue;
+            }
+
+            $livestockType = DB::table('livestock_types')
+                ->whereRaw('LOWER(name) = ?', [$livestockTypeName])
+                ->first();
+
+            if ($livestockType) {
+                DB::table('species')
+                    ->where('id', $species->id)
+                    ->update(['livestockTypeId' => $livestockType->id]);
+            }
+        }
+
+        $this->command->info('  ✅ Ensured core species exist and linked them to livestock types');
     }
 
     /**
@@ -140,8 +198,13 @@ class MigrateReferenceDataSeeder extends Seeder
             return;
         }
 
-        // Insert into new database
+        // Insert into new database (skip generic "Other" type)
         foreach ($oldData as $item) {
+            if (strtolower(trim($item->name)) === 'other') {
+                // Don't migrate "Other" as a livestock type – handled via custom groups instead
+                continue;
+            }
+
             DB::table('livestock_types')->updateOrInsert(
                 ['id' => $item->id],
                 [
@@ -151,6 +214,11 @@ class MigrateReferenceDataSeeder extends Seeder
                 ]
             );
         }
+
+        // Ensure no leftover "Other" rows remain (cleanup for previously migrated data)
+        DB::table('livestock_types')
+            ->whereRaw('LOWER(TRIM(name)) = ?', ['other'])
+            ->delete();
 
         $this->command->info("  ✅ Migrated {$oldData->count()} livestock_types");
     }
@@ -188,6 +256,38 @@ class MigrateReferenceDataSeeder extends Seeder
         }
 
         $this->command->info("  ✅ Migrated {$oldData->count()} breeds");
+
+        // 2) Ensure core pig breeds exist and are linked to Swine (Pig) livestock type
+        $swineType = DB::table('livestock_types')
+            ->whereRaw('LOWER(name) = ?', ['swine'])
+            ->first();
+
+        if ($swineType) {
+            $this->command->info("  🐖 Ensuring core pig breeds for Swine (ID: {$swineType->id})...");
+
+            $pigBreeds = [
+                ['name' => 'Large White', 'group' => 'Pig'],
+                ['name' => 'Landrace',    'group' => 'Pig'],
+                ['name' => 'Duroc',       'group' => 'Pig'],
+                ['name' => 'Hampshire',   'group' => 'Pig'],
+            ];
+
+            foreach ($pigBreeds as $breed) {
+                DB::table('breeds')->updateOrInsert(
+                    ['name' => $breed['name']],
+                    [
+                        'group' => $breed['group'],
+                        'livestockTypeId' => $swineType->id,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]
+                );
+            }
+
+            $this->command->info('  ✅ Core pig breeds ensured for Swine');
+        } else {
+            $this->command->warn('  ⚠️ Swine livestock type not found; pig breeds not seeded');
+        }
     }
 
     /**

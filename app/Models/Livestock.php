@@ -89,4 +89,20 @@ class Livestock extends Model
     {
         return $this->belongsTo(LivestockObtainedMethod::class, 'livestockObtainedMethodId');
     }
+
+    public function birthEvents()
+    {
+        return $this->hasMany(BirthEvent::class, 'livestockUuid', 'uuid');
+    }
+
+    /**
+     * Get the date of last birth from birth events
+     */
+    public function getDateOfLastBirthAttribute()
+    {
+        $lastBirth = $this->birthEvents()
+            ->orderBy('startDate', 'desc')
+            ->first();
+        return $lastBirth ? $lastBirth->startDate : null;
+    }
 }

@@ -147,6 +147,7 @@ class UserRole
             self::EXTENSION_OFFICER => 'Agricultural extension services provider',
             self::VET => 'Veterinary professional providing animal health services',
             self::FARM_INVITED_USER => 'Guest user with limited access to specific farms',
+
             default => 'No description available',
         };
     }

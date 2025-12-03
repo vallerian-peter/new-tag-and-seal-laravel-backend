@@ -129,6 +129,89 @@ class FarmController extends Controller
             ->toArray();
     }
 
+    /**
+     * Fetch single farm by UUID as array (for sync).
+     *
+     * @param string $uuid
+     * @return array|null
+     */
+    public function fetchByUuid(string $uuid): ?array
+    {
+        $farm = Farm::where('uuid', $uuid)
+            ->with(['village', 'ward', 'district', 'region', 'country', 'legalStatus'])
+            ->first();
+
+        if (!$farm) {
+            return null;
+        }
+
+        return [
+            'id' => $farm->id,
+            'farmerId' => $farm->farmerId,
+            'uuid' => $farm->uuid,
+            'referenceNo' => $farm->referenceNo,
+            'regionalRegNo' => $farm->regionalRegNo,
+            'name' => $farm->name,
+            'size' => $farm->size,
+            'sizeUnit' => $farm->sizeUnit,
+            'latitudes' => $farm->latitudes,
+            'longitudes' => $farm->longitudes,
+            'physicalAddress' => $farm->physicalAddress,
+            'villageId' => $farm->villageId,
+            'wardId' => $farm->wardId,
+            'districtId' => $farm->districtId,
+            'regionId' => $farm->regionId,
+            'countryId' => $farm->countryId,
+            'legalStatusId' => $farm->legalStatusId,
+            'status' => $farm->status,
+            'createdAt' => $farm->created_at?->toIso8601String(),
+            'updatedAt' => $farm->updated_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * Fetch multiple farms by UUIDs as array (for sync).
+     *
+     * @param array $uuids
+     * @return array
+     */
+    public function fetchByUuids(array $uuids): array
+    {
+        if (empty($uuids)) {
+            return [];
+        }
+
+        return Farm::whereIn('uuid', $uuids)
+            ->with(['village', 'ward', 'district', 'region', 'country', 'legalStatus'])
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($farm) {
+                return [
+                    'id' => $farm->id,
+                    'farmerId' => $farm->farmerId,
+                    'uuid' => $farm->uuid,
+                    'referenceNo' => $farm->referenceNo,
+                    'regionalRegNo' => $farm->regionalRegNo,
+                    'name' => $farm->name,
+                    'size' => $farm->size,
+                    'sizeUnit' => $farm->sizeUnit,
+                    'latitudes' => $farm->latitudes,
+                    'longitudes' => $farm->longitudes,
+                    'physicalAddress' => $farm->physicalAddress,
+                    'villageId' => $farm->villageId,
+                    'wardId' => $farm->wardId,
+                    'districtId' => $farm->districtId,
+                    'regionId' => $farm->regionId,
+                    'countryId' => $farm->countryId,
+                    'legalStatusId' => $farm->legalStatusId,
+                    'status' => $farm->status,
+                    'createdAt' => $farm->created_at?->toIso8601String(),
+                    'updatedAt' => $farm->updated_at?->toIso8601String(),
+                ];
+            })
+            ->toArray();
+    }
+
 
     /**
      * Process farms data from mobile app (Sync)

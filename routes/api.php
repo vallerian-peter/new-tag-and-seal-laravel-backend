@@ -7,6 +7,15 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Sync\SyncController;
 use App\Http\Controllers\Location\LocationController;
+use App\Http\Controllers\Stage\StageController;
+use App\Http\Controllers\BirthType\BirthTypeController;
+use App\Http\Controllers\BirthProblem\BirthProblemController;
+use App\Http\Controllers\ReproductiveProblem\ReproductiveProblemController;
+use App\Http\Controllers\CalvingType\CalvingTypeController;
+use App\Http\Controllers\CalvingProblem\CalvingProblemController;
+use App\Http\Controllers\Logs\Birth\BirthEventController;
+use App\Http\Controllers\Logs\AbortedPregnancy\AbortedPregnancyController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -104,25 +113,27 @@ Route::middleware('auth:sanctum')->group(function () {
         });
 
         /*
+        | Sync Routes (Shared - All authenticated roles can sync)
+        |--------------------------------------------------------------------------
+        | These routes allow all authenticated users (farmers, extension officers,
+        | vets, farm invited users) to sync data based on their role permissions.
+        */
+        Route::prefix('sync')->group(function () {
+            // Get all data on app startup based on user role
+            Route::get('/splash-sync-all/{userId}', [SyncController::class, 'splashSync']);
+
+            // Send unsynced data to server (farms, livestock, etc.)
+            Route::post('/full-post-sync/{userId}', [SyncController::class, 'postSync']);
+        });
+
+        /*
         | Role-Based Module Routes
         |--------------------------------------------------------------------------
         */
 
         // Farmer Routes
         Route::prefix('farmers')->middleware('check.role:' . UserRole::FARMER . ',' . UserRole::SYSTEM_USER)->group(function () {
-
-            /*
-            | Sync Routes (Farmer-specific)
-            |--------------------------------------------------------------------------
-            */
-            Route::prefix('sync')->group(function () {
-                // Get all data on app startup based on user role
-                Route::get('/splash-sync-all/{userId}', [SyncController::class, 'splashSync']);
-
-                // Send unsynced data to server (farms, livestock, etc.)
-                Route::post('/full-post-sync/{userId}', [SyncController::class, 'postSync']);
-            });
-
+            // Farmer-specific routes can be added here
         });
 
         // Extension Officer Routes
@@ -133,6 +144,33 @@ Route::middleware('auth:sanctum')->group(function () {
         // Veterinarian Routes
         Route::prefix('vets')->middleware('check.role:' . UserRole::VET . ',' . UserRole::SYSTEM_USER)->group(function () {
             // Vet-specific routes can be added here
+        });
+
+        /*
+        | Birth Events & Aborted Pregnancies Routes
+        |--------------------------------------------------------------------------
+        */
+        Route::prefix('logs')->group(function () {
+            Route::apiResource('birth-events', BirthEventController::class);
+            Route::apiResource('aborted-pregnancies', AbortedPregnancyController::class);
+        });
+
+        /*
+        | Reference Data Routes
+        |--------------------------------------------------------------------------
+        */
+        Route::prefix('reference')->group(function () {
+            Route::get('stages', [StageController::class, 'index']);
+            Route::get('stages/by-livestock-type/{livestockTypeId}', [StageController::class, 'getByLivestockType']);
+            Route::get('birth-types', [BirthTypeController::class, 'fetchAll']);
+            Route::get('birth-types/by-livestock-type/{livestockTypeId}', [BirthTypeController::class, 'getByLivestockType']);
+            Route::get('birth-problems', [BirthProblemController::class, 'fetchAll']);
+            Route::get('birth-problems/by-livestock-type/{livestockTypeId}', [BirthProblemController::class, 'getByLivestockType']);
+            Route::get('reproductive-problems', [ReproductiveProblemController::class, 'fetchAll']);
+
+            // Backward compatibility routes (deprecated)
+            Route::get('calving-types/by-livestock-type/{livestockTypeId}', [CalvingTypeController::class, 'getByLivestockType']);
+            Route::get('calving-problems/by-livestock-type/{livestockTypeId}', [CalvingProblemController::class, 'getByLivestockType']);
         });
 
     }); // End v1 prefix
