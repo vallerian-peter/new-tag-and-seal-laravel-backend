@@ -22,8 +22,9 @@ return new class extends Migration
             $table->string('livestockUuid');
             $table->index('livestockUuid');
 
-            $table->foreignId('vaccineId')->constrained('vaccines')->cascadeOnDelete();
-            $table->foreignId('diseaseId')->constrained('diseases')->cascadeOnDelete();
+            $table->string('vaccineUuid')->nullable();
+            $table->index('vaccineUuid');
+            $table->foreignId('diseaseId')->nullable()->constrained('diseases')->cascadeOnDelete();
             $table->string('vetId')->nullable();
             $table->string('extensionOfficerId')->nullable();
             $table->enum('status', ['pending', 'completed', 'failed'])->default('completed');

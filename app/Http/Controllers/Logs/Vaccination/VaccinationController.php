@@ -43,20 +43,26 @@ class VaccinationController extends Controller
     public function fetchVaccinationsWithUuid($farmUuids, $livestockUuids): array
     {
         if (empty($farmUuids) || empty($livestockUuids)) {
+            \Log::info("VaccinationController: Empty farmUuids or livestockUuids - farmUuids: " . json_encode($farmUuids) . ", livestockUuids: " . json_encode($livestockUuids));
             return [];
         }
 
-        return Vaccination::whereIn('farmUuid', (array) $farmUuids)
+        \Log::info("VaccinationController: Fetching vaccinations - farmUuids: " . json_encode($farmUuids) . ", livestockUuids: " . json_encode($livestockUuids));
+
+        $vaccinations = Vaccination::whereIn('farmUuid', (array) $farmUuids)
             ->whereIn('livestockUuid', (array) $livestockUuids)
-            ->get()
-            ->map(function (Vaccination $log) {
+            ->get();
+
+        \Log::info("VaccinationController: Found " . $vaccinations->count() . " vaccination(s) in database");
+
+        return $vaccinations->map(function (Vaccination $log) {
                 return [
                     'id' => $log->id,
                     'uuid' => $log->uuid,
                     'vaccinationNo' => $log->vaccinationNo,
                     'farmUuid' => $log->farmUuid,
                     'livestockUuid' => $log->livestockUuid,
-                    'vaccineId' => $log->vaccineId,
+                    'vaccineUuid' => $log->vaccineUuid,
                     'diseaseId' => $log->diseaseId,
                     'vetId' => $log->vetId,
                     'extensionOfficerId' => $log->extensionOfficerId,
@@ -124,6 +130,23 @@ class VaccinationController extends Controller
                     ? Carbon::parse($vaccinationData['updatedAt'])->format('Y-m-d H:i:s')
                     : now();
 
+                // Handle vaccineUuid
+                $vaccineUuid = $vaccinationData['vaccineUuid'] ?? null;
+
+                // If vaccineUuid is null, log it but allow the vaccination to be created
+                if ($vaccineUuid === null) {
+                    Log::info("ℹ️ Vaccination will be created without vaccineUuid (vaccine may not be synced yet)");
+                }
+
+                // Handle diseaseId: negative values indicate locally created diseases not yet synced
+                $diseaseId = isset($vaccinationData['diseaseId']) && $vaccinationData['diseaseId'] !== null
+                    ? (int) $vaccinationData['diseaseId']
+                    : null;
+                if ($diseaseId !== null && $diseaseId < 1) {
+                    Log::info("⚠️ Vaccination has negative/invalid diseaseId ({$diseaseId}) - setting to null (disease not yet synced)");
+                    $diseaseId = null;
+                }
+
                 switch ($syncAction) {
                     case 'create':
                         $existing = Vaccination::where('uuid', $uuid)->first();
@@ -137,8 +160,8 @@ class VaccinationController extends Controller
                                     'vaccinationNo' => $vaccinationNo ?? $existing->vaccinationNo,
                                     'farmUuid' => $farmUuid,
                                     'livestockUuid' => $livestockUuid,
-                                    'vaccineId' => $vaccinationData['vaccineId'] ?? null,
-                                    'diseaseId' => $vaccinationData['diseaseId'] ?? null,
+                                    'vaccineUuid' => $vaccineUuid,
+                                    'diseaseId' => $diseaseId,
                                     'vetId' => $vetId,
                                     'extensionOfficerId' => $extensionOfficerId,
                                     'status' => $status,
@@ -155,8 +178,8 @@ class VaccinationController extends Controller
                                 'vaccinationNo' => $vaccinationNo ?? $uuid,
                                 'farmUuid' => $farmUuid,
                                 'livestockUuid' => $livestockUuid,
-                                'vaccineId' => $vaccinationData['vaccineId'] ?? null,
-                                'diseaseId' => $vaccinationData['diseaseId'] ?? null,
+                                'vaccineUuid' => $vaccineUuid,
+                                'diseaseId' => $diseaseId,
                                 'vetId' => $vetId,
                                 'extensionOfficerId' => $extensionOfficerId,
                                 'status' => $status,
@@ -181,8 +204,8 @@ class VaccinationController extends Controller
                                 $vaccination->update([
                                     'vaccinationNo' => $vaccinationNo ?? $vaccination->vaccinationNo,
                                     'farmUuid' => $farmUuid,
-                                    'vaccineId' => $vaccinationData['vaccineId'] ?? null,
-                                    'diseaseId' => $vaccinationData['diseaseId'] ?? null,
+                                    'vaccineUuid' => $vaccineUuid,
+                                    'diseaseId' => $diseaseId,
                                     'vetId' => $vetId,
                                     'extensionOfficerId' => $extensionOfficerId,
                                     'status' => $status,

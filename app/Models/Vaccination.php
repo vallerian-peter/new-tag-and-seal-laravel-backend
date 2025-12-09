@@ -15,7 +15,8 @@ class Vaccination extends Model
     // $table->string('livestockUuid');
     // $table->index('livestockUuid');
 
-    // $table->foreignId('vaccineId')->constrained('vaccines')->cascadeOnDelete();
+    // $table->string('vaccineUuid')->nullable();
+    // $table->index('vaccineUuid');
     // $table->foreignId('diseaseId')->constrained('diseases')->cascadeOnDelete();
     // $table->string('vetId')->nullable();
     // $table->string('extensionOfficerId')->nullable();
@@ -26,7 +27,7 @@ class Vaccination extends Model
         'vaccinationNo',
         'farmUuid',
         'livestockUuid',
-        'vaccineId',
+        'vaccineUuid',
         'diseaseId',
         'vetId',
         'extensionOfficerId',
@@ -43,7 +44,7 @@ class Vaccination extends Model
     }
     public function vaccine()
     {
-        return $this->belongsTo(Vaccine::class, 'vaccineId', 'id');
+        return $this->belongsTo(Vaccine::class, 'vaccineUuid', 'uuid');
     }
     public function disease()
     {
