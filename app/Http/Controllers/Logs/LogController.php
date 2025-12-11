@@ -65,6 +65,10 @@ class LogController extends Controller
 
     /**
      * Fetch logs scoped to the provided farm and livestock UUIDs.
+     * 
+     * Note: Transfers are fetched by farms only (not livestock), since transferred livestock
+     * may no longer be in the source farm. Transfers will be returned if either the source
+     * farm (farmUuid) or destination farm (toFarmUuid) matches the provided farm UUIDs.
      *
      * @param array $farmUuids
      * @param array $livestockUuids
@@ -72,6 +76,15 @@ class LogController extends Controller
      */
     public function fetchLogsByFarmLivestockUuids(array $farmUuids, array $livestockUuids): array
     {
+        // For most logs, we need both farms and livestock
+        // But transfers only need farms (livestock may have been transferred away)
+        $transfers = [];
+        if (!empty($farmUuids)) {
+            // Transfers are fetched by farms only - livestock filtering is not needed
+            $transfers = $this->transferController->fetchTransfersWithUuid($farmUuids, $livestockUuids);
+        }
+
+        // For other log types, require both farms and livestock
         if (empty($farmUuids) || empty($livestockUuids)) {
             return [
                 'feedings' => [],
@@ -86,7 +99,7 @@ class LogController extends Controller
                 'pregnancies' => [],
                 'inseminations' => [],
                 'dryoffs' => [],
-                'transfers' => [],
+                'transfers' => $transfers, // Return transfers even if livestockUuids is empty
             ];
         }
 
@@ -103,7 +116,7 @@ class LogController extends Controller
             'pregnancies' => $this->pregnancyController->fetchPregnanciesWithUuid($farmUuids, $livestockUuids),
             'inseminations' => $this->inseminationController->fetchInseminationsWithUuid($farmUuids, $livestockUuids),
             'dryoffs' => $this->dryoffController->fetchDryoffsWithUuid($farmUuids, $livestockUuids),
-            'transfers' => $this->transferController->fetchTransfersWithUuid($farmUuids, $livestockUuids),
+            'transfers' => $transfers,
         ];
     }
 }

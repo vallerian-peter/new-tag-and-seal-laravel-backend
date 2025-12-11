@@ -10,6 +10,7 @@ use App\Models\SystemUser;
 use App\Models\FarmUser;
 use App\Enums\UserRole;
 use App\Enums\UserStatus;
+use App\Services\SmsService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
@@ -22,6 +23,13 @@ use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
 {
+    private SmsService $smsService;
+
+    public function __construct()
+    {
+        $this->smsService = new SmsService();
+    }
+
     /**
      * Register a new user.
      * Supports multiple roles: farmer, system_user, farm_invited_user, extension_officer, vet
@@ -139,16 +147,17 @@ class AuthController extends Controller
                 'updatedBy' => $request->updatedBy ?? null,
             ]);
 
-            // If this is a farm invited user, send invitation email with credentials
+            // If this is a farm invited user, send invitation SMS with credentials
             if ($request->role === UserRole::FARM_INVITED_USER && $profileRecord instanceof FarmUser) {
-                try {
-                    Mail::to($user->email)->send(
-                        new FarmUserInvitationMail($profileRecord, $user->email, $plainPassword)
-                    );
-                } catch (\Throwable $mailException) {
-                    // Do not fail registration if email sending fails
-                    // You may log this if needed.
-                }
+                Log::info("📱 Attempting to send SMS invitation to farm user: {$profileRecord->email}, Phone: {$profileRecord->phone}");
+                $this->sendFarmUserInvitationSms($profileRecord, $user->email, $plainPassword);
+            }
+
+            // If this is a farmer, send welcome SMS with credentials
+            if ($request->role === UserRole::FARMER && $profileRecord instanceof Farmer) {
+                $phoneNumber = $profileRecord->phone1 ?? $profileRecord->phone2 ?? 'N/A';
+                Log::info("📱 Attempting to send welcome SMS to farmer: {$profileRecord->email}, Phone: {$phoneNumber}");
+                $this->sendFarmerWelcomeSms($profileRecord, $user->email, $plainPassword);
             }
 
             // Generate API token
@@ -238,7 +247,7 @@ class AuthController extends Controller
         // Check password - log details for debugging
         $passwordMatches = Hash::check($request->password, $user->password);
         Log::info("🔐 Password check for user {$user->email}: " . ($passwordMatches ? '✅ MATCH' : '❌ NO MATCH'));
-        
+
         if (!$passwordMatches) {
             // Additional logging for farm users
             if ($user->role === UserRole::FARM_INVITED_USER) {
@@ -246,14 +255,14 @@ class AuthController extends Controller
                 Log::info("💡 Expected password (for reference): User's email address");
                 Log::info("💡 Provided password: " . (strlen($request->password) > 0 ? '***' : 'EMPTY'));
             }
-            
+
             return response()->json([
                 'status' => false,
                 'message' => 'The provided credentials are incorrect.'
             ], 401);
         }
 
-        // Check if user is active
+        // Check if user account is active
         if (!$user->isActive()) {
             return response()->json([
                 'status' => false,
@@ -270,6 +279,33 @@ class AuthController extends Controller
                 'status' => false,
                 'message' => 'User profile not found. Please contact support.'
             ], 404);
+        }
+
+        // Check profile status for all roles (all profile models now have status field)
+        if ($user->role === UserRole::FARMER && $profileData instanceof Farmer) {
+            if ($profileData->status !== 'active') {
+                Log::warning("❌ Farmer profile is not active for user ID: {$user->id}, Farmer ID: {$profileData->id}, Status: {$profileData->status}");
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Your farmer account has been deactivated. Please contact support.'
+                ], 403);
+            }
+        } elseif ($user->role === UserRole::FARM_INVITED_USER && $profileData instanceof FarmUser) {
+            if ($profileData->status !== 'active') {
+                Log::warning("❌ FarmUser profile is not active for user ID: {$user->id}, FarmUser ID: {$profileData->id}, Status: {$profileData->status}");
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Your farm user account has been deactivated. Please contact support.'
+                ], 403);
+            }
+        } elseif (in_array($user->role, [UserRole::SYSTEM_USER, UserRole::EXTENSION_OFFICER, UserRole::VET]) && $profileData instanceof SystemUser) {
+            if ($profileData->status !== 'active') {
+                Log::warning("❌ SystemUser profile is not active for user ID: {$user->id}, SystemUser ID: {$profileData->id}, Status: {$profileData->status}");
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Your account has been deactivated. Please contact support.'
+                ], 403);
+            }
         }
 
         // Handle different field names for different user roles
@@ -455,6 +491,7 @@ class AuthController extends Controller
                     'lastName' => $request->lastName,
                     'phone' => $request->phone,
                     'address' => $request->address,
+                    'status' => 'active',
                     'createdBy' => $request->createdBy ?? null,
                 ]);
 
@@ -469,6 +506,7 @@ class AuthController extends Controller
                     'email'      => $request->email,
                     'roleTitle'  => $request->roleTitle,
                     'gender'     => $request->gender,
+                    'status'     => 'active',
                 ]);
 
             default:
@@ -512,5 +550,144 @@ class AuthController extends Controller
         $sequence = $lastFarmer ? intval(substr($lastFarmer->farmerNo, -6)) + 1 : 1;
 
         return $prefix . $year . str_pad($sequence, 6, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Send SMS invitation to farm user
+     *
+     * @param FarmUser $farmUser
+     * @param string $email
+     * @param string $password
+     * @return void
+     */
+    private function sendFarmUserInvitationSms(FarmUser $farmUser, string $email, string $password): void
+    {
+        try {
+            Log::info("📱 sendFarmUserInvitationSms called for: {$farmUser->email}");
+
+            // Get farm details (use first farm if multiple)
+            $farmUuids = $farmUser->getFarmUuidsArray();
+            if (empty($farmUuids)) {
+                Log::warning("⚠️ No farm UUIDs found for farm user: {$farmUser->email}");
+                return;
+            }
+
+            $firstFarmUuid = $farmUuids[0];
+            $farm = \App\Models\Farm::where('uuid', $firstFarmUuid)->first();
+
+            if (!$farm) {
+                Log::warning("⚠️ Farm not found for UUID: {$firstFarmUuid}");
+                return;
+            }
+
+            $farmName = $farm->name ?? 'Unknown Farm';
+            $farmOwnerDetails = $this->getFarmOwnerDetails($firstFarmUuid);
+
+            // Build SMS message
+            $message = $this->smsService->buildFarmUserWelcomeMessage(
+                $email,
+                $password,
+                $farmName,
+                $farmUser->roleTitle,
+                $farmOwnerDetails['phone'],
+                $farmOwnerDetails['email']
+            );
+
+            Log::debug("📱 Built SMS message for farm user: " . substr($message, 0, 100) . "...");
+
+            // Send SMS to farm user's phone
+            $phoneNumber = $farmUser->phone;
+            if (empty($phoneNumber)) {
+                Log::warning("⚠️ No phone number found for farm user: {$farmUser->email}");
+                return;
+            }
+
+            Log::info("📱 Calling sendSms with phone: {$phoneNumber}");
+            $result = $this->smsService->sendSms($message, $phoneNumber);
+
+            if (is_string($result)) {
+                // Error occurred
+                Log::error("❌ Failed to send SMS to {$phoneNumber}: {$result}");
+            } else {
+                Log::info("✅ SMS invitation sent successfully to: {$phoneNumber}");
+            }
+        } catch (\Exception $e) {
+            Log::error("❌ Error sending SMS invitation to farm user {$farmUser->email}: " . $e->getMessage());
+            Log::error("❌ Stack trace: " . $e->getTraceAsString());
+        }
+    }
+
+    /**
+     * Send welcome SMS to farmer
+     *
+     * @param Farmer $farmer
+     * @param string $email
+     * @param string $password
+     * @return void
+     */
+    private function sendFarmerWelcomeSms(Farmer $farmer, string $email, string $password): void
+    {
+        try {
+            Log::info("📱 sendFarmerWelcomeSms called for: {$farmer->email}");
+
+            $farmerName = trim(($farmer->firstName ?? '') . ' ' . ($farmer->middleName ?? '') . ' ' . ($farmer->surname ?? ''));
+            $farmerName = $farmerName ?: 'Farmer';
+
+            // Build SMS message
+            $message = $this->smsService->buildFarmerWelcomeMessage(
+                $email,
+                $password,
+                $farmerName
+            );
+
+            Log::debug("📱 Built SMS message for farmer: " . substr($message, 0, 100) . "...");
+
+            // Send SMS to farmer's phone
+            $phoneNumber = $farmer->phone1 ?? $farmer->phone2 ?? null;
+            if (empty($phoneNumber)) {
+                Log::warning("⚠️ No phone number found for farmer: {$farmer->email}");
+                return;
+            }
+
+            Log::info("📱 Calling sendSms with phone: {$phoneNumber}");
+            $result = $this->smsService->sendSms($message, $phoneNumber);
+
+            if (is_string($result)) {
+                // Error occurred
+                Log::error("❌ Failed to send SMS to {$phoneNumber}: {$result}");
+            } else {
+                Log::info("✅ Welcome SMS sent successfully to farmer: {$phoneNumber}");
+            }
+        } catch (\Exception $e) {
+            Log::error("❌ Error sending welcome SMS to farmer {$farmer->email}: " . $e->getMessage());
+            Log::error("❌ Stack trace: " . $e->getTraceAsString());
+        }
+    }
+
+    /**
+     * Get farm owner contact details (phone and email) from farm UUID
+     *
+     * @param string $farmUuid
+     * @return array{phone: string|null, email: string|null}
+     */
+    private function getFarmOwnerDetails(string $farmUuid): array
+    {
+        try {
+            $farm = \App\Models\Farm::where('uuid', $farmUuid)->with('farmer')->first();
+
+            if (!$farm || !$farm->farmer) {
+                Log::warning("⚠️ Farm or farmer not found for UUID: {$farmUuid}");
+                return ['phone' => null, 'email' => null];
+            }
+
+            $farmer = $farm->farmer;
+            return [
+                'phone' => $farmer->phone1 ?? $farmer->phone2 ?? null,
+                'email' => $farmer->email ?? null,
+            ];
+        } catch (\Exception $e) {
+            Log::error("❌ Error getting farm owner details for UUID {$farmUuid}: " . $e->getMessage());
+            return ['phone' => null, 'email' => null];
+        }
     }
 }

@@ -18,6 +18,7 @@ class FarmUser extends Model
         'email',
         'roleTitle',
         'gender',
+        'status',
         'updated_at',
     ];
 

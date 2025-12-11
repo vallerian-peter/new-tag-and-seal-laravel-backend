@@ -12,6 +12,7 @@ class SystemUser extends Model
         'lastName',
         'phone',
         'address',
+        'status',
         'createdBy',
     ];
 

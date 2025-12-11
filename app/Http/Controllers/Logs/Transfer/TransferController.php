@@ -38,16 +38,32 @@ class TransferController extends Controller
     }
 
     /**
-     * Fetch transfers filtered by farm and livestock UUIDs.
+     * Fetch transfers filtered by farm UUIDs only.
+     *
+     * Returns transfers where the farm (either from farm or to farm) matches the passed farm UUIDs.
+     * Note: Livestock filtering is removed because transferred livestock may no longer be in the source farm.
+     *
+     * @param array $farmUuids Farm UUIDs to filter by
+     * @param array $livestockUuids Ignored (kept for backward compatibility)
+     * @return array
      */
-    public function fetchTransfersWithUuid(array $farmUuids, array $livestockUuids): array
+    public function fetchTransfersWithUuid(array $farmUuids, array $livestockUuids = []): array
     {
+        if (empty($farmUuids)) {
+            return [];
+        }
+
         return Transfer::with([
+                'fromFarm:uuid,name',
                 'toFarm:uuid,name',
                 'livestock:uuid,name',
             ])
-            ->whereIn('farmUuid', $farmUuids)
-            ->whereIn('livestockUuid', $livestockUuids)
+            ->where(function ($query) use ($farmUuids) {
+                // Check if from farm (farmUuid) OR to farm (toFarmUuid) matches any passed farm UUID
+                $query->whereIn('farmUuid', $farmUuids)
+                      ->orWhereIn('toFarmUuid', $farmUuids);
+            })
+            ->orderByDesc('created_at')
             ->get()
             ->map(function (Transfer $transfer) {
                 return [
@@ -62,6 +78,7 @@ class TransferController extends Controller
                     'transferDate' => $transfer->transferDate,
                     'remarks' => $transfer->remarks,
                     'status' => $transfer->status,
+                    'farmName' => optional($transfer->fromFarm)->name,
                     'toFarmName' => optional($transfer->toFarm)->name,
                     'livestockName' => optional($transfer->livestock)->name,
                     'createdAt' => $transfer->created_at?->toIso8601String(),

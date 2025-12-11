@@ -39,6 +39,7 @@ class FarmController extends Controller
     /**
      * Get all farms by farmer ID.
      * Used when authenticated user is a farmer.
+     * Only returns active farms.
      *
      * @param int $farmerId
      * @return JsonResponse
@@ -47,6 +48,7 @@ class FarmController extends Controller
     {
         try {
             $farms = Farm::where('farmerId', $farmerId)
+                ->where('status', 'active')
                 ->with(['village', 'ward', 'district', 'region', 'country', 'legalStatus'])
                 ->orderBy('created_at', 'desc')
                 ->get();
@@ -93,6 +95,7 @@ class FarmController extends Controller
 
     /**
      * Fetch farms by farmer ID as array (for sync).
+     * Only returns active farms.
      *
      * @param int $farmerId
      * @return array
@@ -100,6 +103,7 @@ class FarmController extends Controller
     public function fetchByFarmerId(int $farmerId): array
     {
         return Farm::where('farmerId', $farmerId)
+            ->where('status', 'active')
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($farm) {
@@ -131,6 +135,7 @@ class FarmController extends Controller
 
     /**
      * Fetch single farm by UUID as array (for sync).
+     * Only returns active farms.
      *
      * @param string $uuid
      * @return array|null
@@ -138,6 +143,7 @@ class FarmController extends Controller
     public function fetchByUuid(string $uuid): ?array
     {
         $farm = Farm::where('uuid', $uuid)
+            ->where('status', 'active')
             ->with(['village', 'ward', 'district', 'region', 'country', 'legalStatus'])
             ->first();
 
@@ -171,6 +177,7 @@ class FarmController extends Controller
 
     /**
      * Fetch multiple farms by UUIDs as array (for sync).
+     * Only returns active farms.
      *
      * @param array $uuids
      * @return array
@@ -182,6 +189,7 @@ class FarmController extends Controller
         }
 
         return Farm::whereIn('uuid', $uuids)
+            ->where('status', 'active')
             ->with(['village', 'ward', 'district', 'region', 'country', 'legalStatus'])
             ->orderBy('created_at', 'desc')
             ->get()

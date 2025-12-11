@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Logs\Disposal;
 
 use App\Http\Controllers\Controller;
 use App\Models\Disposal;
+use App\Models\Livestock;
+use App\Models\DisposalType;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -127,6 +129,9 @@ class DisposalController extends Controller
                                 ]);
 
                                 Log::info("✅ Disposal updated (local newer): UUID {$uuid}");
+
+                                // Update livestock status to 'not-active' if disposal type exists
+                                $this->updateLivestockStatusForDisposal($livestockUuid, $disposalData['disposalTypeId'] ?? null);
                             } else {
                                 Log::info("⏭️ Disposal skipped (server newer): UUID {$uuid}");
                             }
@@ -144,6 +149,9 @@ class DisposalController extends Controller
                             ]);
 
                             Log::info("✅ Disposal created: UUID {$uuid}");
+
+                            // Update livestock status to 'not-active' if disposal type exists
+                            $this->updateLivestockStatusForDisposal($livestockUuid, $disposalData['disposalTypeId'] ?? null);
                         }
 
                         $syncedDisposals[] = ['uuid' => $uuid];
@@ -167,6 +175,9 @@ class DisposalController extends Controller
                                 ]);
 
                                 Log::info("✅ Disposal updated: UUID {$uuid}");
+
+                                // Update livestock status to 'not-active' if disposal type exists
+                                $this->updateLivestockStatusForDisposal($livestockUuid, $disposalData['disposalTypeId'] ?? null);
                             } else {
                                 Log::info("⏭️ Disposal update skipped (server newer): UUID {$uuid}");
                             }
@@ -210,6 +221,54 @@ class DisposalController extends Controller
         Log::info('Total disposals synced: ' . count($syncedDisposals));
 
         return $syncedDisposals;
+    }
+
+    /**
+     * Update livestock status to 'not-active' when a disposal is created/updated.
+     *
+     * All disposal types (Dead, Slaughtered, Lost, Culled) indicate that the livestock
+     * is no longer active in the farm, so the status should be updated to 'not-active'.
+     *
+     * @param string $livestockUuid
+     * @param int|null $disposalTypeId
+     * @return void
+     */
+    private function updateLivestockStatusForDisposal(string $livestockUuid, ?int $disposalTypeId): void
+    {
+        // Only update if disposal type exists (all disposal types mean livestock is no longer active)
+        if ($disposalTypeId === null) {
+            return;
+        }
+
+        try {
+            $livestock = Livestock::where('uuid', $livestockUuid)->first();
+
+            if (!$livestock) {
+                Log::warning("⚠️ Livestock not found for disposal status update: UUID {$livestockUuid}");
+                return;
+            }
+
+            // Check if livestock is already not-active
+            if ($livestock->status === 'not-active' || $livestock->status === 'notActive') {
+                Log::debug("ℹ️ Livestock already not-active: UUID {$livestockUuid}");
+                return;
+            }
+
+            // Get disposal type name for logging
+            $disposalType = DisposalType::find($disposalTypeId);
+            $disposalTypeName = $disposalType ? $disposalType->name : "Unknown (ID: {$disposalTypeId})";
+
+            // Update livestock status to 'not-active'
+            $livestock->update(['status' => 'not-active']);
+
+            Log::info("✅ Livestock status updated to 'not-active' for disposal type '{$disposalTypeName}' (ID: {$disposalTypeId}): UUID {$livestockUuid}");
+        } catch (\Exception $e) {
+            Log::error("❌ Failed to update livestock status for disposal", [
+                'livestockUuid' => $livestockUuid,
+                'disposalTypeId' => $disposalTypeId,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }
 

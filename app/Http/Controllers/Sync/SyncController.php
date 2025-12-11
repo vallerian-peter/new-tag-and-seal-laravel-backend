@@ -386,9 +386,11 @@ class SyncController extends Controller
         // Get all Logs of the farmer
         $logs = [];
         $livestockUuids = array_column($livestock, 'uuid');
-        if(!empty($farmUuids) && !empty($livestockUuids)){
+        if(!empty($farmUuids)){
+            // Fetch logs - transfers will be fetched even if livestockUuids is empty
+            // (since transferred livestock may no longer be in the source farm)
             $logs = $this->logController->fetchLogsByFarmLivestockUuids($farmUuids, $livestockUuids);
-            \Log::info("Farmer sync: Fetched logs - vaccinations: " . (isset($logs['vaccinations']) ? count($logs['vaccinations']) : 0));
+            \Log::info("Farmer sync: Fetched logs - vaccinations: " . (isset($logs['vaccinations']) ? count($logs['vaccinations']) : 0) . ", transfers: " . (isset($logs['transfers']) ? count($logs['transfers']) : 0));
         } else {
             \Log::warning("Farmer sync: Cannot fetch logs - farmUuids: " . json_encode($farmUuids) . ", livestockUuids: " . json_encode($livestockUuids));
         }
@@ -487,12 +489,14 @@ class SyncController extends Controller
             // Step 5: Get logs for assigned livestock/farms
             $logs = [];
             $livestockUuids = array_column($livestock, 'uuid');
-            if (!empty($farmUuids) && !empty($livestockUuids)) {
+            if (!empty($farmUuids)) {
+                // Fetch logs - transfers will be fetched even if livestockUuids is empty
+                // (since transferred livestock may no longer be in the source farm)
                 $logs = $this->logController->fetchLogsByFarmLivestockUuids(
                     $farmUuids,
                     $livestockUuids
                 );
-                \Log::info("Field worker sync: Fetched logs - vaccinations: " . (isset($logs['vaccinations']) ? count($logs['vaccinations']) : 0));
+                \Log::info("Field worker sync: Fetched logs - vaccinations: " . (isset($logs['vaccinations']) ? count($logs['vaccinations']) : 0) . ", transfers: " . (isset($logs['transfers']) ? count($logs['transfers']) : 0));
             } else {
                 \Log::warning("Field worker sync: Cannot fetch logs - farmUuids: " . json_encode($farmUuids) . ", livestockUuids: " . json_encode($livestockUuids));
             }
