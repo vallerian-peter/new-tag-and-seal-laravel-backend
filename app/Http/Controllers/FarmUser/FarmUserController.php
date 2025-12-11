@@ -27,9 +27,14 @@ class FarmUserController extends Controller
         // Handle both single UUID (string) and multiple UUIDs (JSON array)
         $farmUsers = FarmUser::where(function ($query) use ($farmUuids) {
             foreach ($farmUuids as $farmUuid) {
-                $query->orWhere('farmUuid', $farmUuid) // Single UUID match
-                      ->orWhereJsonContains('farmUuid', $farmUuid) // JSON array contains UUID
-                      ->orWhere('farmUuid', 'LIKE', '%' . $farmUuid . '%'); // Fallback for JSON string
+                $query->orWhere(function ($q) use ($farmUuid) {
+                    // Direct match for single UUID string
+                    $q->where('farmUuid', $farmUuid)
+                      // JSON array contains UUID (only if farmUuid is valid JSON)
+                      ->orWhereRaw('JSON_VALID(farmUuid) = 1 AND JSON_CONTAINS(farmUuid, ?)', [json_encode($farmUuid)])
+                      // LIKE match for partial string matches (handles both string and JSON string)
+                      ->orWhere('farmUuid', 'LIKE', '%' . $farmUuid . '%');
+                });
             }
         })
             ->orderBy('created_at', 'desc')
