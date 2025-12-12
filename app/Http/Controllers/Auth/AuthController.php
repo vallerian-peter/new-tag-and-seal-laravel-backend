@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Mail\FarmUserInvitationMail;
+use App\Mail\FarmerWelcomeMail;
 use App\Models\User;
 use App\Models\Farmer;
 use App\Models\SystemUser;
@@ -147,17 +148,21 @@ class AuthController extends Controller
                 'updatedBy' => $request->updatedBy ?? null,
             ]);
 
-            // If this is a farm invited user, send invitation SMS with credentials
+            // If this is a farm invited user, send invitation SMS and Email with credentials
             if ($request->role === UserRole::FARM_INVITED_USER && $profileRecord instanceof FarmUser) {
                 Log::info("📱 Attempting to send SMS invitation to farm user: {$profileRecord->email}, Phone: {$profileRecord->phone}");
                 $this->sendFarmUserInvitationSms($profileRecord, $user->email, $plainPassword);
+                Log::info("📧 Attempting to send Email invitation to farm user: {$profileRecord->email}");
+                $this->sendFarmUserInvitationEmail($profileRecord, $user->email, $plainPassword);
             }
 
-            // If this is a farmer, send welcome SMS with credentials
+            // If this is a farmer, send welcome SMS and Email with credentials
             if ($request->role === UserRole::FARMER && $profileRecord instanceof Farmer) {
                 $phoneNumber = $profileRecord->phone1 ?? $profileRecord->phone2 ?? 'N/A';
                 Log::info("📱 Attempting to send welcome SMS to farmer: {$profileRecord->email}, Phone: {$phoneNumber}");
                 $this->sendFarmerWelcomeSms($profileRecord, $user->email, $plainPassword);
+                Log::info("📧 Attempting to send welcome Email to farmer: {$profileRecord->email}");
+                $this->sendFarmerWelcomeEmail($profileRecord, $user->email, $plainPassword);
             }
 
             // Generate API token
@@ -660,6 +665,48 @@ class AuthController extends Controller
             }
         } catch (\Exception $e) {
             Log::error("❌ Error sending welcome SMS to farmer {$farmer->email}: " . $e->getMessage());
+            Log::error("❌ Stack trace: " . $e->getTraceAsString());
+        }
+    }
+
+    /**
+     * Send Email invitation to farm user
+     *
+     * @param FarmUser $farmUser
+     * @param string $email
+     * @param string $password
+     * @return void
+     */
+    private function sendFarmUserInvitationEmail(FarmUser $farmUser, string $email, string $password): void
+    {
+        try {
+            Log::info("📧 sendFarmUserInvitationEmail called for: {$email}");
+
+            Mail::to($email)->send(new FarmUserInvitationMail($farmUser, $email, $password));
+            Log::info("✅ Email invitation sent successfully to: {$email}");
+        } catch (\Exception $e) {
+            Log::error("❌ Error sending Email invitation to farm user {$email}: " . $e->getMessage());
+            Log::error("❌ Stack trace: " . $e->getTraceAsString());
+        }
+    }
+
+    /**
+     * Send welcome Email to farmer
+     *
+     * @param Farmer $farmer
+     * @param string $email
+     * @param string $password
+     * @return void
+     */
+    private function sendFarmerWelcomeEmail(Farmer $farmer, string $email, string $password): void
+    {
+        try {
+            Log::info("📧 sendFarmerWelcomeEmail called for: {$email}");
+
+            Mail::to($email)->send(new FarmerWelcomeMail($farmer, $email, $password));
+            Log::info("✅ Welcome Email sent successfully to farmer: {$email}");
+        } catch (\Exception $e) {
+            Log::error("❌ Error sending welcome Email to farmer {$email}: " . $e->getMessage());
             Log::error("❌ Stack trace: " . $e->getTraceAsString());
         }
     }

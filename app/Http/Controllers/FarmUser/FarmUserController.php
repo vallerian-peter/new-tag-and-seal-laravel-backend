@@ -5,6 +5,7 @@ namespace App\Http\Controllers\FarmUser;
 use App\Enums\UserRole;
 use App\Enums\UserStatus;
 use App\Http\Controllers\Controller;
+use App\Mail\FarmUserInvitationMail;
 use App\Models\Farm;
 use App\Models\FarmUser;
 use App\Models\User;
@@ -12,6 +13,7 @@ use App\Services\SmsService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class FarmUserController extends Controller
@@ -33,7 +35,7 @@ class FarmUserController extends Controller
     {
         try {
             $farm = Farm::where('uuid', $farmUuid)->with('farmer')->first();
-            
+
             if (!$farm || !$farm->farmer) {
                 Log::warning("⚠️ Farm or farmer not found for UUID: {$farmUuid}");
                 return ['phone' => null, 'email' => null];
@@ -70,7 +72,7 @@ class FarmUserController extends Controller
 
             $firstFarmUuid = $farmUuids[0];
             $farm = Farm::where('uuid', $firstFarmUuid)->first();
-            
+
             if (!$farm) {
                 Log::warning("⚠️ Farm not found for UUID: {$firstFarmUuid}");
                 return;
@@ -97,7 +99,7 @@ class FarmUserController extends Controller
             }
 
             $result = $this->smsService->sendSms($message, $phoneNumber);
-            
+
             if (is_string($result)) {
                 // Error occurred
                 Log::warning("⚠️ Failed to send SMS to {$phoneNumber}: {$result}");
@@ -106,6 +108,27 @@ class FarmUserController extends Controller
             }
         } catch (\Exception $e) {
             Log::error("❌ Error sending SMS invitation to farm user {$farmUser->email}: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Send Email invitation to farm user
+     *
+     * @param FarmUser $farmUser
+     * @param string $email
+     * @param string $password
+     * @return void
+     */
+    private function sendFarmUserInvitationEmail(FarmUser $farmUser, string $email, string $password): void
+    {
+        try {
+            Log::info("📧 sendFarmUserInvitationEmail called for: {$email}");
+
+            Mail::to($email)->send(new FarmUserInvitationMail($farmUser, $email, $password));
+            Log::info("✅ Email invitation sent successfully to: {$email}");
+        } catch (\Exception $e) {
+            Log::error("❌ Error sending Email invitation to farm user {$email}: " . $e->getMessage());
+            Log::error("❌ Stack trace: " . $e->getTraceAsString());
         }
     }
 
@@ -241,9 +264,10 @@ class FarmUserController extends Controller
 
                                     Log::info("✅ Linked user updated for farm user: {$linkedUser->email} (User ID: {$linkedUser->id})");
 
-                                    // Send (or re-send) invitation SMS with credentials
+                                    // Send (or re-send) invitation SMS and Email with credentials
                                     $plainPassword = $newEmail; // As per requirement: password = email
                                     $this->sendFarmUserInvitationSms($existingFarmUser, $newEmail, $plainPassword);
+                                    $this->sendFarmUserInvitationEmail($existingFarmUser, $newEmail, $plainPassword);
                                 } else {
                                     Log::info("⏭️ No linked user found to update for farm user ID {$existingFarmUser->id}");
                                 }
@@ -310,8 +334,9 @@ class FarmUserController extends Controller
 
                                 Log::info("✅ User account created for farm user: {$user->email} (User ID: {$user->id})");
 
-                                // Send invitation SMS with credentials
+                                // Send invitation SMS and Email with credentials
                                 $this->sendFarmUserInvitationSms($farmUser, $email, $plainPassword);
+                                $this->sendFarmUserInvitationEmail($farmUser, $email, $plainPassword);
                             } else {
                                 Log::info("⏭️ User account already exists for email: {$email}");
                             }
@@ -357,9 +382,10 @@ class FarmUserController extends Controller
 
                                     Log::info("✅ Linked user updated (update action) for farm user: {$linkedUser->email} (User ID: {$linkedUser->id})");
 
-                                    // Send (or re-send) invitation SMS with credentials
+                                    // Send (or re-send) invitation SMS and Email with credentials
                                     $plainPassword = $newEmail; // As per requirement: password = email
                                     $this->sendFarmUserInvitationSms($farmUser, $newEmail, $plainPassword);
+                                    $this->sendFarmUserInvitationEmail($farmUser, $newEmail, $plainPassword);
                                 } else {
                                     Log::info("⏭️ No linked user found to update for farm user (update action) ID {$farmUser->id}");
                                 }
