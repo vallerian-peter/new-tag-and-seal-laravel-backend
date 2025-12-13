@@ -311,22 +311,19 @@ class SyncController extends Controller
             ];
 
             // Get role-specific data
-            // Normalize role to lowercase for comparison
-            $normalizedRole = strtolower(trim($user->role ?? ''));
+            // Normalize role to lowercase and remove all separators for comparison
+            $normalizedRole = strtolower(str_replace([' ', '_', '-'], '', trim($user->role ?? '')));
 
             // Check role and assign appropriate data
             if (in_array($normalizedRole, ['farmer'])) {
                 $data['userSpecificData'] = $this->getFarmerData($user->roleId);
             } elseif (in_array($normalizedRole, [
-                'extension officer',
+                'extensionofficer',
                 'vet',
-                'farm invited user',
                 'farminviteduser',
-                'farm_invited_user',
-                'farm-invited-user',
             ])) {
                 $data['userSpecificData'] = $this->getFieldWorkerData($user->roleId);
-            } elseif (in_array($normalizedRole, ['system user', 'systemuser'])) {
+            } elseif (in_array($normalizedRole, ['systemuser'])) {
                 $data['userSpecificData'] = $this->getSystemUserData();
             } else {
                 // Return empty object structure (not array) for unknown roles
@@ -1159,7 +1156,9 @@ class SyncController extends Controller
         }
 
         // For farm invited users, extension officers, vets
-        if (in_array(strtolower($user->role), ['farm invited user', 'extension officer', 'vet'])) {
+        $normalizedRole = strtolower(str_replace([' ', '_', '-'], '', $user->role ?? ''));
+        
+        if (in_array($normalizedRole, ['farminviteduser', 'extensionofficer', 'vet'])) {
             $farmUser = \App\Models\FarmUser::find($user->roleId);
 
             if (!$farmUser) {
