@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Logs\AbortedPregnancy;
 
 use App\Http\Controllers\Controller;
 use App\Models\AbortedPregnancy;
+use App\Traits\ConvertsDateFormat;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,6 +13,7 @@ use Illuminate\Support\Str;
 
 class AbortedPregnancyController extends Controller
 {
+    use ConvertsDateFormat;
     /**
      * Display a listing of aborted pregnancy logs.
      */
@@ -81,7 +83,7 @@ class AbortedPregnancyController extends Controller
                 'uuid' => $request->uuid ?? Str::uuid()->toString(),
                 'farmUuid' => $request->farmUuid,
                 'livestockUuid' => $request->livestockUuid,
-                'abortionDate' => $request->abortionDate,
+                'abortionDate' => $this->convertDateFormat($request->abortionDate),
                 'reproductiveProblemId' => $request->reproductiveProblemId ?? null,
                 'remarks' => $request->remarks ?? null,
                 'status' => $request->status ?? 'active',
@@ -227,7 +229,7 @@ class AbortedPregnancyController extends Controller
         return [
             'farmUuid' => $payload['farmUuid'] ?? null,
             'livestockUuid' => $livestockUuid,
-            'abortionDate' => $sanitize($payload['abortionDate'] ?? null),
+            'abortionDate' => $this->convertDateFormat($sanitize($payload['abortionDate'] ?? null)),
             'reproductiveProblemId' => $payload['reproductiveProblemId'] ?? null,
             'remarks' => $sanitize($payload['remarks'] ?? null),
             'status' => $payload['status'] ?? 'active',

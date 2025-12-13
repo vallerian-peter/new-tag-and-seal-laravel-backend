@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Logs\Deworming;
 
 use Carbon\Carbon;
 use App\Models\Deworming;
+use App\Traits\ConvertsDateFormat;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -11,6 +12,7 @@ use App\Http\Controllers\Controller;
 
 class DewormingController extends Controller
 {
+    use ConvertsDateFormat;
     /**
      * Display a listing of deworming logs.
      */
@@ -105,9 +107,7 @@ class DewormingController extends Controller
                     : null;
                 $extensionOfficerId = $extensionOfficerId !== '' ? $extensionOfficerId : null;
 
-                $nextAdministrationDate = isset($dewormingData['nextAdministrationDate'])
-                    ? Carbon::parse($dewormingData['nextAdministrationDate'])->format('Y-m-d')
-                    : null;
+                $nextAdministrationDate = $this->convertDateFormat($dewormingData['nextAdministrationDate'] ?? null);
 
                 $createdAt = isset($dewormingData['createdAt'])
                     ? Carbon::parse($dewormingData['createdAt'])->format('Y-m-d H:i:s')

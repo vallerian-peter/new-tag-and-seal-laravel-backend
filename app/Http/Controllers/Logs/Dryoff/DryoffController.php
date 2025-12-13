@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Logs\Dryoff;
 
 use App\Http\Controllers\Controller;
 use App\Models\Dryoff;
+use App\Traits\ConvertsDateFormat;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 
 class DryoffController extends Controller
 {
+    use ConvertsDateFormat;
     /**
      * Display a listing of dryoff logs.
      */
@@ -171,29 +173,13 @@ class DryoffController extends Controller
             return $trimmed === '' ? null : $trimmed;
         };
 
-        $formatDate = static function ($value) {
-            if (!isset($value)) {
-                return null;
-            }
-
-            $trimmed = trim((string) $value);
-            if ($trimmed === '') {
-                return null;
-            }
-
-            try {
-                return Carbon::parse($trimmed)->format('Y-m-d');
-            } catch (\Exception $e) {
-                Log::warning('Unable to parse dryoff date value', ['value' => $value, 'error' => $e->getMessage()]);
-                return $trimmed;
-            }
-        };
+        // Use trait method for date conversion instead of local formatDate function
 
         return [
             'farmUuid' => $payload['farmUuid'] ?? null,
             'livestockUuid' => $livestockUuid,
-            'startDate' => $formatDate($payload['startDate'] ?? null),
-            'endDate' => $formatDate($payload['endDate'] ?? null),
+            'startDate' => $this->convertDateFormat($sanitize($payload['startDate'] ?? null)),
+            'endDate' => $this->convertDateFormat($sanitize($payload['endDate'] ?? null)),
             'reason' => $sanitize($payload['reason'] ?? null),
             'remarks' => $sanitize($payload['remarks'] ?? null),
             'updated_at' => $timestamps['updatedAt']->format('Y-m-d H:i:s'),

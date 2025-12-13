@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Logs\Feeding;
 
 use Carbon\Carbon;
 use App\Models\Feeding;
+use App\Traits\ConvertsDateFormat;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -12,6 +13,7 @@ use Illuminate\Support\Facades\Validator;
 
 class FeedingController extends Controller
 {
+    use ConvertsDateFormat;
     /**
      * Display a listing of feedings with optional search and pagination.
      *
@@ -97,7 +99,7 @@ class FeedingController extends Controller
 
                 // Convert timestamps / data from mobile
                 $nextFeedingTime = isset($feedingData['nextFeedingTime'])
-                    ? Carbon::parse($feedingData['nextFeedingTime'])->format('Y-m-d H:i:s')
+                    ? $this->convertDateTimeFormat($feedingData['nextFeedingTime'])
                     : now()->format('Y-m-d H:i:s');
 
                 $createdAt = isset($feedingData['createdAt'])

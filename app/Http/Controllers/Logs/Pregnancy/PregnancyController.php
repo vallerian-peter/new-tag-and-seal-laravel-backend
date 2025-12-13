@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Logs\Pregnancy;
 
 use App\Http\Controllers\Controller;
 use App\Models\Pregnancy;
+use App\Traits\ConvertsDateFormat;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 
 class PregnancyController extends Controller
 {
+    use ConvertsDateFormat;
     /**
      * Display a listing of pregnancy logs.
      */
@@ -177,7 +179,7 @@ class PregnancyController extends Controller
             'livestockUuid' => $livestockUuid,
             'testResultId' => $payload['testResultId'] ?? null,
             'noOfMonths' => $sanitize($payload['noOfMonths'] ?? null),
-            'testDate' => $sanitize($payload['testDate'] ?? null),
+            'testDate' => $this->convertDateFormat($sanitize($payload['testDate'] ?? null)),
             'status' => $payload['status'] ?? 'active',
             'remarks' => $sanitize($payload['remarks'] ?? null),
             'updated_at' => $timestamps['updatedAt']->format('Y-m-d H:i:s'),

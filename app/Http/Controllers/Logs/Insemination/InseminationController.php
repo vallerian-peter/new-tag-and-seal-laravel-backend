@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Logs\Insemination;
 
 use App\Http\Controllers\Controller;
 use App\Models\Insemination;
+use App\Traits\ConvertsDateFormat;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 
 class InseminationController extends Controller
 {
+    use ConvertsDateFormat;
     /**
      * Display a listing of insemination logs.
      */
@@ -190,14 +192,14 @@ class InseminationController extends Controller
         return [
             'livestockUuid' => $livestockUuid,
             'farmUuid' => $payload['farmUuid'] ?? null,
-            'lastHeatDate' => $sanitize($payload['lastHeatDate'] ?? null),
+            'lastHeatDate' => $this->convertDateFormat($sanitize($payload['lastHeatDate'] ?? null)),
             'currentHeatTypeId' => $payload['currentHeatTypeId'] ?? null,
             'inseminationServiceId' => $payload['inseminationServiceId'] ?? null,
             'semenStrawTypeId' => $payload['semenStrawTypeId'] ?? null,
-            'inseminationDate' => $sanitize($payload['inseminationDate'] ?? null),
+            'inseminationDate' => $this->convertDateFormat($sanitize($payload['inseminationDate'] ?? null)),
             'bullCode' => $sanitize($payload['bullCode'] ?? null),
             'bullBreed' => $sanitize($payload['bullBreed'] ?? null),
-            'semenProductionDate' => $sanitize($payload['semenProductionDate'] ?? null),
+            'semenProductionDate' => $this->convertDateFormat($sanitize($payload['semenProductionDate'] ?? null)),
             'productionCountry' => $sanitize($payload['productionCountry'] ?? null),
             'semenBatchNumber' => $sanitize($payload['semenBatchNumber'] ?? null),
             'internationalId' => $sanitize($payload['internationalId'] ?? null),

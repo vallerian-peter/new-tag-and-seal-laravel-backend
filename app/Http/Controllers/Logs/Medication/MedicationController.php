@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Logs\Medication;
 
 use App\Http\Controllers\Controller;
 use App\Models\Medication;
+use App\Traits\ConvertsDateFormat;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 
 class MedicationController extends Controller
 {
+    use ConvertsDateFormat;
     /**
      * Display a listing of medications.
      */
@@ -104,9 +106,7 @@ class MedicationController extends Controller
                     : null;
                 $withdrawalPeriod = $withdrawalPeriod === '' ? null : $withdrawalPeriod;
 
-                $medicationDate = isset($medicationData['medicationDate'])
-                    ? Carbon::parse($medicationData['medicationDate'])->format('Y-m-d')
-                    : null;
+                $medicationDate = $this->convertDateFormat($medicationData['medicationDate'] ?? null);
 
                 $createdAt = isset($medicationData['createdAt'])
                     ? Carbon::parse($medicationData['createdAt'])->format('Y-m-d H:i:s')

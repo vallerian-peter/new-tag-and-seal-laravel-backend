@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Livestock;
 
 use App\Http\Controllers\Controller;
 use App\Models\Livestock;
+use App\Traits\ConvertsDateFormat;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\Log;
@@ -11,6 +12,7 @@ use PhpParser\Node\Expr\FuncCall;
 
 class LivestockController extends Controller
 {
+    use ConvertsDateFormat;
     /**
      * Display a listing of all livestock.
      *
@@ -189,13 +191,9 @@ class LivestockController extends Controller
                     ? \Carbon\Carbon::parse($livestockData['updatedAt'])->format('Y-m-d H:i:s')
                     : now();
 
-                // Convert date fields
-                $dateOfBirth = isset($livestockData['dateOfBirth'])
-                    ? \Carbon\Carbon::parse($livestockData['dateOfBirth'])->format('Y-m-d')
-                    : null;
-                $dateFirstEnteredToFarm = isset($livestockData['dateFirstEnteredToFarm'])
-                    ? \Carbon\Carbon::parse($livestockData['dateFirstEnteredToFarm'])->format('Y-m-d')
-                    : null;
+                // Convert date fields using trait method
+                $dateOfBirth = $this->convertDateFormat($livestockData['dateOfBirth'] ?? null);
+                $dateFirstEnteredToFarm = $this->convertDateFormat($livestockData['dateFirstEnteredToFarm'] ?? null);
 
                 // Convert weight to string (database uses varchar)
                 $weightAsOnRegistration = (string) ($livestockData['weightAsOnRegistration'] ?? '0');

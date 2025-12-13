@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BirthEvent;
 use App\Models\Livestock;
 use App\Models\Specie;
+use App\Traits\ConvertsDateFormat;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,7 @@ use Illuminate\Support\Str;
 
 class BirthEventController extends Controller
 {
+    use ConvertsDateFormat;
     /**
      * Display a listing of birth event logs.
      */
@@ -70,8 +72,8 @@ class BirthEventController extends Controller
                 'farmUuid' => $request->farmUuid,
                 'livestockUuid' => $request->livestockUuid,
                 'eventType' => $eventType,
-                'startDate' => $request->startDate,
-                'endDate' => $request->endDate ?? null,
+                'startDate' => $this->convertDateFormat($request->startDate),
+                'endDate' => $this->convertDateFormat($request->endDate),
                 'birthTypeId' => $request->birthTypeId ?? $request->calvingTypeId ?? null,
                 'birthProblemsId' => $request->birthProblemsId ?? $request->calvingProblemsId ?? null,
                 'reproductiveProblemId' => $request->reproductiveProblemId ?? null,
@@ -267,8 +269,8 @@ class BirthEventController extends Controller
             'farmUuid' => $payload['farmUuid'] ?? null,
             'livestockUuid' => $livestockUuid,
             'eventType' => $eventType,
-            'startDate' => $sanitize($payload['startDate'] ?? null),
-            'endDate' => $sanitize($payload['endDate'] ?? null),
+            'startDate' => $this->convertDateFormat($sanitize($payload['startDate'] ?? null)),
+            'endDate' => $this->convertDateFormat($sanitize($payload['endDate'] ?? null)),
             'birthTypeId' => $payload['birthTypeId'] ?? $payload['calvingTypeId'] ?? null,
             'birthProblemsId' => $payload['birthProblemsId'] ?? $payload['calvingProblemsId'] ?? null,
             'reproductiveProblemId' => $payload['reproductiveProblemId'] ?? null,

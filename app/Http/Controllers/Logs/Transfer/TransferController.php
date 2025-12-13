@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Logs\Transfer;
 
 use App\Http\Controllers\Controller;
 use App\Models\Transfer;
+use App\Traits\ConvertsDateFormat;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 
 class TransferController extends Controller
 {
+    use ConvertsDateFormat;
     /**
      * Display a listing of transfer logs.
      */
@@ -112,7 +114,7 @@ class TransferController extends Controller
                 $transferData['livestockUuid'] = $livestockUuid;
 
                 $transferDate = isset($transferData['transferDate'])
-                    ? Carbon::parse($transferData['transferDate'])->format('Y-m-d H:i:s')
+                    ? $this->convertDateTimeFormat($transferData['transferDate'])
                     : now()->format('Y-m-d H:i:s');
 
                 $createdAt = isset($transferData['createdAt'])

@@ -20,9 +20,12 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
+use App\Traits\ConvertsDateFormat;
 
 class AuthController extends Controller
 {
+    use ConvertsDateFormat;
+
     private SmsService $smsService;
 
     public function __construct()
@@ -520,7 +523,12 @@ class AuthController extends Controller
 
             foreach ($allowedFields as $field) {
                 if ($request->has($field) && $request->$field !== null) {
-                    $farmerUpdateData[$field] = $request->$field;
+                    // Convert date format for dateOfBirth
+                    if ($field === 'dateOfBirth') {
+                        $farmerUpdateData[$field] = $this->convertDateFormat($request->$field);
+                    } else {
+                        $farmerUpdateData[$field] = $request->$field;
+                    }
                 }
             }
 
@@ -591,7 +599,7 @@ class AuthController extends Controller
                     'email' => $request->email,
                     'physicalAddress' => $request->physicalAddress,
                     'farmerOrganizationMembership' => $request->farmerOrganizationMembership,
-                    'dateOfBirth' => $request->dateOfBirth,
+                    'dateOfBirth' => $this->convertDateFormat($request->dateOfBirth),
                     'gender' => $request->gender,
                     'identityCardTypeId' => $request->identityCardTypeId,
                     'identityNumber' => $request->identityNumber,

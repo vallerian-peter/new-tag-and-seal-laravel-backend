@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Logs\Calving;
 
 use App\Http\Controllers\Controller;
 use App\Models\Calving;
+use App\Traits\ConvertsDateFormat;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 
 class CalvingController extends Controller
 {
+    use ConvertsDateFormat;
     /**
      * Display a listing of calving logs.
      */
@@ -183,8 +185,8 @@ class CalvingController extends Controller
         return [
             'farmUuid' => $payload['farmUuid'] ?? null,
             'livestockUuid' => $livestockUuid,
-            'startDate' => $sanitize($payload['startDate'] ?? null),
-            'endDate' => $sanitize($payload['endDate'] ?? null),
+            'startDate' => $this->convertDateFormat($sanitize($payload['startDate'] ?? null)),
+            'endDate' => $this->convertDateFormat($sanitize($payload['endDate'] ?? null)),
             'calvingTypeId' => $payload['calvingTypeId'] ?? null,
             'calvingProblemsId' => $payload['calvingProblemsId'] ?? null,
             'reproductiveProblemId' => $payload['reproductiveProblemId'] ?? null,
