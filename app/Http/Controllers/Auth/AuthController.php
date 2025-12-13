@@ -39,7 +39,18 @@ class AuthController extends Controller
      */
     public function register(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
+        // Convert dateOfBirth before validation if present
+        $requestData = $request->all();
+        if (isset($requestData['dateOfBirth']) && !empty($requestData['dateOfBirth'])) {
+            $convertedDate = $this->convertDateFormat($requestData['dateOfBirth']);
+            if ($convertedDate !== null) {
+                $requestData['dateOfBirth'] = $convertedDate;
+                // Also update the request object so createProfileRecord gets the converted date
+                $request->merge(['dateOfBirth' => $convertedDate]);
+            }
+        }
+
+        $validator = Validator::make($requestData, [
             'username'   => 'required|string|unique:users,username',
             'email'      => 'required|email|unique:users,email',
             'password'   => 'nullable|string|min:8',
@@ -105,6 +116,11 @@ class AuthController extends Controller
         }
 
         try {
+            // Merge converted dateOfBirth back into request for createProfileRecord
+            if (isset($requestData['dateOfBirth'])) {
+                $request->merge(['dateOfBirth' => $requestData['dateOfBirth']]);
+            }
+
             // Create profile record first to get role_id
             $profileRecord = $this->createProfileRecord($request);
 
@@ -478,8 +494,19 @@ class AuthController extends Controller
             ], 403);
         }
 
+        // Convert dateOfBirth before validation if present
+        $requestData = $request->all();
+        if (isset($requestData['dateOfBirth']) && !empty($requestData['dateOfBirth'])) {
+            $convertedDate = $this->convertDateFormat($requestData['dateOfBirth']);
+            if ($convertedDate !== null) {
+                $requestData['dateOfBirth'] = $convertedDate;
+                // Also update the request object so it gets the converted date
+                $request->merge(['dateOfBirth' => $convertedDate]);
+            }
+        }
+
         // Validation rules for farmer profile update
-        $validator = Validator::make($request->all(), [
+        $validator = Validator::make($requestData, [
             'firstName'  => 'nullable|string|max:255',
             'middleName' => 'nullable|string|max:255',
             'surname'    => 'nullable|string|max:255',
