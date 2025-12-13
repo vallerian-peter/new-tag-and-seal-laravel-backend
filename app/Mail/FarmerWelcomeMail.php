@@ -42,3 +42,5 @@ class FarmerWelcomeMail extends Mailable
             ->html($html);
     }
 }
+
+

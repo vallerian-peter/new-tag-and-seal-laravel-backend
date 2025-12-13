@@ -13,21 +13,22 @@ return new class extends Migration
     {
         Schema::create('extension_officers', function (Blueprint $table) {
             $table->id();
-            $table->string('referenceNo')->unique();
-            $table->string('medicalLicenseNo')->nullable();
-            $table->string('fullName');
-            $table->string('phoneNumber');
+            $table->string('firstName');
+            $table->string('middleName')->nullable();
+            $table->string('lastName');
             $table->string('email')->unique();
+            $table->string('phone');
+            $table->string('password');
+            $table->enum('gender', ['male', 'female']);
+            $table->string('licenseNumber')->nullable();
             $table->string('address')->nullable();
             $table->foreignId('countryId')->constrained('countries')->cascadeOnDelete();
             $table->foreignId('regionId')->constrained('regions')->cascadeOnDelete();
             $table->foreignId('districtId')->constrained('districts')->cascadeOnDelete();
-            $table->enum('gender', ['male', 'female']);
-            $table->date('dateOfBirth');
-            $table->foreignId('identityCardTypeId')->nullable()->constrained('identity_card_types')->cascadeOnDelete();
-            $table->foreignId('schoolLevelId')->nullable()->constrained('school_levels')->cascadeOnDelete();
-            $table->string('identityNo')->nullable();
-            $table->enum('status', ['active', 'notActive']);
+            $table->foreignId('wardId')->constrained('wards')->cascadeOnDelete();
+            $table->string('organization')->nullable();
+            $table->boolean('isVerified')->default(false);
+            $table->string('specialization')->nullable();
             $table->timestamps();
         });
     }

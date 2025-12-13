@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Mail\FarmUserInvitationMail;
-use App\Mail\FarmerWelcomeMail;
 use App\Models\User;
 use App\Models\Farmer;
 use App\Models\SystemUser;
@@ -148,21 +147,14 @@ class AuthController extends Controller
                 'updatedBy' => $request->updatedBy ?? null,
             ]);
 
-            // If this is a farm invited user, send invitation SMS and Email with credentials
+            // If this is a farm invited user, send invitation SMS with credentials
             if ($request->role === UserRole::FARM_INVITED_USER && $profileRecord instanceof FarmUser) {
-                Log::info("📱 Attempting to send SMS invitation to farm user: {$profileRecord->email}, Phone: {$profileRecord->phone}");
                 $this->sendFarmUserInvitationSms($profileRecord, $user->email, $plainPassword);
-                Log::info("📧 Attempting to send Email invitation to farm user: {$profileRecord->email}");
-                $this->sendFarmUserInvitationEmail($profileRecord, $user->email, $plainPassword);
             }
 
-            // If this is a farmer, send welcome SMS and Email with credentials
+            // If this is a farmer, send welcome SMS with credentials
             if ($request->role === UserRole::FARMER && $profileRecord instanceof Farmer) {
-                $phoneNumber = $profileRecord->phone1 ?? $profileRecord->phone2 ?? 'N/A';
-                Log::info("📱 Attempting to send welcome SMS to farmer: {$profileRecord->email}, Phone: {$phoneNumber}");
                 $this->sendFarmerWelcomeSms($profileRecord, $user->email, $plainPassword);
-                Log::info("📧 Attempting to send welcome Email to farmer: {$profileRecord->email}");
-                $this->sendFarmerWelcomeEmail($profileRecord, $user->email, $plainPassword);
             }
 
             // Generate API token
@@ -423,7 +415,7 @@ class AuthController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'currentPassword' => 'required|string',
-            'newPassword' => 'required|string|min:8|confirmed',
+            'newPassword' => 'required|string|min:8',
         ]);
 
         if ($validator->fails()) {
@@ -448,10 +440,138 @@ class AuthController extends Controller
             'updatedBy' => $user->id,
         ]);
 
+        // Send SMS notification about password change
+        $profileData = $this->getProfileData($user);
+        if ($profileData) {
+            $this->sendPasswordChangeNotificationSms($user, $profileData);
+        }
+
         return response()->json([
             'status' => true,
             'message' => 'Password changed successfully'
         ], 200);
+    }
+
+    /**
+     * Update user profile (Farmer details).
+     */
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $profileData = $this->getProfileData($user);
+
+        if (!$profileData) {
+            return response()->json([
+                'status' => false,
+                'message' => 'User profile not found. Please contact support.'
+            ], 404);
+        }
+
+        // Only allow farmers to update their profile for now
+        if ($user->role !== UserRole::FARMER || !($profileData instanceof Farmer)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Profile update is only available for farmers.'
+            ], 403);
+        }
+
+        // Validation rules for farmer profile update
+        $validator = Validator::make($request->all(), [
+            'firstName'  => 'nullable|string|max:255',
+            'middleName' => 'nullable|string|max:255',
+            'surname'    => 'nullable|string|max:255',
+            'phone1'     => 'nullable|string',
+            'phone2'     => 'nullable|string',
+            'email'      => 'nullable|email|unique:users,email,' . $user->id,
+            'physicalAddress' => 'nullable|string',
+            'farmerOrganizationMembership' => 'nullable|string',
+            'dateOfBirth' => 'nullable|date',
+            'gender' => 'nullable|in:male,female',
+            'identityCardTypeId' => 'nullable|integer|exists:identity_card_types,id',
+            'identityNumber' => 'nullable|string',
+            'streetId' => 'nullable|integer|exists:streets,id',
+            'schoolLevelId' => 'nullable|integer|exists:school_levels,id',
+            'villageId' => 'nullable|integer|exists:villages,id',
+            'wardId' => 'nullable|integer|exists:wards,id',
+            'districtId' => 'nullable|integer|exists:districts,id',
+            'regionId' => 'nullable|integer|exists:regions,id',
+            'countryId' => 'nullable|integer|exists:countries,id',
+            'farmerType' => 'nullable|in:individual,organization',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            // Prepare update data for farmer profile
+            $farmerUpdateData = [];
+            $allowedFields = [
+                'firstName', 'middleName', 'surname', 'phone1', 'phone2', 'email',
+                'physicalAddress', 'farmerOrganizationMembership', 'dateOfBirth',
+                'gender', 'identityCardTypeId', 'identityNumber', 'streetId',
+                'schoolLevelId', 'villageId', 'wardId', 'districtId', 'regionId',
+                'countryId', 'farmerType'
+            ];
+
+            foreach ($allowedFields as $field) {
+                if ($request->has($field) && $request->$field !== null) {
+                    $farmerUpdateData[$field] = $request->$field;
+                }
+            }
+
+            // Update farmer profile
+            $profileData->update($farmerUpdateData);
+
+            // Update user table if email changed
+            $userUpdateData = [];
+            if ($request->has('email') && $request->email !== null && $request->email !== $user->email) {
+                $userUpdateData['email'] = $request->email;
+                $userUpdateData['updatedBy'] = $user->id;
+            }
+
+            if (!empty($userUpdateData)) {
+                $user->update($userUpdateData);
+            }
+
+            // Refresh profile data to get updated values
+            $profileData->refresh();
+            $user->refresh();
+
+            Log::info("✅ Profile updated successfully for farmer: {$user->email}");
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Profile updated successfully',
+                'data' => [
+                    'user' => [
+                        'id' => $user->id,
+                        'username' => $user->username,
+                        'email' => $user->email,
+                        'role' => $user->role,
+                        'roleId' => $user->roleId,
+                        'firstname' => $profileData->firstName ?? '',
+                        'surname' => $profileData->surname ?? '',
+                        'phone1' => $profileData->phone1 ?? '',
+                        'physicalAddress' => $profileData->physicalAddress ?? '',
+                        'dateOfBirth' => $profileData->dateOfBirth ?? '',
+                        'gender' => $profileData->gender ?? '',
+                    ],
+                    'profile' => $profileData,
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error("❌ Error updating profile for user {$user->email}: " . $e->getMessage());
+            return response()->json([
+                'status' => false,
+                'message' => 'Failed to update profile: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -568,8 +688,6 @@ class AuthController extends Controller
     private function sendFarmUserInvitationSms(FarmUser $farmUser, string $email, string $password): void
     {
         try {
-            Log::info("📱 sendFarmUserInvitationSms called for: {$farmUser->email}");
-
             // Get farm details (use first farm if multiple)
             $farmUuids = $farmUser->getFarmUuidsArray();
             if (empty($farmUuids)) {
@@ -598,8 +716,6 @@ class AuthController extends Controller
                 $farmOwnerDetails['email']
             );
 
-            Log::debug("📱 Built SMS message for farm user: " . substr($message, 0, 100) . "...");
-
             // Send SMS to farm user's phone
             $phoneNumber = $farmUser->phone;
             if (empty($phoneNumber)) {
@@ -607,18 +723,16 @@ class AuthController extends Controller
                 return;
             }
 
-            Log::info("📱 Calling sendSms with phone: {$phoneNumber}");
             $result = $this->smsService->sendSms($message, $phoneNumber);
 
             if (is_string($result)) {
                 // Error occurred
-                Log::error("❌ Failed to send SMS to {$phoneNumber}: {$result}");
+                Log::warning("⚠️ Failed to send SMS to {$phoneNumber}: {$result}");
             } else {
                 Log::info("✅ SMS invitation sent successfully to: {$phoneNumber}");
             }
         } catch (\Exception $e) {
             Log::error("❌ Error sending SMS invitation to farm user {$farmUser->email}: " . $e->getMessage());
-            Log::error("❌ Stack trace: " . $e->getTraceAsString());
         }
     }
 
@@ -633,8 +747,6 @@ class AuthController extends Controller
     private function sendFarmerWelcomeSms(Farmer $farmer, string $email, string $password): void
     {
         try {
-            Log::info("📱 sendFarmerWelcomeSms called for: {$farmer->email}");
-
             $farmerName = trim(($farmer->firstName ?? '') . ' ' . ($farmer->middleName ?? '') . ' ' . ($farmer->surname ?? ''));
             $farmerName = $farmerName ?: 'Farmer';
 
@@ -645,8 +757,6 @@ class AuthController extends Controller
                 $farmerName
             );
 
-            Log::debug("📱 Built SMS message for farmer: " . substr($message, 0, 100) . "...");
-
             // Send SMS to farmer's phone
             $phoneNumber = $farmer->phone1 ?? $farmer->phone2 ?? null;
             if (empty($phoneNumber)) {
@@ -654,60 +764,16 @@ class AuthController extends Controller
                 return;
             }
 
-            Log::info("📱 Calling sendSms with phone: {$phoneNumber}");
             $result = $this->smsService->sendSms($message, $phoneNumber);
 
             if (is_string($result)) {
                 // Error occurred
-                Log::error("❌ Failed to send SMS to {$phoneNumber}: {$result}");
+                Log::warning("⚠️ Failed to send SMS to {$phoneNumber}: {$result}");
             } else {
                 Log::info("✅ Welcome SMS sent successfully to farmer: {$phoneNumber}");
             }
         } catch (\Exception $e) {
             Log::error("❌ Error sending welcome SMS to farmer {$farmer->email}: " . $e->getMessage());
-            Log::error("❌ Stack trace: " . $e->getTraceAsString());
-        }
-    }
-
-    /**
-     * Send Email invitation to farm user
-     *
-     * @param FarmUser $farmUser
-     * @param string $email
-     * @param string $password
-     * @return void
-     */
-    private function sendFarmUserInvitationEmail(FarmUser $farmUser, string $email, string $password): void
-    {
-        try {
-            Log::info("📧 sendFarmUserInvitationEmail called for: {$email}");
-
-            Mail::to($email)->send(new FarmUserInvitationMail($farmUser, $email, $password));
-            Log::info("✅ Email invitation sent successfully to: {$email}");
-        } catch (\Exception $e) {
-            Log::error("❌ Error sending Email invitation to farm user {$email}: " . $e->getMessage());
-            Log::error("❌ Stack trace: " . $e->getTraceAsString());
-        }
-    }
-
-    /**
-     * Send welcome Email to farmer
-     *
-     * @param Farmer $farmer
-     * @param string $email
-     * @param string $password
-     * @return void
-     */
-    private function sendFarmerWelcomeEmail(Farmer $farmer, string $email, string $password): void
-    {
-        try {
-            Log::info("📧 sendFarmerWelcomeEmail called for: {$email}");
-
-            Mail::to($email)->send(new FarmerWelcomeMail($farmer, $email, $password));
-            Log::info("✅ Welcome Email sent successfully to farmer: {$email}");
-        } catch (\Exception $e) {
-            Log::error("❌ Error sending welcome Email to farmer {$email}: " . $e->getMessage());
-            Log::error("❌ Stack trace: " . $e->getTraceAsString());
         }
     }
 
@@ -735,6 +801,57 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             Log::error("❌ Error getting farm owner details for UUID {$farmUuid}: " . $e->getMessage());
             return ['phone' => null, 'email' => null];
+        }
+    }
+
+    /**
+     * Send SMS notification when password is changed
+     *
+     * @param User $user
+     * @param mixed $profileData
+     * @return void
+     */
+    private function sendPasswordChangeNotificationSms(User $user, $profileData): void
+    {
+        try {
+            $phoneNumber = null;
+            $userName = '';
+
+            // Get phone number and user name based on role
+            if ($user->role === UserRole::FARMER && $profileData instanceof Farmer) {
+                $phoneNumber = $profileData->phone1 ?? $profileData->phone2 ?? null;
+                $userName = trim(($profileData->firstName ?? '') . ' ' . ($profileData->surname ?? ''));
+            } elseif ($user->role === UserRole::FARM_INVITED_USER && $profileData instanceof FarmUser) {
+                $phoneNumber = $profileData->phone ?? null;
+                $userName = trim(($profileData->firstName ?? '') . ' ' . ($profileData->lastName ?? ''));
+            } elseif (in_array($user->role, [UserRole::SYSTEM_USER, UserRole::EXTENSION_OFFICER, UserRole::VET]) && $profileData instanceof SystemUser) {
+                $phoneNumber = $profileData->phone ?? null;
+                $userName = trim(($profileData->firstName ?? '') . ' ' . ($profileData->lastName ?? ''));
+            }
+
+            if (empty($phoneNumber)) {
+                Log::warning("⚠️ No phone number found for user: {$user->email}");
+                return;
+            }
+
+            $userName = $userName ?: 'User';
+
+            // Build SMS message
+            $message = "Hello {$userName}, your password has been successfully changed. If you didn't make this change, please contact support immediately. - Tag & Seal";
+
+            Log::info("📱 Sending password change notification SMS to: {$phoneNumber}");
+
+            // Send SMS
+            $result = $this->smsService->sendSms($message, $phoneNumber);
+
+            if (is_string($result)) {
+                // Error occurred
+                Log::warning("⚠️ Failed to send password change notification SMS to {$phoneNumber}: {$result}");
+            } else {
+                Log::info("✅ Password change notification SMS sent successfully to: {$phoneNumber}");
+            }
+        } catch (\Exception $e) {
+            Log::error("❌ Error sending password change notification SMS for user {$user->email}: " . $e->getMessage());
         }
     }
 }

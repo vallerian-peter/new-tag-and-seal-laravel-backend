@@ -3,51 +3,62 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ExtensionOfficer extends Model
 {
     protected $table = 'extension_officers';
 
     protected $fillable = [
-        'referenceNo',
-        'medicalLicenseNo',
-        'fullName',
-        'phoneNumber',
+        'firstName',
+        'middleName',
+        'lastName',
         'email',
+        'phone',
+        'password',
+        'gender',
+        'licenseNumber',
         'address',
         'countryId',
         'regionId',
         'districtId',
-        'gender',
-        'dateOfBirth',
-        'identityCardTypeId',
-        'identityNo',
-        'schoolLevelId',
-        'status',
+        'wardId',
+        'organization',
+        'isVerified',
+        'specialization',
     ];
 
-    public function country()
+    protected $hidden = [
+        'password',
+    ];
+
+    protected $casts = [
+        'isVerified' => 'boolean',
+    ];
+
+    public function country(): BelongsTo
     {
-        return $this->belongsTo(Country::class, 'countryId', 'id');
+        return $this->belongsTo(Country::class, 'countryId');
     }
 
-    public function region()
+    public function region(): BelongsTo
     {
-        return $this->belongsTo(Region::class, 'regionId', 'id');
+        return $this->belongsTo(Region::class, 'regionId');
     }
 
-    public function district()
+    public function district(): BelongsTo
     {
-        return $this->belongsTo(District::class, 'districtId', 'id');
+        return $this->belongsTo(District::class, 'districtId');
     }
 
-    public function identityCardType()
+    public function ward(): BelongsTo
     {
-        return $this->belongsTo(IdentityCardType::class, 'identityCardTypeId', 'id');
+        return $this->belongsTo(Ward::class, 'wardId');
     }
 
-    public function schoolLevel()
+    public function farmInvites(): HasMany
     {
-        return $this->belongsTo(SchoolLevel::class, 'schoolLevelId', 'id');
+        return $this->hasMany(ExtensionOfficerFarmInvite::class, 'extensionOfficerId');
     }
 }

@@ -30,6 +30,8 @@ class Livestock extends Model
         'livestockObtainedMethodId',
         'dateFirstEnteredToFarm',
         'weightAsOnRegistration',
+        'primaryColor',
+        'secondaryColor',
         'created_at',  // Allow manual timestamp management
         'updated_at',  // Allow manual timestamp management
     ];

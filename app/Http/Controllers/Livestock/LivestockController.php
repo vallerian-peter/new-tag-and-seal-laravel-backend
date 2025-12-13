@@ -124,6 +124,8 @@ class LivestockController extends Controller
                     'livestockObtainedMethodId' => $livestock->livestockObtainedMethodId,
                     'dateFirstEnteredToFarm' => $livestock->dateFirstEnteredToFarm?->toDateString(),
                     'weightAsOnRegistration' => $livestock->weightAsOnRegistration,
+                    'primaryColor' => $livestock->primaryColor,
+                    'secondaryColor' => $livestock->secondaryColor,
                     'createdAt' => $livestock->created_at?->toIso8601String(),
                     'updatedAt' => $livestock->updated_at?->toIso8601String(),
                 ];
@@ -230,6 +232,8 @@ class LivestockController extends Controller
                                     'livestockObtainedMethodId' => $livestockData['livestockObtainedMethodId'],
                                     'dateFirstEnteredToFarm' => $dateFirstEnteredToFarm,
                                     'weightAsOnRegistration' => $weightAsOnRegistration,
+                                    'primaryColor' => $livestockData['primaryColor'] ?? null,
+                                    'secondaryColor' => $livestockData['secondaryColor'] ?? null,
                                     'updated_at' => $updatedAt,
                                 ]);
                                 Log::info("✅ Livestock updated (local newer): {$existingLivestock->name} (UUID: {$uuid})");
@@ -259,6 +263,8 @@ class LivestockController extends Controller
                                 'livestockObtainedMethodId' => $livestockData['livestockObtainedMethodId'],
                                 'dateFirstEnteredToFarm' => $dateFirstEnteredToFarm,
                                 'weightAsOnRegistration' => $weightAsOnRegistration,
+                                'primaryColor' => $livestockData['primaryColor'] ?? null,
+                                'secondaryColor' => $livestockData['secondaryColor'] ?? null,
                                 'created_at' => $createdAt,
                                 'updated_at' => $updatedAt,
                             ]);
@@ -297,6 +303,8 @@ class LivestockController extends Controller
                                     'livestockObtainedMethodId' => $livestockData['livestockObtainedMethodId'],
                                     'dateFirstEnteredToFarm' => $dateFirstEnteredToFarm,
                                     'weightAsOnRegistration' => $weightAsOnRegistration,
+                                    'primaryColor' => $livestockData['primaryColor'] ?? null,
+                                    'secondaryColor' => $livestockData['secondaryColor'] ?? null,
                                     'updated_at' => $updatedAt,
                                 ]);
 
