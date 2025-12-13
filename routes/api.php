@@ -7,6 +7,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Sync\SyncController;
 use App\Http\Controllers\Location\LocationController;
+use App\Http\Controllers\ExtensionOfficerFarmInvite\ExtensionOfficerFarmInviteController;
 use App\Http\Controllers\Stage\StageController;
 use App\Http\Controllers\BirthType\BirthTypeController;
 use App\Http\Controllers\BirthProblem\BirthProblemController;
@@ -134,7 +135,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Farmer Routes
         Route::prefix('farmers')->middleware('check.role:' . UserRole::FARMER . ',' . UserRole::SYSTEM_USER)->group(function () {
-            // Farmer-specific routes can be added here
+            // Extension Officer Farm Invite Routes
+            Route::prefix('extension-officer-invites')->group(function () {
+                Route::get('/search', [ExtensionOfficerFarmInviteController::class, 'searchByEmail']);
+                Route::post('/', [ExtensionOfficerFarmInviteController::class, 'store']);
+            });
         });
 
         // Extension Officer Routes
