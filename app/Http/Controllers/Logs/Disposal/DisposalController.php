@@ -224,10 +224,10 @@ class DisposalController extends Controller
     }
 
     /**
-     * Update livestock status to 'not-active' when a disposal is created/updated.
+     * Update livestock status to 'notActive' when a disposal is created/updated.
      *
      * All disposal types (Dead, Slaughtered, Lost, Culled) indicate that the livestock
-     * is no longer active in the farm, so the status should be updated to 'not-active'.
+     * is no longer active in the farm, so the status should be updated to 'notActive'.
      *
      * @param string $livestockUuid
      * @param int|null $disposalTypeId
@@ -248,9 +248,9 @@ class DisposalController extends Controller
                 return;
             }
 
-            // Check if livestock is already not-active
-            if ($livestock->status === 'not-active' || $livestock->status === 'notActive') {
-                Log::debug("ℹ️ Livestock already not-active: UUID {$livestockUuid}");
+            // Check if livestock is already notActive (check both formats for backward compatibility)
+            if ($livestock->status === 'notActive' || $livestock->status === 'not-active') {
+                Log::debug("ℹ️ Livestock already notActive: UUID {$livestockUuid}");
                 return;
             }
 
@@ -258,10 +258,10 @@ class DisposalController extends Controller
             $disposalType = DisposalType::find($disposalTypeId);
             $disposalTypeName = $disposalType ? $disposalType->name : "Unknown (ID: {$disposalTypeId})";
 
-            // Update livestock status to 'not-active'
-            $livestock->update(['status' => 'not-active']);
+            // Update livestock status to 'notActive' (matches frontend format)
+            $livestock->update(['status' => 'notActive']);
 
-            Log::info("✅ Livestock status updated to 'not-active' for disposal type '{$disposalTypeName}' (ID: {$disposalTypeId}): UUID {$livestockUuid}");
+            Log::info("✅ Livestock status updated to 'notActive' for disposal type '{$disposalTypeName}' (ID: {$disposalTypeId}): UUID {$livestockUuid}");
         } catch (\Exception $e) {
             Log::error("❌ Failed to update livestock status for disposal", [
                 'livestockUuid' => $livestockUuid,
