@@ -279,4 +279,77 @@ class ExtensionOfficerFarmInviteController extends Controller
             Log::error("❌ Stack trace: " . $e->getTraceAsString());
         }
     }
+
+    /**
+     * Fetch invited extension officers for sync (Farmer Data)
+     *
+     * @param int $farmerId
+     * @return array
+     */
+    public function fetchByFarmerId(int $farmerId): array
+    {
+        return ExtensionOfficerFarmInvite::with('extensionOfficer')
+            ->where('farmerId', $farmerId)
+            ->get()
+            ->map(function ($invite) {
+                $officer = $invite->extensionOfficer;
+                return [
+                    'inviteId' => $invite->id,
+                    'access_code' => $invite->access_code,
+                    'officerId' => $officer ? $officer->id : null,
+                    'firstName' => $officer ? $officer->firstName : '',
+                    'middleName' => $officer ? $officer->middleName : null,
+                    'lastName' => $officer ? $officer->lastName : '',
+                    'email' => $officer ? $officer->email : '',
+                    'phone' => $officer ? $officer->phone : null,
+                    'specialization' => $officer ? $officer->specialization : null,
+                    'inviteDate' => $invite->created_at ? $invite->created_at->toIso8601String() : null,
+                    'status' => 'active',
+                ];
+            })
+            ->filter(function ($item) {
+                return $item['officerId'] !== null;
+            })
+            ->values()
+            ->toArray();
+    }
+
+    /**
+     * Process sync for invited extension officers (Handle deletions)
+     *
+     * @param array $invites
+     * @param int $farmerId
+     * @return array Synced IDs (deleted IDs)
+     */
+    public function processSync(array $invites, int $farmerId): array
+    {
+        $syncedIds = [];
+
+        foreach ($invites as $item) {
+            try {
+                // We only handle deletions for now via sync
+                if (isset($item['syncAction']) && $item['syncAction'] === 'deleted') {
+                    $inviteId = $item['inviteId'] ?? null;
+                    if ($inviteId) {
+                        // Verify ownership and delete
+                        $deleted = ExtensionOfficerFarmInvite::where('id', $inviteId)
+                            ->where('farmerId', $farmerId)
+                            ->delete();
+
+                        if ($deleted) {
+                            $syncedIds[] = $inviteId; // Return ID to confirm deletion
+                        } else {
+                            // If not found, maybe already deleted?
+                            // Treat as successfully deleted to clean up client
+                            $syncedIds[] = $inviteId;
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::error("Error syncing invite item: " . $e->getMessage());
+            }
+        }
+
+        return $syncedIds;
+    }
 }

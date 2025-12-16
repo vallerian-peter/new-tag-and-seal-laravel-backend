@@ -47,6 +47,7 @@ use App\Http\Controllers\InseminationService\InseminationServiceController;
 use App\Http\Controllers\SemenStrawType\SemenStrawTypeController;
 use App\Http\Controllers\TestResult\TestResultController;
 use App\Http\Controllers\MilkingMethod\MilkingMethodController;
+use App\Http\Controllers\ExtensionOfficerFarmInvite\ExtensionOfficerFarmInviteController;
 
 class SyncController extends Controller
 {
@@ -91,6 +92,7 @@ class SyncController extends Controller
     protected $semenStrawTypeController;
     protected $testResultController;
     protected $milkingMethodController;
+    protected $extensionOfficerFarmInviteController;
 
     public function __construct(
         LocationController $locationController,
@@ -133,7 +135,8 @@ class SyncController extends Controller
         InseminationServiceController $inseminationServiceController,
         SemenStrawTypeController $semenStrawTypeController,
         TestResultController $testResultController,
-        MilkingMethodController $milkingMethodController
+        MilkingMethodController $milkingMethodController,
+        ExtensionOfficerFarmInviteController $extensionOfficerFarmInviteController
     ) {
         $this->locationController = $locationController;
         $this->identityCardTypeController = $identityCardTypeController;
@@ -176,6 +179,7 @@ class SyncController extends Controller
         $this->semenStrawTypeController = $semenStrawTypeController;
         $this->testResultController = $testResultController;
         $this->milkingMethodController = $milkingMethodController;
+        $this->extensionOfficerFarmInviteController = $extensionOfficerFarmInviteController;
     }
 
     /**
@@ -403,6 +407,9 @@ class SyncController extends Controller
         if (!empty($farmUuids)) {
             $farmUsers = $this->farmUserController->fetchByFarmUuids($farmUuids);
         }
+        
+        // Get Invited Extension Officers
+        $invitedExtensionOfficers = $this->extensionOfficerFarmInviteController->fetchByFarmerId($farmerId);
 
         return [
             'type' => 'farmer',
@@ -411,10 +418,12 @@ class SyncController extends Controller
             'logs' => $logs,
             'vaccines' => $vaccines,
             'farmUsers' => $farmUsers,
+            'invitedExtensionOfficers' => $invitedExtensionOfficers,
             'farmsCount' => count($farms),
             'livestockCount' => count($livestock),
             'vaccinesCount' => count($vaccines),
             'farmUsersCount' => count($farmUsers),
+            'invitedExtensionOfficersCount' => count($invitedExtensionOfficers),
         ];
     }
 
@@ -698,6 +707,7 @@ class SyncController extends Controller
                 ],
                 'syncedVaccines' => [],
                 'syncedFarmUsers' => [],
+                'syncedInvitedExtensionOfficers' => [],
                 // Add more collections as they're implemented
             ];
 
@@ -824,6 +834,11 @@ class SyncController extends Controller
                 ? $this->processFarmUserSync($data['farmUsers'], $user, $userId)
                 : [];
 
+            // Process invited extension officers
+            $syncedData['syncedInvitedExtensionOfficers'] = isset($data['invitedExtensionOfficers']) && is_array($data['invitedExtensionOfficers'])
+                ? $this->processInvitedExtensionOfficerSync($data['invitedExtensionOfficers'], $user, $userId)
+                : [];
+
             // TODO: Process other collections (feeds, etc.)
             // Follow the same pattern:
             // 1. Check user role
@@ -877,6 +892,9 @@ class SyncController extends Controller
                 : 0,
             'syncedFarmUsersCount' => isset($syncedData['syncedFarmUsers'])
                 ? count($syncedData['syncedFarmUsers'])
+                : 0,
+            'syncedInvitedExtensionOfficersCount' => isset($syncedData['syncedInvitedExtensionOfficers'])
+                ? count($syncedData['syncedInvitedExtensionOfficers'])
                 : 0,
             ]);
             \Log::info("========== POST SYNC END ==========");
@@ -1136,6 +1154,26 @@ class SyncController extends Controller
         \Log::info("Farm user sync complete for user {$userId}", ['count' => count($syncedFarmUsers)]);
 
         return $syncedFarmUsers;
+    }
+
+    private function processInvitedExtensionOfficerSync(array $invites, User $user, int $userId): array
+    {
+        if (empty($invites)) {
+            return [];
+        }
+
+        if (strtolower($user->role) !== 'farmer') {
+            \Log::warning("Non-farmer attempting to sync invited extension officers", [
+                'userId' => $userId,
+                'role' => $user->role,
+            ]);
+            return [];
+        }
+
+        $farmerId = $user->roleId;
+        
+        // Delegate to specific controller
+        return $this->extensionOfficerFarmInviteController->processSync($invites, $farmerId);
     }
 
     // ============================================================================
