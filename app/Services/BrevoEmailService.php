@@ -104,6 +104,71 @@ class BrevoEmailService
 
         return $data;
     }
+
+    /**
+     * Send a transactional email via Brevo.
+     *
+     * @param  string  $toEmail      Recipient email address
+     * @param  string  $toName       Recipient name
+     * @param  string  $subject      Email subject
+     * @param  string  $htmlContent  HTML body content
+     * @param  string|null  $textContent  Plain text body (optional)
+     * @return bool
+     */
+    public function sendTransactionalEmail(
+        string $toEmail,
+        string $toName,
+        string $subject,
+        string $htmlContent,
+        ?string $textContent = null
+    ): bool {
+        if (empty($this->apiKey)) {
+            Log::warning('BrevoEmailService: BREVO_API_KEY is not configured.');
+            return false;
+        }
+
+        $payload = [
+            'sender' => [
+                'name' => $this->senderName,
+                'email' => $this->senderEmail,
+            ],
+            'to' => [
+                [
+                    'email' => $toEmail,
+                    'name' => $toName,
+                ],
+            ],
+            'subject' => $subject,
+            'htmlContent' => $htmlContent,
+        ];
+
+        if ($textContent !== null) {
+            $payload['textContent'] = $textContent;
+        }
+
+        $response = Http::withHeaders([
+            'api-key' => $this->apiKey,
+            'accept' => 'application/json',
+            'content-type' => 'application/json',
+        ])->post("{$this->baseUrl}/smtp/email", $payload);
+
+        if (!$response->successful()) {
+            Log::error('BrevoEmailService: Failed to send transactional email', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'to' => $toEmail,
+            ]);
+
+            return false;
+        }
+
+        Log::info('BrevoEmailService: Transactional email sent successfully', [
+            'to' => $toEmail,
+            'messageId' => $response->json('messageId'),
+        ]);
+
+        return true;
+    }
 }
 
 

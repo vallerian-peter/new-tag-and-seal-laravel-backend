@@ -2,16 +2,16 @@
 
 namespace App\Http\Controllers\ExtensionOfficerFarmInvite;
 
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
+use App\Mail\ExtensionOfficerInvitationMail;
 use App\Models\ExtensionOfficer;
 use App\Models\ExtensionOfficerFarmInvite;
-use App\Models\Farmer;
 use App\Models\Farm;
-use App\Enums\UserRole;
+use App\Models\Farmer;
 use App\Services\SmsService;
-use App\Mail\ExtensionOfficerInvitationMail;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
@@ -22,13 +22,11 @@ class ExtensionOfficerFarmInviteController extends Controller
 
     public function __construct()
     {
-        $this->smsService = new SmsService();
+        $this->smsService = new SmsService;
     }
+
     /**
      * Search for extension officer by email
-     * 
-     * @param Request $request
-     * @return JsonResponse
      */
     public function searchByEmail(Request $request): JsonResponse
     {
@@ -48,7 +46,7 @@ class ExtensionOfficerFarmInviteController extends Controller
             $email = $request->input('email');
             $extensionOfficer = ExtensionOfficer::where('email', $email)->first();
 
-            if (!$extensionOfficer) {
+            if (! $extensionOfficer) {
                 return response()->json([
                     'status' => false,
                     'message' => 'Extension officer not found with this email',
@@ -56,21 +54,33 @@ class ExtensionOfficerFarmInviteController extends Controller
                 ], 404);
             }
 
+            // Build officer payload (excluding sensitive fields)
+            $officerPayload = [
+                'id' => $extensionOfficer->id,
+                'firstName' => $extensionOfficer->firstName,
+                'middleName' => $extensionOfficer->middleName,
+                'lastName' => $extensionOfficer->lastName,
+                'email' => $extensionOfficer->email,
+                'phone' => $extensionOfficer->phone,
+                'specialization' => $extensionOfficer->specialization,
+                'organization' => $extensionOfficer->organization,
+                'countryId' => $extensionOfficer->countryId,
+                'regionId' => $extensionOfficer->regionId,
+                'districtId' => $extensionOfficer->districtId,
+                'wardId' => $extensionOfficer->wardId,
+                'isVerified' => $extensionOfficer->isVerified == 1 ? true : false,
+                'created_at' => $extensionOfficer->created_at ? $extensionOfficer->created_at->toDateTimeString() : null,
+                'updated_at' => $extensionOfficer->updated_at ? $extensionOfficer->updated_at->toDateTimeString() : null,
+            ];
+
             return response()->json([
                 'status' => true,
                 'message' => 'Extension officer found',
-                'data' => [
-                    'id' => $extensionOfficer->id,
-                    'firstName' => $extensionOfficer->firstName,
-                    'middleName' => $extensionOfficer->middleName,
-                    'lastName' => $extensionOfficer->lastName,
-                    'email' => $extensionOfficer->email,
-                    'phone' => $extensionOfficer->phone,
-                    'specialization' => $extensionOfficer->specialization,
-                ],
+                'data' => $officerPayload,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error searching extension officer: ' . $e->getMessage());
+            Log::error('Error searching extension officer: '.$e->getMessage());
+
             return response()->json([
                 'status' => false,
                 'message' => 'Failed to search extension officer',
@@ -81,9 +91,6 @@ class ExtensionOfficerFarmInviteController extends Controller
 
     /**
      * Create a new extension officer farm invite
-     * 
-     * @param Request $request
-     * @return JsonResponse
      */
     public function store(Request $request): JsonResponse
     {
@@ -121,11 +128,11 @@ class ExtensionOfficerFarmInviteController extends Controller
             }
 
             $email = $request->input('extensionOfficerEmail');
-            
+
             // Find extension officer by email
             $extensionOfficer = ExtensionOfficer::where('email', $email)->first();
 
-            if (!$extensionOfficer) {
+            if (! $extensionOfficer) {
                 return response()->json([
                     'status' => false,
                     'message' => 'Extension officer not found with this email',
@@ -142,7 +149,13 @@ class ExtensionOfficerFarmInviteController extends Controller
                     'status' => false,
                     'message' => 'Extension officer has already been invited to your farm',
                     'data' => [
+                        'id' => $existingInvite->id,
+                        'inviteId' => $existingInvite->id,
                         'access_code' => $existingInvite->access_code,
+                        'extensionOfficerId' => $existingInvite->extensionOfficerId,
+                        'farmerId' => $existingInvite->farmerId,
+                        'created_at' => $existingInvite->created_at ? $existingInvite->created_at->toDateTimeString() : null,
+                        'updated_at' => $existingInvite->updated_at ? $existingInvite->updated_at->toDateTimeString() : null,
                     ],
                 ], 409);
             }
@@ -173,23 +186,43 @@ class ExtensionOfficerFarmInviteController extends Controller
                 $this->sendExtensionOfficerInvitationEmail($extensionOfficer, $farmer, $accessCode, $farmName);
             }
 
+            // Return invite and officer details
+            $invitePayload = [
+                'id' => $invite->id,
+                'inviteId' => $invite->id,
+                'access_code' => $invite->access_code,
+                'extensionOfficerId' => $extensionOfficer->id,
+                'farmerId' => $farmerId,
+                'created_at' => $invite->created_at ? $invite->created_at->toDateTimeString() : null,
+                'updated_at' => $invite->updated_at ? $invite->updated_at->toDateTimeString() : null,
+            ];
+
+            $officerPayload = [
+                'id' => $extensionOfficer->id,
+                'firstName' => $extensionOfficer->firstName,
+                'middleName' => $extensionOfficer->middleName,
+                'lastName' => $extensionOfficer->lastName,
+                'email' => $extensionOfficer->email,
+                'phone' => $extensionOfficer->phone,
+                'specialization' => $extensionOfficer->specialization,
+                'organization' => $extensionOfficer->organization,
+                'countryId' => $extensionOfficer->countryId,
+                'regionId' => $extensionOfficer->regionId,
+                'districtId' => $extensionOfficer->districtId,
+                'wardId' => $extensionOfficer->wardId,
+                'isVerified' => $extensionOfficer->isVerified == 1 ? true : false,
+                'created_at' => $extensionOfficer->created_at ? $extensionOfficer->created_at->toDateTimeString() : null,
+                'updated_at' => $extensionOfficer->updated_at ? $extensionOfficer->updated_at->toDateTimeString() : null,
+            ];
+
             return response()->json([
                 'status' => true,
                 'message' => 'Extension officer invited successfully',
-                'data' => [
-                    'id' => $invite->id,
-                    'access_code' => $invite->access_code,
-                    'extensionOfficer' => [
-                        'id' => $extensionOfficer->id,
-                        'firstName' => $extensionOfficer->firstName,
-                        'middleName' => $extensionOfficer->middleName,
-                        'lastName' => $extensionOfficer->lastName,
-                        'email' => $extensionOfficer->email,
-                    ],
-                ],
+                'data' => array_merge($invitePayload, ['extensionOfficer' => $officerPayload]),
             ], 201);
         } catch (\Exception $e) {
-            Log::error('Error creating extension officer farm invite: ' . $e->getMessage());
+            Log::error('Error creating extension officer farm invite: '.$e->getMessage());
+
             return response()->json([
                 'status' => false,
                 'message' => 'Failed to create extension officer invite',
@@ -208,19 +241,19 @@ class ExtensionOfficerFarmInviteController extends Controller
         ?string $farmName = null
     ): void {
         try {
-            $farmerName = trim(($farmer->firstName ?? '') . ' ' . ($farmer->middleName ?? '') . ' ' . ($farmer->surname ?? ''));
+            $farmerName = trim(($farmer->firstName ?? '').' '.($farmer->middleName ?? '').' '.($farmer->surname ?? ''));
             $farmerName = $farmerName ?: 'Farm Owner';
 
-            $extensionOfficerName = trim(($extensionOfficer->firstName ?? '') . ' ' . ($extensionOfficer->middleName ?? '') . ' ' . ($extensionOfficer->lastName ?? ''));
+            $extensionOfficerName = trim(($extensionOfficer->firstName ?? '').' '.($extensionOfficer->middleName ?? '').' '.($extensionOfficer->lastName ?? ''));
             $extensionOfficerName = $extensionOfficerName ?: 'Extension Officer';
 
             // Build SMS message
             $message = "Hello {$extensionOfficerName},\n\n";
-            $message .= "You have been invited to join ";
+            $message .= 'You have been invited to join ';
             if ($farmName) {
                 $message .= "the farm: {$farmName}";
             } else {
-                $message .= "a farm";
+                $message .= 'a farm';
             }
             $message .= " by {$farmerName}.\n\n";
             $message .= "Access Code: {$accessCode}\n\n";
@@ -242,6 +275,7 @@ class ExtensionOfficerFarmInviteController extends Controller
             $phoneNumber = $extensionOfficer->phone;
             if (empty($phoneNumber)) {
                 Log::warning("⚠️ No phone number found for extension officer: {$extensionOfficer->email}");
+
                 return;
             }
 
@@ -253,7 +287,7 @@ class ExtensionOfficerFarmInviteController extends Controller
                 Log::info("✅ SMS invitation sent successfully to: {$phoneNumber}");
             }
         } catch (\Exception $e) {
-            Log::error("❌ Error sending SMS invitation to extension officer {$extensionOfficer->email}: " . $e->getMessage());
+            Log::error("❌ Error sending SMS invitation to extension officer {$extensionOfficer->email}: ".$e->getMessage());
         }
     }
 
@@ -275,16 +309,13 @@ class ExtensionOfficerFarmInviteController extends Controller
 
             Log::info("✅ Email invitation sent successfully to: {$extensionOfficer->email}");
         } catch (\Exception $e) {
-            Log::error("❌ Error sending email invitation to extension officer {$extensionOfficer->email}: " . $e->getMessage());
-            Log::error("❌ Stack trace: " . $e->getTraceAsString());
+            Log::error("❌ Error sending email invitation to extension officer {$extensionOfficer->email}: ".$e->getMessage());
+            Log::error('❌ Stack trace: '.$e->getTraceAsString());
         }
     }
 
     /**
      * Fetch invited extension officers for sync (Farmer Data)
-     *
-     * @param int $farmerId
-     * @return array
      */
     public function fetchByFarmerId(int $farmerId): array
     {
@@ -293,32 +324,91 @@ class ExtensionOfficerFarmInviteController extends Controller
             ->get()
             ->map(function ($invite) {
                 $officer = $invite->extensionOfficer;
+                if (! $officer) {
+                    return null;
+                }
+
+                // Ensure we're getting fresh officer data
+                $freshOfficer = \App\Models\ExtensionOfficer::find($officer->id);
+                
+                if (! $freshOfficer) {
+                    return null;
+                }
+
                 return [
+                    'id' => $invite->id,
                     'inviteId' => $invite->id,
                     'access_code' => $invite->access_code,
-                    'officerId' => $officer ? $officer->id : null,
-                    'firstName' => $officer ? $officer->firstName : '',
-                    'middleName' => $officer ? $officer->middleName : null,
-                    'lastName' => $officer ? $officer->lastName : '',
-                    'email' => $officer ? $officer->email : '',
-                    'phone' => $officer ? $officer->phone : null,
-                    'specialization' => $officer ? $officer->specialization : null,
-                    'inviteDate' => $invite->created_at ? $invite->created_at->toIso8601String() : null,
-                    'status' => 'active',
+                    'officerId' => $freshOfficer->id,
+                    'firstName' => $freshOfficer->firstName,
+                    'middleName' => $freshOfficer->middleName,
+                    'lastName' => $freshOfficer->lastName,
+                    'email' => $freshOfficer->email,
+                    'phone' => $freshOfficer->phone,
+                    'specialization' => $freshOfficer->specialization,
+                    'organization' => $freshOfficer->organization,
+                    'countryId' => $freshOfficer->countryId,
+                    'regionId' => $freshOfficer->regionId,
+                    'districtId' => $freshOfficer->districtId,
+                    'wardId' => $freshOfficer->wardId,
+                    'isVerified' => (bool) $freshOfficer->isVerified, // Direct from extension_officers table
+                    'createdAt' => $invite->created_at ? $invite->created_at->toIso8601String() : null,
+                    'updatedAt' => $invite->updated_at ? $invite->updated_at->toIso8601String() : null,
+                    'officerUpdatedAt' => $freshOfficer->updated_at ? $freshOfficer->updated_at->toIso8601String() : null,
                 ];
             })
             ->filter(function ($item) {
-                return $item['officerId'] !== null;
+                return $item !== null && isset($item['officerId']) && $item['officerId'] !== null;
             })
             ->values()
             ->toArray();
     }
 
     /**
+     * Sync endpoint: return all invited extension officers for a farmer.
+     * Accepts 'farmerId' in request body or uses authenticated farmer's roleId.
+     * Returns JSON payload similar to invite response so the frontend can upsert locally.
+     */
+    public function syncByFarmer(Request $request): JsonResponse
+    {
+        try {
+            $authenticatedUser = $request->user();
+
+            $farmerId = $request->input('farmerId');
+
+            if (empty($farmerId)) {
+                if ($authenticatedUser && $authenticatedUser->role === UserRole::FARMER) {
+                    $farmerId = $authenticatedUser->roleId;
+                } else {
+                    return response()->json([
+                        'status' => false,
+                        'message' => 'farmerId is required',
+                        'data' => null,
+                    ], 422);
+                }
+            }
+
+            $items = $this->fetchByFarmerId((int) $farmerId);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Invited extension officers fetched',
+                'data' => $items,
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Error syncing invited extension officers: '.$e->getMessage());
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Failed to fetch invited extension officers',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Process sync for invited extension officers (Handle deletions)
      *
-     * @param array $invites
-     * @param int $farmerId
      * @return array Synced IDs (deleted IDs)
      */
     public function processSync(array $invites, int $farmerId): array
@@ -327,26 +417,123 @@ class ExtensionOfficerFarmInviteController extends Controller
 
         foreach ($invites as $item) {
             try {
-                // We only handle deletions for now via sync
-                if (isset($item['syncAction']) && $item['syncAction'] === 'deleted') {
-                    $inviteId = $item['inviteId'] ?? null;
+                // Determine the sync action (accept both snake_case and camelCase)
+                $action = $item['syncAction'] ?? $item['sync_action'] ?? null;
+
+                // Handle deletions first
+                if ($action === 'deleted') {
+                    $inviteId = $item['inviteId'] ?? $item['id'] ?? null;
                     if ($inviteId) {
                         // Verify ownership and delete
                         $deleted = ExtensionOfficerFarmInvite::where('id', $inviteId)
                             ->where('farmerId', $farmerId)
                             ->delete();
 
-                        if ($deleted) {
-                            $syncedIds[] = $inviteId; // Return ID to confirm deletion
-                        } else {
-                            // If not found, maybe already deleted?
-                            // Treat as successfully deleted to clean up client
-                            $syncedIds[] = $inviteId;
+                        // Return the invite id so client can mark as synced/removed
+                        $syncedIds[] = $inviteId;
+                    }
+
+                    continue;
+                }
+
+                // For non-deletion items, attempt to upsert the extension officer and invite
+                $officerPayload = $item['extensionOfficer'] ?? ($item['extension_officer'] ?? null);
+
+                $email = null;
+                if (is_array($officerPayload) && isset($officerPayload['email'])) {
+                    $email = $officerPayload['email'];
+                }
+                // Fallback to top-level email fields
+                if (! $email) {
+                    $email = $item['email'] ?? $item['extensionOfficerEmail'] ?? $item['extension_officer_email'] ?? null;
+                }
+
+                $extensionOfficer = null;
+                if ($email) {
+                    $extensionOfficer = ExtensionOfficer::where('email', $email)->first();
+                }
+
+                // If payload present, upsert officer details
+                if (is_array($officerPayload)) {
+                    $officerData = [
+                        'firstName' => $officerPayload['firstName'] ?? $officerPayload['first_name'] ?? null,
+                        'middleName' => $officerPayload['middleName'] ?? $officerPayload['middle_name'] ?? null,
+                        'lastName' => $officerPayload['lastName'] ?? $officerPayload['last_name'] ?? null,
+                        'email' => $officerPayload['email'] ?? $officerPayload['email'] ?? null,
+                        'phone' => $officerPayload['phone'] ?? $officerPayload['phone'] ?? null,
+                        'specialization' => $officerPayload['specialization'] ?? $officerPayload['specialization'] ?? null,
+                        'organization' => $officerPayload['organization'] ?? $officerPayload['organization'] ?? null,
+                        'countryId' => $officerPayload['countryId'] ?? $officerPayload['country_id'] ?? null,
+                        'regionId' => $officerPayload['regionId'] ?? $officerPayload['region_id'] ?? null,
+                        'districtId' => $officerPayload['districtId'] ?? $officerPayload['district_id'] ?? null,
+                        'wardId' => $officerPayload['wardId'] ?? $officerPayload['ward_id'] ?? null,
+                        'isVerified' => isset($officerPayload['isVerified']) ? (bool) $officerPayload['isVerified'] : (isset($officerPayload['is_verified']) ? (bool) $officerPayload['is_verified'] : null),
+                    ];
+
+                    if ($extensionOfficer) {
+                        // Update existing officer with incoming data (only non-null fields)
+                        $extensionOfficer->fill(array_filter($officerData, function ($v) {
+                            return $v !== null;
+                        }));
+                        $extensionOfficer->save();
+                    } else {
+                        // Create new officer record if email provided
+                        if (! empty($officerData['email'])) {
+                            $extensionOfficer = ExtensionOfficer::create(array_filter($officerData, function ($v) {
+                                return $v !== null;
+                            }));
                         }
                     }
                 }
+
+                // Determine extensionOfficerId for invite upsert
+                $extensionOfficerId = $extensionOfficer ? $extensionOfficer->id : ($item['extensionOfficerId'] ?? $item['officerId'] ?? $item['extension_officer_id'] ?? null);
+
+                // Determine access code and inviteId
+                $accessCode = $item['access_code'] ?? $item['accessCode'] ?? null;
+                $inviteId = $item['inviteId'] ?? $item['id'] ?? null;
+
+                // Find existing invite by priority: inviteId, access_code+farmer, extensionOfficerId+farmer
+                $invite = null;
+                if ($inviteId) {
+                    $invite = ExtensionOfficerFarmInvite::where('id', $inviteId)->where('farmerId', $farmerId)->first();
+                }
+                if (! $invite && $accessCode) {
+                    $invite = ExtensionOfficerFarmInvite::where('access_code', $accessCode)->where('farmerId', $farmerId)->first();
+                }
+                if (! $invite && $extensionOfficerId) {
+                    $invite = ExtensionOfficerFarmInvite::where('extensionOfficerId', $extensionOfficerId)->where('farmerId', $farmerId)->first();
+                }
+
+                if ($invite) {
+                    // Update invite fields if necessary
+                    $dirty = false;
+                    if ($extensionOfficerId && $invite->extensionOfficerId !== $extensionOfficerId) {
+                        $invite->extensionOfficerId = $extensionOfficerId;
+                        $dirty = true;
+                    }
+                    if ($accessCode && $invite->access_code !== $accessCode) {
+                        $invite->access_code = $accessCode;
+                        $dirty = true;
+                    }
+                    if ($dirty) {
+                        $invite->save();
+                    }
+                } else {
+                    // Create new invite
+                    $invite = ExtensionOfficerFarmInvite::create([
+                        'extensionOfficerId' => $extensionOfficerId,
+                        'farmerId' => $farmerId,
+                        'access_code' => $accessCode ?? '',
+                    ]);
+                }
+
+                // Acknowledge synced invite id for client to mark as synced
+                if ($invite && $invite->id) {
+                    $syncedIds[] = $invite->id;
+                }
             } catch (\Exception $e) {
-                Log::error("Error syncing invite item: " . $e->getMessage());
+                Log::error('Error syncing invite item: '.$e->getMessage());
             }
         }
 

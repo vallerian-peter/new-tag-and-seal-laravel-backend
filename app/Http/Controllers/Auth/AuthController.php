@@ -8,9 +8,13 @@ use App\Models\User;
 use App\Models\Farmer;
 use App\Models\SystemUser;
 use App\Models\FarmUser;
+use App\Models\ExtensionOfficer;
+use App\Models\ExtensionOfficerFarmInvite;
+use App\Models\OtpVerification;
 use App\Enums\UserRole;
 use App\Enums\UserStatus;
 use App\Services\SmsService;
+use App\Services\BrevoEmailService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
@@ -21,16 +25,19 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
 use App\Traits\ConvertsDateFormat;
+use Carbon\Carbon;
 
 class AuthController extends Controller
 {
     use ConvertsDateFormat;
 
     private SmsService $smsService;
+    private BrevoEmailService $brevoEmailService;
 
     public function __construct()
     {
         $this->smsService = new SmsService();
+        $this->brevoEmailService = new BrevoEmailService();
     }
 
     /**
@@ -377,6 +384,184 @@ class AuthController extends Controller
     }
 
     /**
+     * Extension Officer login using three fields: email, access_code, password.
+     * Validates invite existence and officer password, then issues Sanctum token
+     * via a standard User record (role=extensionOfficer, roleId=extension_officers.id).
+     */
+    public function extensionOfficerLogin(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email',
+            'access_code' => 'required|string',
+            'password' => 'required|string',
+            'deviceName' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        try {
+            $email = $request->input('email');
+            $accessCode = $request->input('access_code');
+            $plainPassword = $request->input('password');
+
+            // 1) Find Extension Officer by email
+            $officer = ExtensionOfficer::where('email', $email)->first();
+            if (! $officer) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Extension officer not found',
+                ], 404);
+            }
+
+            // 2) Validate invite existence by officer + access_code
+            $invite = ExtensionOfficerFarmInvite::where('extensionOfficerId', $officer->id)
+                ->where('access_code', $accessCode)
+                ->first();
+            if (! $invite) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Invite not found or you have been removed by the farmer',
+                ], 401);
+            }
+
+            // 3) Check password (support both hashed and legacy plaintext, then migrate to hashed)
+            $passwordMatches = false;
+            $stored = (string) ($officer->password ?? '');
+            
+            if (!empty($stored)) {
+                // First check if the stored password is already hashed
+                if (preg_match('/^\$2[ayb]\$.{56}$/', $stored)) {
+                    // Password is already hashed, use Hash::check
+                    $passwordMatches = Hash::check($plainPassword, $stored);
+                } else {
+                    // Password is plaintext, compare directly
+                    $passwordMatches = hash_equals($stored, $plainPassword);
+                    
+                    // If password matches, update to hashed version
+                    if ($passwordMatches) {
+                        $officer->password = Hash::make($plainPassword);
+                        $officer->save();
+                        Log::info("🔑 Migrated extension officer #{$officer->id} password to hashed");
+                    }
+                }
+            }
+
+            if (! $passwordMatches) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'The email or password is not correct'
+                ], 401);
+            }
+
+            // 4) Find or create a corresponding User record for Sanctum token issuance
+            $user = User::where('role', UserRole::EXTENSION_OFFICER)
+                ->where('roleId', $officer->id)
+                ->first();
+
+            if (! $user) {
+                // Derive a username from email prefix
+                $username = strstr($email, '@', true) ?: (string) Str::uuid();
+                // Ensure uniqueness of username
+                $baseUsername = $username;
+                $i = 1;
+                while (User::where('username', $username)->exists()) {
+                    $username = $baseUsername . $i;
+                    $i++;
+                    if ($i > 1000) { // safety
+                        $username = (string) Str::uuid();
+                        break;
+                    }
+                }
+
+                $user = User::create([
+                    'username' => $username,
+                    'email' => $email,
+                    'password' => Hash::make($plainPassword),
+                    'role' => UserRole::EXTENSION_OFFICER,
+                    'roleId' => $officer->id,
+                    'status' => UserStatus::ACTIVE,
+                ]);
+            }
+
+            // 5) Issue Sanctum token
+            $deviceName = $request->deviceName ?? $request->header('User-Agent') ?? 'unknown';
+            $token = $user->createToken($deviceName)->plainTextToken;
+
+            // 6) Build response payloads
+            $userPayload = [
+                'id' => $user->id,
+                'username' => $user->username,
+                'email' => $user->email,
+                'role' => $user->role,
+                'roleId' => $user->roleId,
+                'firstname' => $officer->firstName ?? '',
+                'surname' => $officer->lastName ?? '',
+                'phone1' => $officer->phone ?? '',
+                'physicalAddress' => $officer->address ?? '',
+                'dateOfBirth' => '',
+                'gender' => $officer->gender ?? '',
+            ];
+
+            $profilePayload = [
+                'id' => $officer->id,
+                'firstName' => $officer->firstName,
+                'middleName' => $officer->middleName,
+                'lastName' => $officer->lastName,
+                'email' => $officer->email,
+                'phone' => $officer->phone,
+                'gender' => $officer->gender,
+                'licenseNumber' => $officer->licenseNumber,
+                'address' => $officer->address,
+                'countryId' => $officer->countryId,
+                'regionId' => $officer->regionId,
+                'districtId' => $officer->districtId,
+                'wardId' => $officer->wardId,
+                'organization' => $officer->organization,
+                'isVerified' => (bool) $officer->isVerified,
+                'specialization' => $officer->specialization,
+                'created_at' => optional($officer->created_at)->toDateTimeString(),
+                'updated_at' => optional($officer->updated_at)->toDateTimeString(),
+            ];
+
+            $invitePayload = [
+                'id' => $invite->id,
+                'inviteId' => $invite->id,
+                'access_code' => $invite->access_code,
+                'extensionOfficerId' => $invite->extensionOfficerId,
+                'farmerId' => $invite->farmerId,
+                'created_at' => optional($invite->created_at)->toDateTimeString(),
+                'updated_at' => optional($invite->updated_at)->toDateTimeString(),
+            ];
+
+            Log::info("✅ Extension officer login successful: {$email}, OfficerID={$officer->id}");
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Login successful',
+                'data' => [
+                    'user' => $userPayload,
+                    'profile' => $profilePayload,
+                    'invite' => $invitePayload,
+                    'accessToken' => $token,
+                    'tokenType' => 'Bearer',
+                ],
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('❌ Extension officer login error: ' . $e->getMessage());
+            return response()->json([
+                'status' => false,
+                'message' => 'Login failed: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Logout user (revoke current token).
      */
     public function logout(Request $request): JsonResponse
@@ -469,6 +654,355 @@ class AuthController extends Controller
             'status' => true,
             'message' => 'Password changed successfully'
         ], 200);
+    }
+
+    /**
+     * Send OTP for password reset via SMS.
+     * Accepts either email or phone.
+     */
+    public function sendOtp(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required_without:phone|email|nullable',
+            'phone' => 'required_without:email|string|nullable',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $email = $request->email;
+            $phone = $request->phone;
+
+            // Find user by email or phone across all role tables
+            $userProfile = null;
+            $userRole = null;
+            $contactMethod = null;
+
+            if ($email) {
+                // Check Farmer
+                $farmer = Farmer::where('email', $email)->first();
+                if ($farmer) {
+                    $userProfile = $farmer;
+                    $userRole = UserRole::FARMER;
+                    $contactMethod = $farmer->phone1;
+                }
+
+                // Check FarmUser
+                if (!$userProfile) {
+                    $farmUser = FarmUser::where('email', $email)->first();
+                    if ($farmUser) {
+                        $userProfile = $farmUser;
+                        $userRole = UserRole::FARM_INVITED_USER;
+                        $contactMethod = $farmUser->phone;
+                    }
+                }
+
+                // Check ExtensionOfficer
+                if (!$userProfile) {
+                    $extensionOfficer = ExtensionOfficer::where('email', $email)->first();
+                    if ($extensionOfficer) {
+                        $userProfile = $extensionOfficer;
+                        $userRole = UserRole::EXTENSION_OFFICER;
+                        $contactMethod = $extensionOfficer->phone;
+                    }
+                }
+            } elseif ($phone) {
+                // Check Farmer by phone
+                $farmer = Farmer::where('phone1', $phone)->orWhere('phone2', $phone)->first();
+                if ($farmer) {
+                    $userProfile = $farmer;
+                    $userRole = UserRole::FARMER;
+                    $contactMethod = $phone;
+                }
+
+                // Check FarmUser by phone
+                if (!$userProfile) {
+                    $farmUser = FarmUser::where('phone', $phone)->first();
+                    if ($farmUser) {
+                        $userProfile = $farmUser;
+                        $userRole = UserRole::FARM_INVITED_USER;
+                        $contactMethod = $phone;
+                    }
+                }
+
+                // Check ExtensionOfficer by phone
+                if (!$userProfile) {
+                    $extensionOfficer = ExtensionOfficer::where('phone', $phone)->first();
+                    if ($extensionOfficer) {
+                        $userProfile = $extensionOfficer;
+                        $userRole = UserRole::EXTENSION_OFFICER;
+                        $contactMethod = $phone;
+                    }
+                }
+            }
+
+            if (!$userProfile) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'No account found with the provided email or phone number.'
+                ], 404);
+            }
+
+            // Generate OTP
+            $otp = OtpVerification::generateOtp();
+            $expiresAt = Carbon::now()->addMinutes(10);
+
+            // Update existing OTP or create new one
+            if ($email) {
+                OtpVerification::updateOrCreate(
+                    ['email' => $email],
+                    [
+                        'otp' => $otp,
+                        'expires_at' => $expiresAt,
+                        'verified' => false,
+                        'phone' => null,
+                    ]
+                );
+            } elseif ($phone) {
+                OtpVerification::updateOrCreate(
+                    ['phone' => $phone],
+                    [
+                        'otp' => $otp,
+                        'expires_at' => $expiresAt,
+                        'verified' => false,
+                        'email' => null,
+                    ]
+                );
+            }
+
+            // Send OTP via Email or SMS
+            $userName = $userProfile->firstName ?? 'User';
+            
+            if ($email) {
+                // Send OTP via Email using Brevo
+                $subject = 'Password Reset OTP - Tag & Seal';
+                $htmlContent = "
+                    <html>
+                    <body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333;'>
+                        <div style='max-width: 600px; margin: 0 auto; padding: 20px;'>
+                            <h2 style='color: #2c3e50;'>Password Reset Request</h2>
+                            <p>Hello <strong>{$userName}</strong>,</p>
+                            <p>You have requested to reset your password. Please use the following OTP code:</p>
+                            <div style='background-color: #f8f9fa; border-left: 4px solid #007bff; padding: 15px; margin: 20px 0;'>
+                                <h1 style='margin: 0; color: #007bff; font-size: 32px; letter-spacing: 5px;'>{$otp}</h1>
+                            </div>
+                            <p><strong>Important:</strong></p>
+                            <ul>
+                                <li>This code will expire in <strong>10 minutes</strong></li>
+                                <li>Do not share this code with anyone</li>
+                                <li>If you didn't request this, please ignore this email</li>
+                            </ul>
+                            <hr style='border: none; border-top: 1px solid #eee; margin: 30px 0;'>
+                            <p style='color: #666; font-size: 12px;'>This is an automated message from Tag & Seal Livestock Management System.</p>
+                        </div>
+                    </body>
+                    </html>
+                ";
+                $textContent = "Hello {$userName}, your password reset OTP is: {$otp}. This code will expire in 10 minutes. Do not share this code with anyone.";
+                
+                $emailSent = $this->brevoEmailService->sendTransactionalEmail(
+                    $email,
+                    $userName,
+                    $subject,
+                    $htmlContent,
+                    $textContent
+                );
+                
+                if (!$emailSent) {
+                    Log::warning("Failed to send OTP email to {$email}");
+                }
+            } elseif ($phone && $contactMethod) {
+                // Send OTP via SMS
+                $message = "Hello {$userName}, your password reset OTP is: {$otp}. This code will expire in 10 minutes. Do not share this code with anyone.";
+                
+                $smsSent = $this->smsService->sendSms($message, [$contactMethod]);
+                
+                if (!$smsSent) {
+                    Log::warning("Failed to send OTP SMS to {$contactMethod}");
+                } else {
+                    Log::info("OTP SMS sent successfully to {$contactMethod}");
+                }
+            }
+
+            Log::info("OTP sent successfully for " . ($email ?? $phone));
+
+            return response()->json([
+                'status' => true,
+                'message' => 'OTP sent successfully to your registered phone number.',
+                'data' => [
+                    'expiresAt' => $expiresAt->toDateTimeString(),
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Send OTP error: ' . $e->getMessage());
+            return response()->json([
+                'status' => false,
+                'message' => 'Failed to send OTP: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Verify OTP and reset password.
+     * Accepts email/phone, OTP, and new password.
+     */
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required_without:phone|email|nullable',
+            'phone' => 'required_without:email|string|nullable',
+            'otp' => 'required|string|size:6',
+            'newPassword' => 'required|string|min:8',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $email = $request->email;
+            $phone = $request->phone;
+            $otp = $request->otp;
+            $newPassword = $request->newPassword;
+
+            // Find OTP verification record
+            $otpRecord = null;
+            if ($email) {
+                $otpRecord = OtpVerification::where('email', $email)
+                    ->where('otp', $otp)
+                    ->where('verified', false)
+                    ->first();
+            } elseif ($phone) {
+                $otpRecord = OtpVerification::where('phone', $phone)
+                    ->where('otp', $otp)
+                    ->where('verified', false)
+                    ->first();
+            }
+
+            if (!$otpRecord) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Invalid OTP or OTP has already been used.'
+                ], 401);
+            }
+
+            // Check if OTP is expired
+            if ($otpRecord->isExpired()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'OTP has expired. Please request a new one.'
+                ], 401);
+            }
+
+            // Find user profile and update password
+            $userProfile = null;
+            $userRole = null;
+
+            if ($email) {
+                // Check Farmer
+                $farmer = Farmer::where('email', $email)->first();
+                if ($farmer) {
+                    $userProfile = $farmer;
+                    $userRole = UserRole::FARMER;
+                }
+
+                // Check FarmUser
+                if (!$userProfile) {
+                    $farmUser = FarmUser::where('email', $email)->first();
+                    if ($farmUser) {
+                        $userProfile = $farmUser;
+                        $userRole = UserRole::FARM_INVITED_USER;
+                    }
+                }
+
+                // Check ExtensionOfficer
+                if (!$userProfile) {
+                    $extensionOfficer = ExtensionOfficer::where('email', $email)->first();
+                    if ($extensionOfficer) {
+                        $userProfile = $extensionOfficer;
+                        $userRole = UserRole::EXTENSION_OFFICER;
+                    }
+                }
+            } elseif ($phone) {
+                // Check Farmer by phone
+                $farmer = Farmer::where('phone1', $phone)->orWhere('phone2', $phone)->first();
+                if ($farmer) {
+                    $userProfile = $farmer;
+                    $userRole = UserRole::FARMER;
+                }
+
+                // Check FarmUser by phone
+                if (!$userProfile) {
+                    $farmUser = FarmUser::where('phone', $phone)->first();
+                    if ($farmUser) {
+                        $userProfile = $farmUser;
+                        $userRole = UserRole::FARM_INVITED_USER;
+                    }
+                }
+
+                // Check ExtensionOfficer by phone
+                if (!$userProfile) {
+                    $extensionOfficer = ExtensionOfficer::where('phone', $phone)->first();
+                    if ($extensionOfficer) {
+                        $userProfile = $extensionOfficer;
+                        $userRole = UserRole::EXTENSION_OFFICER;
+                    }
+                }
+            }
+
+            if (!$userProfile) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'User account not found.'
+                ], 404);
+            }
+
+            // Update password in profile table (for ExtensionOfficer)
+            if ($userRole === UserRole::EXTENSION_OFFICER && $userProfile instanceof ExtensionOfficer) {
+                $userProfile->update([
+                    'password' => Hash::make($newPassword)
+                ]);
+            }
+
+            // Update password in users table
+            $user = User::where('role', $userRole)
+                ->where('roleId', $userProfile->id)
+                ->first();
+
+            if ($user) {
+                $user->update([
+                    'password' => Hash::make($newPassword)
+                ]);
+            }
+
+            // Mark OTP as verified
+            $otpRecord->markAsVerified();
+
+            Log::info("Password reset successfully for " . ($email ?? $phone));
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Password reset successfully. You can now login with your new password.'
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Reset password error: ' . $e->getMessage());
+            return response()->json([
+                'status' => false,
+                'message' => 'Failed to reset password: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**

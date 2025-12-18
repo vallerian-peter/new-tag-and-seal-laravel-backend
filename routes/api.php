@@ -1,22 +1,20 @@
 <?php
 
 use App\Enums\UserRole;
+use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\BirthProblem\BirthProblemController;
+use App\Http\Controllers\BirthType\BirthTypeController;
+use App\Http\Controllers\CalvingProblem\CalvingProblemController;
+use App\Http\Controllers\CalvingType\CalvingTypeController;
+use App\Http\Controllers\ExtensionOfficerFarmInvite\ExtensionOfficerFarmInviteController;
+use App\Http\Controllers\Logs\AbortedPregnancy\AbortedPregnancyController;
+use App\Http\Controllers\Logs\Birth\BirthEventController;
+use App\Http\Controllers\ReproductiveProblem\ReproductiveProblemController;
+use App\Http\Controllers\Stage\StageController;
+use App\Http\Controllers\Sync\SyncController;
+use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\Auth\AuthController;
-use App\Http\Controllers\Sync\SyncController;
-use App\Http\Controllers\Location\LocationController;
-use App\Http\Controllers\ExtensionOfficerFarmInvite\ExtensionOfficerFarmInviteController;
-use App\Http\Controllers\Stage\StageController;
-use App\Http\Controllers\BirthType\BirthTypeController;
-use App\Http\Controllers\BirthProblem\BirthProblemController;
-use App\Http\Controllers\ReproductiveProblem\ReproductiveProblemController;
-use App\Http\Controllers\CalvingType\CalvingTypeController;
-use App\Http\Controllers\CalvingProblem\CalvingProblemController;
-use App\Http\Controllers\Logs\Birth\BirthEventController;
-use App\Http\Controllers\Logs\AbortedPregnancy\AbortedPregnancyController;
-
 
 /*
 |--------------------------------------------------------------------------
@@ -42,6 +40,11 @@ use App\Http\Controllers\Logs\AbortedPregnancy\AbortedPregnancyController;
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/extension-officer/login', [AuthController::class, 'extensionOfficerLogin']);
+    
+    // Forgot Password Routes
+    Route::post('/forgot-password/send-otp', [AuthController::class, 'sendOtp']);
+    Route::post('/forgot-password/reset-password', [AuthController::class, 'resetPassword']);
 });
 
 /*
@@ -60,7 +63,6 @@ Route::prefix('v1')->group(function () {
     });
 
 });
-
 
 /*
 |--------------------------------------------------------------------------
@@ -97,7 +99,7 @@ Route::middleware('auth:sanctum')->group(function () {
             return response()->json([
                 'status' => true,
                 'message' => 'User retrieved successfully',
-                'data' => $request->user()
+                'data' => $request->user(),
             ]);
         });
 
@@ -105,7 +107,7 @@ Route::middleware('auth:sanctum')->group(function () {
         | User Management Routes (System User Only)
         |--------------------------------------------------------------------------
         */
-        Route::prefix('users')->middleware('check.role:' . UserRole::SYSTEM_USER)->group(function () {
+        Route::prefix('users')->middleware('check.role:'.UserRole::SYSTEM_USER)->group(function () {
             Route::get('/', [UserController::class, 'index']);
             Route::post('/', [UserController::class, 'store']);
             Route::get('/statistics', [UserController::class, 'statistics']);
@@ -134,7 +136,7 @@ Route::middleware('auth:sanctum')->group(function () {
         */
 
         // Farmer Routes
-        Route::prefix('farmers')->middleware('check.role:' . UserRole::FARMER . ',' . UserRole::SYSTEM_USER)->group(function () {
+        Route::prefix('farmers')->middleware('check.role:'.UserRole::FARMER.','.UserRole::SYSTEM_USER)->group(function () {
             // Extension Officer Farm Invite Routes
             Route::prefix('extension-officer-invites')->group(function () {
                 Route::get('/search', [ExtensionOfficerFarmInviteController::class, 'searchByEmail']);
@@ -143,12 +145,12 @@ Route::middleware('auth:sanctum')->group(function () {
         });
 
         // Extension Officer Routes
-        Route::prefix('extension-officers')->middleware('check.role:' . UserRole::EXTENSION_OFFICER . ',' . UserRole::SYSTEM_USER)->group(function () {
+        Route::prefix('extension-officers')->middleware('check.role:'.UserRole::EXTENSION_OFFICER.','.UserRole::SYSTEM_USER)->group(function () {
             // Extension officer-specific routes can be added here
         });
 
         // Veterinarian Routes
-        Route::prefix('vets')->middleware('check.role:' . UserRole::VET . ',' . UserRole::SYSTEM_USER)->group(function () {
+        Route::prefix('vets')->middleware('check.role:'.UserRole::VET.','.UserRole::SYSTEM_USER)->group(function () {
             // Vet-specific routes can be added here
         });
 
