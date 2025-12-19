@@ -39,7 +39,7 @@ class BrevoEmailService
     {
         $this->apiKey = config('services.brevo.api_key', env('BREVO_API_KEY', ''));
         $this->senderName = config('services.brevo.sender_name', env('BREVO_SENDER_NAME', 'Livestock - Tag and Seal'));
-        $this->senderEmail = config('services.brevo.sender_email', env('BREVO_SENDER_EMAIL', 'vallerianmchau123456@gmail.com'));
+        $this->senderEmail = config('services.brevo.sender_email', env('BREVO_SENDER_EMAIL', ''));
     }
 
     /**
