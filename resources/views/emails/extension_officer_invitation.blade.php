@@ -44,14 +44,12 @@
                                     {{ $extensionOfficer->email }}
                                 </td>
                             </tr>
-                            @if($extensionOfficer->password)
                             <tr>
                                 <td style="padding: 4px 8px; color: #555555;">Password:</td>
                                 <td style="padding: 4px 8px; font-weight: 600; color: #111111;">
-                                    {{ $extensionOfficer->password }}
+                                    password
                                 </td>
                             </tr>
-                            @endif
                         </table>
 
                         <div style="background-color: #e3f2fd; padding: 16px; border-radius: 8px; margin: 16px 0;">

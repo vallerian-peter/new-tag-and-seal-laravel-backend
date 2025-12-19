@@ -410,8 +410,25 @@ class AuthController extends Controller
             $accessCode = $request->input('access_code');
             $plainPassword = $request->input('password');
 
-            // 1) Find Extension Officer by email
-            $officer = ExtensionOfficer::where('email', $email)->first();
+            // 1) First, find the invite by email and access_code
+            // Join with extension_officers table to validate email + access_code combination
+            $invite = ExtensionOfficerFarmInvite::whereHas('extensionOfficer', function ($query) use ($email) {
+                $query->where('email', $email);
+            })
+            ->where('access_code', $accessCode)
+            ->with('extensionOfficer')
+            ->first();
+
+            if (! $invite) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Invalid email or access code. Please check your credentials.',
+                ], 401);
+            }
+
+            // 2) Get the Extension Officer from the invite
+            $officer = $invite->extensionOfficer;
+            
             if (! $officer) {
                 return response()->json([
                     'status' => false,
@@ -419,18 +436,7 @@ class AuthController extends Controller
                 ], 404);
             }
 
-            // 2) Validate invite existence by officer + access_code
-            $invite = ExtensionOfficerFarmInvite::where('extensionOfficerId', $officer->id)
-                ->where('access_code', $accessCode)
-                ->first();
-            if (! $invite) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Invite not found or you have been removed by the farmer',
-                ], 401);
-            }
-
-            // 3) Check password (support both hashed and legacy plaintext, then migrate to hashed)
+            // 3) Validate password using Hash::check() (support both hashed and legacy plaintext)
             $passwordMatches = false;
             $stored = (string) ($officer->password ?? '');
             
@@ -459,21 +465,20 @@ class AuthController extends Controller
                 ], 401);
             }
 
-            // 4) Find or create a corresponding User record for Sanctum token issuance
+            // 4) Find or create User record for Sanctum token issuance
             $user = User::where('role', UserRole::EXTENSION_OFFICER)
                 ->where('roleId', $officer->id)
                 ->first();
 
             if (! $user) {
-                // Derive a username from email prefix
+                // Auto-create User account for Extension Officer
                 $username = strstr($email, '@', true) ?: (string) Str::uuid();
-                // Ensure uniqueness of username
                 $baseUsername = $username;
                 $i = 1;
                 while (User::where('username', $username)->exists()) {
                     $username = $baseUsername . $i;
                     $i++;
-                    if ($i > 1000) { // safety
+                    if ($i > 1000) {
                         $username = (string) Str::uuid();
                         break;
                     }
@@ -487,6 +492,17 @@ class AuthController extends Controller
                     'roleId' => $officer->id,
                     'status' => UserStatus::ACTIVE,
                 ]);
+                
+                Log::info("✅ Auto-created User account for extension officer: {$email}, User ID: {$user->id}");
+            }
+
+            // Verify user account is active
+            if ($user->status !== UserStatus::ACTIVE) {
+                Log::warning("❌ Extension officer user account is not active: {$email}, User ID: {$user->id}");
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Your account has been deactivated. Please contact support.',
+                ], 403);
             }
 
             // 5) Issue Sanctum token

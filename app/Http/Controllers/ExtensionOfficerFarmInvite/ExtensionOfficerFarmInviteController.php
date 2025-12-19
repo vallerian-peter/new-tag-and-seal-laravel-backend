@@ -259,9 +259,7 @@ class ExtensionOfficerFarmInviteController extends Controller
             $message .= "Access Code: {$accessCode}\n\n";
             $message .= "Login Credentials:\n";
             $message .= "Email: {$extensionOfficer->email}\n";
-            if ($extensionOfficer->password) {
-                $message .= "Password: {$extensionOfficer->password}\n\n";
-            }
+            $message .= "Password: password\n\n";
             $message .= "Farm Owner Contact:\n";
             if ($farmer->phone1) {
                 $message .= "Phone: {$farmer->phone1}\n";
