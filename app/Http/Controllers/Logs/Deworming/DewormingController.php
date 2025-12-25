@@ -8,6 +8,7 @@ use App\Traits\ConvertsDateFormat;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Controller;
 
 class DewormingController extends Controller
@@ -229,6 +230,124 @@ class DewormingController extends Controller
         Log::info('Total dewormings synced: ' . count($syncedDewormings));
 
         return $syncedDewormings;
+    }
+
+    // ============================================================================
+    // Admin CRUD Methods (SystemUser-only)
+    // ============================================================================
+
+    public function adminIndex(): JsonResponse
+    {
+        $dewormings = Deworming::with(['livestock', 'farm', 'administrationRoute', 'medicine', 'vet', 'extensionOfficer'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Dewormings retrieved successfully',
+            'data' => $dewormings,
+        ], 200);
+    }
+
+    public function adminStore(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid' => 'required|string|unique:dewormings,uuid',
+            'farmUuid' => 'required|string|exists:farms,uuid',
+            'livestockUuid' => 'required|string|exists:livestock,uuid',
+            'administrationRouteId' => 'nullable|integer|exists:administration_routes,id',
+            'medicineId' => 'nullable|integer|exists:medicines,id',
+            'vetId' => 'nullable|string',
+            'extensionOfficerId' => 'nullable|string',
+            'quantity' => 'nullable|string|max:255',
+            'dose' => 'nullable|string|max:255',
+            'nextAdministrationDate' => 'nullable|date',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $data = $request->all();
+        if ($request->has('nextAdministrationDate')) {
+            $data['nextAdministrationDate'] = $this->convertDateFormat($request->nextAdministrationDate);
+        }
+
+        $deworming = Deworming::create($data);
+
+        $deworming->load(['livestock', 'farm', 'administrationRoute', 'medicine', 'vet', 'extensionOfficer']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Deworming created successfully',
+            'data' => $deworming,
+        ], 201);
+    }
+
+    public function adminShow(Deworming $deworming): JsonResponse
+    {
+        $deworming->load(['livestock', 'farm', 'administrationRoute', 'medicine', 'vet', 'extensionOfficer']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Deworming retrieved successfully',
+            'data' => $deworming,
+        ], 200);
+    }
+
+    public function adminUpdate(Request $request, Deworming $deworming): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid' => 'sometimes|required|string|unique:dewormings,uuid,' . $deworming->id,
+            'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
+            'livestockUuid' => 'sometimes|required|string|exists:livestock,uuid',
+            'administrationRouteId' => 'sometimes|nullable|integer|exists:administration_routes,id',
+            'medicineId' => 'sometimes|nullable|integer|exists:medicines,id',
+            'vetId' => 'sometimes|nullable|string',
+            'extensionOfficerId' => 'sometimes|nullable|string',
+            'quantity' => 'sometimes|nullable|string|max:255',
+            'dose' => 'sometimes|nullable|string|max:255',
+            'nextAdministrationDate' => 'sometimes|nullable|date',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $data = $request->except(['nextAdministrationDate']);
+        
+        if ($request->has('nextAdministrationDate')) {
+            $data['nextAdministrationDate'] = $this->convertDateFormat($request->nextAdministrationDate);
+        }
+
+        $deworming->fill($data);
+        $deworming->save();
+
+        $deworming->load(['livestock', 'farm', 'administrationRoute', 'medicine', 'vet', 'extensionOfficer']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Deworming updated successfully',
+            'data' => $deworming,
+        ], 200);
+    }
+
+    public function adminDestroy(Deworming $deworming): JsonResponse
+    {
+        $deworming->delete();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Deworming deleted successfully',
+        ], 200);
     }
 }
 

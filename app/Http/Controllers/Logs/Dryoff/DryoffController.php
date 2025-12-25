@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class DryoffController extends Controller
 {
@@ -184,6 +185,122 @@ class DryoffController extends Controller
             'remarks' => $sanitize($payload['remarks'] ?? null),
             'updated_at' => $timestamps['updatedAt']->format('Y-m-d H:i:s'),
         ];
+    }
+
+    // ============================================================================
+    // Admin CRUD Methods (SystemUser-only)
+    // ============================================================================
+
+    public function adminIndex(): JsonResponse
+    {
+        $dryoffs = Dryoff::with(['livestock', 'farm'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Dryoffs retrieved successfully',
+            'data' => $dryoffs,
+        ], 200);
+    }
+
+    public function adminStore(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid' => 'required|string|unique:dryoffs,uuid',
+            'farmUuid' => 'required|string|exists:farms,uuid',
+            'livestockUuid' => 'required|string|exists:livestock,uuid',
+            'startDate' => 'required|date',
+            'endDate' => 'nullable|date',
+            'reason' => 'nullable|string',
+            'remarks' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $data = $request->all();
+        $data['startDate'] = $this->convertDateFormat($request->startDate);
+        if ($request->has('endDate')) {
+            $data['endDate'] = $this->convertDateFormat($request->endDate);
+        }
+
+        $dryoff = Dryoff::create($data);
+
+        $dryoff->load(['livestock', 'farm']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Dryoff created successfully',
+            'data' => $dryoff,
+        ], 201);
+    }
+
+    public function adminShow(Dryoff $dryoff): JsonResponse
+    {
+        $dryoff->load(['livestock', 'farm']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Dryoff retrieved successfully',
+            'data' => $dryoff,
+        ], 200);
+    }
+
+    public function adminUpdate(Request $request, Dryoff $dryoff): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid' => 'sometimes|required|string|unique:dryoffs,uuid,' . $dryoff->id,
+            'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
+            'livestockUuid' => 'sometimes|required|string|exists:livestock,uuid',
+            'startDate' => 'sometimes|required|date',
+            'endDate' => 'sometimes|nullable|date',
+            'reason' => 'sometimes|nullable|string',
+            'remarks' => 'sometimes|nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $data = $request->except(['startDate', 'endDate']);
+
+        if ($request->has('startDate')) {
+            $data['startDate'] = $this->convertDateFormat($request->startDate);
+        }
+        if ($request->has('endDate')) {
+            $data['endDate'] = $request->endDate ? $this->convertDateFormat($request->endDate) : null;
+        }
+
+        $dryoff->fill($data);
+        $dryoff->save();
+
+        $dryoff->load(['livestock', 'farm']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Dryoff updated successfully',
+            'data' => $dryoff,
+        ], 200);
+    }
+
+    public function adminDestroy(Dryoff $dryoff): JsonResponse
+    {
+        $dryoff->delete();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Dryoff deleted successfully',
+        ], 200);
     }
 }
 

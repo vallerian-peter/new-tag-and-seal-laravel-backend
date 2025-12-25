@@ -11,6 +11,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
 class BirthEventController extends Controller
@@ -278,6 +279,166 @@ class BirthEventController extends Controller
             'status' => $payload['status'] ?? 'active',
             'updated_at' => $timestamps['updatedAt']->format('Y-m-d H:i:s'),
         ];
+    }
+
+    // ============================================================================
+    // Admin CRUD Methods (SystemUser-only)
+    // ============================================================================
+
+    public function adminIndex(): JsonResponse
+    {
+        $birthEvents = BirthEvent::with([
+            'livestock',
+            'farm',
+            'birthType',
+            'birthProblem',
+            'reproductiveProblem',
+        ])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Birth events retrieved successfully',
+            'data' => $birthEvents,
+        ], 200);
+    }
+
+    public function adminStore(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid' => 'required|string|unique:birth_events,uuid',
+            'farmUuid' => 'required|string|exists:farms,uuid',
+            'livestockUuid' => 'required|string|exists:livestock,uuid',
+            'eventType' => 'nullable|string|in:calving,farrowing',
+            'startDate' => 'required|date',
+            'endDate' => 'nullable|date',
+            'birthTypeId' => 'nullable|integer|exists:birth_types,id',
+            'birthProblemsId' => 'nullable|integer|exists:birth_problems,id',
+            'reproductiveProblemId' => 'nullable|integer|exists:reproductive_problems,id',
+            'remarks' => 'nullable|string',
+            'status' => 'nullable|string|in:active,inactive',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        // Auto-determine eventType if not provided
+        if (!$request->has('eventType')) {
+            $livestock = Livestock::where('uuid', $request->livestockUuid)->first();
+            if ($livestock) {
+                $species = Specie::find($livestock->speciesId);
+                $eventType = $species && strtolower($species->name) === 'pig' ? 'farrowing' : 'calving';
+            } else {
+                $eventType = 'calving';
+            }
+        } else {
+            $eventType = $request->eventType;
+        }
+
+        $data = $request->all();
+        $data['eventType'] = $eventType;
+        $data['startDate'] = $this->convertDateFormat($request->startDate);
+        $data['endDate'] = $request->endDate ? $this->convertDateFormat($request->endDate) : null;
+
+        $birthEvent = BirthEvent::create($data);
+
+        $birthEvent->load([
+            'livestock',
+            'farm',
+            'birthType',
+            'birthProblem',
+            'reproductiveProblem',
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Birth event created successfully',
+            'data' => $birthEvent,
+        ], 201);
+    }
+
+    public function adminShow(BirthEvent $birthEvent): JsonResponse
+    {
+        $birthEvent->load([
+            'livestock',
+            'farm',
+            'birthType',
+            'birthProblem',
+            'reproductiveProblem',
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Birth event retrieved successfully',
+            'data' => $birthEvent,
+        ], 200);
+    }
+
+    public function adminUpdate(Request $request, BirthEvent $birthEvent): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid' => 'sometimes|required|string|unique:birth_events,uuid,' . $birthEvent->id,
+            'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
+            'livestockUuid' => 'sometimes|required|string|exists:livestock,uuid',
+            'eventType' => 'sometimes|nullable|string|in:calving,farrowing',
+            'startDate' => 'sometimes|required|date',
+            'endDate' => 'sometimes|nullable|date',
+            'birthTypeId' => 'sometimes|nullable|integer|exists:birth_types,id',
+            'birthProblemsId' => 'sometimes|nullable|integer|exists:birth_problems,id',
+            'reproductiveProblemId' => 'sometimes|nullable|integer|exists:reproductive_problems,id',
+            'remarks' => 'sometimes|nullable|string',
+            'status' => 'sometimes|nullable|string|in:active,inactive',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $data = $request->except(['startDate', 'endDate']);
+        
+        if ($request->has('startDate')) {
+            $data['startDate'] = $this->convertDateFormat($request->startDate);
+        }
+        if ($request->has('endDate')) {
+            $data['endDate'] = $request->endDate ? $this->convertDateFormat($request->endDate) : null;
+        }
+
+        $birthEvent->fill($data);
+        $birthEvent->save();
+
+        $birthEvent->load([
+            'livestock',
+            'farm',
+            'birthType',
+            'birthProblem',
+            'reproductiveProblem',
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Birth event updated successfully',
+            'data' => $birthEvent,
+        ], 200);
+    }
+
+    public function adminDestroy(BirthEvent $birthEvent): JsonResponse
+    {
+        $birthEvent->delete();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Birth event deleted successfully',
+        ], 200);
     }
 }
 

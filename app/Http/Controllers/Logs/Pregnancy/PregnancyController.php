@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class PregnancyController extends Controller
 {
@@ -184,6 +185,120 @@ class PregnancyController extends Controller
             'remarks' => $sanitize($payload['remarks'] ?? null),
             'updated_at' => $timestamps['updatedAt']->format('Y-m-d H:i:s'),
         ];
+    }
+
+    // ============================================================================
+    // Admin CRUD Methods (SystemUser-only)
+    // ============================================================================
+
+    public function adminIndex(): JsonResponse
+    {
+        $pregnancies = Pregnancy::with(['livestock', 'farm', 'testResult'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Pregnancies retrieved successfully',
+            'data' => $pregnancies,
+        ], 200);
+    }
+
+    public function adminStore(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid' => 'required|string|unique:pregnancies,uuid',
+            'farmUuid' => 'required|string|exists:farms,uuid',
+            'livestockUuid' => 'required|string|exists:livestock,uuid',
+            'testResultId' => 'nullable|integer|exists:test_results,id',
+            'noOfMonths' => 'nullable|integer',
+            'testDate' => 'nullable|date',
+            'status' => 'nullable|string|in:active,inactive',
+            'remarks' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $data = $request->all();
+        if ($request->has('testDate')) {
+            $data['testDate'] = $this->convertDateFormat($request->testDate);
+        }
+
+        $pregnancy = Pregnancy::create($data);
+
+        $pregnancy->load(['livestock', 'farm', 'testResult']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Pregnancy created successfully',
+            'data' => $pregnancy,
+        ], 201);
+    }
+
+    public function adminShow(Pregnancy $pregnancy): JsonResponse
+    {
+        $pregnancy->load(['livestock', 'farm', 'testResult']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Pregnancy retrieved successfully',
+            'data' => $pregnancy,
+        ], 200);
+    }
+
+    public function adminUpdate(Request $request, Pregnancy $pregnancy): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid' => 'sometimes|required|string|unique:pregnancies,uuid,' . $pregnancy->id,
+            'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
+            'livestockUuid' => 'sometimes|required|string|exists:livestock,uuid',
+            'testResultId' => 'sometimes|nullable|integer|exists:test_results,id',
+            'noOfMonths' => 'sometimes|nullable|integer',
+            'testDate' => 'sometimes|nullable|date',
+            'status' => 'sometimes|nullable|string|in:active,inactive',
+            'remarks' => 'sometimes|nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $data = $request->except(['testDate']);
+        
+        if ($request->has('testDate')) {
+            $data['testDate'] = $this->convertDateFormat($request->testDate);
+        }
+
+        $pregnancy->fill($data);
+        $pregnancy->save();
+
+        $pregnancy->load(['livestock', 'farm', 'testResult']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Pregnancy updated successfully',
+            'data' => $pregnancy,
+        ], 200);
+    }
+
+    public function adminDestroy(Pregnancy $pregnancy): JsonResponse
+    {
+        $pregnancy->delete();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Pregnancy deleted successfully',
+        ], 200);
     }
 }
 

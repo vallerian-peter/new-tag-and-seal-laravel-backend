@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\MedicineType;
 
 class Medicines extends Model
 {
@@ -15,6 +16,6 @@ class Medicines extends Model
 
     public function medicineType()
     {
-        return $this->belongsTo(MedicineTypes::class, 'medicineTypeId', 'id');
+        return $this->belongsTo(MedicineType::class, 'medicineTypeId', 'id');
     }
 }

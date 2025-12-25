@@ -6,6 +6,7 @@ use App\Models\Farm;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Controller;
 
 class FarmController extends Controller
@@ -425,5 +426,126 @@ class FarmController extends Controller
         Log::info("Total farms synced: " . count($syncedFarms));
 
         return $syncedFarms;
+    }
+
+    // ============================================================================
+    // Admin CRUD Methods (SystemUser-only)
+    // ============================================================================
+
+    public function adminIndex(): JsonResponse
+    {
+        $farms = Farm::with(['farmer', 'village', 'ward', 'district', 'region', 'country', 'legalStatus'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Farms retrieved successfully',
+            'data' => $farms,
+        ], 200);
+    }
+
+    public function adminStore(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'farmerId' => 'required|integer|exists:farmers,id',
+            'uuid' => 'required|string|unique:farms,uuid',
+            'referenceNo' => 'nullable|string|max:255',
+            'regionalRegNo' => 'nullable|string|max:255',
+            'name' => 'required|string|max:255',
+            'size' => 'nullable|string|max:255',
+            'sizeUnit' => 'nullable|string|max:255',
+            'latitudes' => 'nullable|string|max:255',
+            'longitudes' => 'nullable|string|max:255',
+            'physicalAddress' => 'nullable|string',
+            'villageId' => 'nullable|integer|exists:villages,id',
+            'wardId' => 'nullable|integer|exists:wards,id',
+            'districtId' => 'nullable|integer|exists:districts,id',
+            'regionId' => 'nullable|integer|exists:regions,id',
+            'countryId' => 'nullable|integer|exists:countries,id',
+            'legalStatusId' => 'nullable|integer|exists:legal_statuses,id',
+            'status' => 'nullable|string|in:active,not-active',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $farm = Farm::create($request->all());
+
+        $farm->load(['farmer', 'village', 'ward', 'district', 'region', 'country', 'legalStatus']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Farm created successfully',
+            'data' => $farm,
+        ], 201);
+    }
+
+    public function adminShow(Farm $farm): JsonResponse
+    {
+        $farm->load(['farmer', 'village', 'ward', 'district', 'region', 'country', 'legalStatus']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Farm retrieved successfully',
+            'data' => $farm,
+        ], 200);
+    }
+
+    public function adminUpdate(Request $request, Farm $farm): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'farmerId' => 'sometimes|required|integer|exists:farmers,id',
+            'uuid' => 'sometimes|required|string|unique:farms,uuid,' . $farm->id,
+            'referenceNo' => 'sometimes|nullable|string|max:255',
+            'regionalRegNo' => 'sometimes|nullable|string|max:255',
+            'name' => 'sometimes|required|string|max:255',
+            'size' => 'sometimes|nullable|string|max:255',
+            'sizeUnit' => 'sometimes|nullable|string|max:255',
+            'latitudes' => 'sometimes|nullable|string|max:255',
+            'longitudes' => 'sometimes|nullable|string|max:255',
+            'physicalAddress' => 'sometimes|nullable|string',
+            'villageId' => 'sometimes|nullable|integer|exists:villages,id',
+            'wardId' => 'sometimes|nullable|integer|exists:wards,id',
+            'districtId' => 'sometimes|nullable|integer|exists:districts,id',
+            'regionId' => 'sometimes|nullable|integer|exists:regions,id',
+            'countryId' => 'sometimes|nullable|integer|exists:countries,id',
+            'legalStatusId' => 'sometimes|nullable|integer|exists:legal_statuses,id',
+            'status' => 'sometimes|nullable|string|in:active,not-active',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $farm->fill($request->all());
+        $farm->save();
+
+        $farm->load(['farmer', 'village', 'ward', 'district', 'region', 'country', 'legalStatus']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Farm updated successfully',
+            'data' => $farm,
+        ], 200);
+    }
+
+    public function adminDestroy(Farm $farm): JsonResponse
+    {
+        $farm->delete();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Farm deleted successfully',
+        ], 200);
     }
 }

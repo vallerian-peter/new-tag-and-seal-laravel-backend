@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class CalvingController extends Controller
 {
@@ -194,6 +195,152 @@ class CalvingController extends Controller
             'status' => $payload['status'] ?? 'active',
             'updated_at' => $timestamps['updatedAt']->format('Y-m-d H:i:s'),
         ];
+    }
+
+    // ============================================================================
+    // Admin CRUD Methods (SystemUser-only)
+    // ============================================================================
+
+    public function adminIndex(): JsonResponse
+    {
+        $calvings = Calving::with([
+            'livestock',
+            'farm',
+            'calvingType',
+            'calvingProblem',
+            'reproductiveProblem',
+        ])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Calvings retrieved successfully',
+            'data' => $calvings,
+        ], 200);
+    }
+
+    public function adminStore(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid' => 'required|string|unique:calvings,uuid',
+            'farmUuid' => 'required|string|exists:farms,uuid',
+            'livestockUuid' => 'required|string|exists:livestock,uuid',
+            'startDate' => 'required|date',
+            'endDate' => 'nullable|date',
+            'calvingTypeId' => 'nullable|integer|exists:birth_types,id',
+            'calvingProblemsId' => 'nullable|integer|exists:birth_problems,id',
+            'reproductiveProblemId' => 'nullable|integer|exists:reproductive_problems,id',
+            'remarks' => 'nullable|string',
+            'status' => 'nullable|string|in:active,inactive',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $data = $request->all();
+        $data['startDate'] = $this->convertDateFormat($request->startDate);
+        if ($request->has('endDate')) {
+            $data['endDate'] = $this->convertDateFormat($request->endDate);
+        }
+
+        $calving = Calving::create($data);
+
+        $calving->load([
+            'livestock',
+            'farm',
+            'calvingType',
+            'calvingProblem',
+            'reproductiveProblem',
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Calving created successfully',
+            'data' => $calving,
+        ], 201);
+    }
+
+    public function adminShow(Calving $calving): JsonResponse
+    {
+        $calving->load([
+            'livestock',
+            'farm',
+            'calvingType',
+            'calvingProblem',
+            'reproductiveProblem',
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Calving retrieved successfully',
+            'data' => $calving,
+        ], 200);
+    }
+
+    public function adminUpdate(Request $request, Calving $calving): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid' => 'sometimes|required|string|unique:calvings,uuid,' . $calving->id,
+            'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
+            'livestockUuid' => 'sometimes|required|string|exists:livestock,uuid',
+            'startDate' => 'sometimes|required|date',
+            'endDate' => 'sometimes|nullable|date',
+            'calvingTypeId' => 'sometimes|nullable|integer|exists:birth_types,id',
+            'calvingProblemsId' => 'sometimes|nullable|integer|exists:birth_problems,id',
+            'reproductiveProblemId' => 'sometimes|nullable|integer|exists:reproductive_problems,id',
+            'remarks' => 'sometimes|nullable|string',
+            'status' => 'sometimes|nullable|string|in:active,inactive',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $data = $request->except(['startDate', 'endDate']);
+
+        if ($request->has('startDate')) {
+            $data['startDate'] = $this->convertDateFormat($request->startDate);
+        }
+        if ($request->has('endDate')) {
+            $data['endDate'] = $request->endDate ? $this->convertDateFormat($request->endDate) : null;
+        }
+
+        $calving->fill($data);
+        $calving->save();
+
+        $calving->load([
+            'livestock',
+            'farm',
+            'calvingType',
+            'calvingProblem',
+            'reproductiveProblem',
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Calving updated successfully',
+            'data' => $calving,
+        ], 200);
+    }
+
+    public function adminDestroy(Calving $calving): JsonResponse
+    {
+        $calving->delete();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Calving deleted successfully',
+        ], 200);
     }
 }
 

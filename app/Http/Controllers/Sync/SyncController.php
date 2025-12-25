@@ -29,7 +29,7 @@ use App\Http\Controllers\Logs\Dryoff\DryoffController;
 use App\Http\Controllers\Logs\Feeding\FeedingController;
 use App\Http\Controllers\Logs\Insemination\InseminationController;
 use App\Http\Controllers\Logs\LogController;
-use App\Http\Controllers\Logs\Medication\MedicationController;
+use App\Http\Controllers\Logs\Treatment\TreatmentController;
 use App\Http\Controllers\Logs\Milking\MilkingController;
 use App\Http\Controllers\Logs\Pregnancy\PregnancyController;
 use App\Http\Controllers\Logs\Transfer\TransferController;
@@ -97,7 +97,7 @@ class SyncController extends Controller
 
     protected $farmUserController;
 
-    protected $medicationController;
+    protected $treatmentController;
 
     protected $vaccinationController;
 
@@ -153,7 +153,7 @@ class SyncController extends Controller
         FeedingController $feedingController,
         WeightChangeController $weightChangeController,
         DewormingController $dewormingController,
-        MedicationController $medicationController,
+        TreatmentController $treatmentController,
         VaccinationController $vaccinationController,
         DisposalController $disposalController,
         BirthEventController $birthEventController,
@@ -197,7 +197,7 @@ class SyncController extends Controller
         $this->feedingController = $feedingController;
         $this->weightChangeController = $weightChangeController;
         $this->dewormingController = $dewormingController;
-        $this->medicationController = $medicationController;
+        $this->treatmentController = $treatmentController;
         $this->vaccinationController = $vaccinationController;
         $this->disposalController = $disposalController;
         $this->birthEventController = $birthEventController;
@@ -963,7 +963,7 @@ class SyncController extends Controller
                     'feedings' => [],
                     'weightChanges' => [],
                     'dewormings' => [],
-                    'medications' => [],
+                    'treatments' => [],
                     'vaccinations' => [],
                     'disposals' => [],
                     'birthEvents' => [],
@@ -1021,12 +1021,12 @@ class SyncController extends Controller
                 fn (array $collection, string $livestockUuid) => $this->dewormingController->processDewormings($collection, $livestockUuid)
             );
 
-            $syncedData['syncedLogs']['medications'] = $this->processLogSync(
-                $logsPayload['medications'] ?? [],
+            $syncedData['syncedLogs']['treatments'] = $this->processLogSync(
+                $logsPayload['treatments'] ?? [],
                 $user,
                 $userId,
-                'medication',
-                fn (array $collection, string $livestockUuid) => $this->medicationController->processMedications($collection, $livestockUuid)
+                'treatment',
+                fn (array $collection, string $livestockUuid) => $this->treatmentController->processTreatments($collection, $livestockUuid)
             );
 
             $syncedData['syncedLogs']['vaccinations'] = $this->processLogSync(
@@ -1134,8 +1134,8 @@ class SyncController extends Controller
                 'syncedDewormingsCount' => isset($syncedData['syncedLogs']['dewormings'])
                     ? count($syncedData['syncedLogs']['dewormings'])
                     : 0,
-                'syncedMedicationsCount' => isset($syncedData['syncedLogs']['medications'])
-                    ? count($syncedData['syncedLogs']['medications'])
+                'syncedTreatmentsCount' => isset($syncedData['syncedLogs']['treatments'])
+                    ? count($syncedData['syncedLogs']['treatments'])
                     : 0,
                 'syncedVaccinationsCount' => isset($syncedData['syncedLogs']['vaccinations'])
                     ? count($syncedData['syncedLogs']['vaccinations'])

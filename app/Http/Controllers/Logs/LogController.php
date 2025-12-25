@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Logs\Feeding\FeedingController;
 use App\Http\Controllers\Logs\WeightChange\WeightChangeController;
 use App\Http\Controllers\Logs\Deworming\DewormingController;
-use App\Http\Controllers\Logs\Medication\MedicationController;
+use App\Http\Controllers\Logs\Treatment\TreatmentController;
 use App\Http\Controllers\Logs\Vaccination\VaccinationController;
 use App\Http\Controllers\Logs\Disposal\DisposalController;
 use App\Http\Controllers\Logs\Birth\BirthEventController;
@@ -22,7 +22,7 @@ class LogController extends Controller
     protected $feedingController;
     protected $weightChangeController;
     protected $dewormingController;
-    protected $medicationController;
+    protected $treatmentController;
     protected $vaccinationController;
     protected $disposalController;
     protected $birthEventController;
@@ -37,7 +37,7 @@ class LogController extends Controller
         FeedingController $feedingController,
         WeightChangeController $weightChangeController,
         DewormingController $dewormingController,
-        MedicationController $medicationController,
+        TreatmentController $treatmentController,
         VaccinationController $vaccinationController,
         DisposalController $disposalController,
         BirthEventController $birthEventController,
@@ -51,7 +51,7 @@ class LogController extends Controller
         $this->feedingController = $feedingController;
         $this->weightChangeController = $weightChangeController;
         $this->dewormingController = $dewormingController;
-        $this->medicationController = $medicationController;
+        $this->treatmentController = $treatmentController;
         $this->vaccinationController = $vaccinationController;
         $this->disposalController = $disposalController;
         $this->birthEventController = $birthEventController;
@@ -90,7 +90,7 @@ class LogController extends Controller
                 'feedings' => [],
                 'weightChanges' => [],
                 'dewormings' => [],
-                'medications' => [],
+                'treatments' => [],
                 'vaccinations' => [],
                 'disposals' => [],
                 'birthEvents' => [],
@@ -107,7 +107,7 @@ class LogController extends Controller
             'feedings' => $this->feedingController->fetchFeedingsWithUuid($farmUuids, $livestockUuids),
             'weightChanges' => $this->weightChangeController->fetchWeightChangesWithUuid($farmUuids, $livestockUuids),
             'dewormings' => $this->dewormingController->fetchDewormingsWithUuid($farmUuids, $livestockUuids),
-            'medications' => $this->medicationController->fetchMedicationsWithUuid($farmUuids, $livestockUuids),
+            'treatments' => $this->treatmentController->fetchTreatmentsWithUuid($farmUuids, $livestockUuids),
             'vaccinations' => $this->vaccinationController->fetchVaccinationsWithUuid($farmUuids, $livestockUuids),
             'disposals' => $this->disposalController->fetchDisposalsWithUuid($farmUuids, $livestockUuids),
             'birthEvents' => $this->birthEventController->fetchBirthEventsWithUuid($farmUuids, $livestockUuids),

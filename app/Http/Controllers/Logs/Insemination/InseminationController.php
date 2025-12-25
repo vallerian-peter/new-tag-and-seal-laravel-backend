@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class InseminationController extends Controller
 {
@@ -208,6 +209,150 @@ class InseminationController extends Controller
             'semenSupplier' => $sanitize($payload['semenSupplier'] ?? null),
             'updated_at' => $timestamps['updatedAt']->format('Y-m-d H:i:s'),
         ];
+    }
+
+    // ============================================================================
+    // Admin CRUD Methods (SystemUser-only)
+    // ============================================================================
+
+    public function adminIndex(): JsonResponse
+    {
+        $inseminations = Insemination::with(['livestock', 'farm', 'currentHeatType', 'inseminationService', 'semenStrawType'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Inseminations retrieved successfully',
+            'data' => $inseminations,
+        ], 200);
+    }
+
+    public function adminStore(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid' => 'required|string|unique:inseminations,uuid',
+            'farmUuid' => 'required|string|exists:farms,uuid',
+            'livestockUuid' => 'required|string|exists:livestock,uuid',
+            'lastHeatDate' => 'nullable|date',
+            'currentHeatTypeId' => 'nullable|integer|exists:heat_types,id',
+            'inseminationServiceId' => 'nullable|integer|exists:insemination_services,id',
+            'semenStrawTypeId' => 'nullable|integer|exists:semen_straw_types,id',
+            'inseminationDate' => 'nullable|date',
+            'bullCode' => 'nullable|string|max:255',
+            'bullBreed' => 'nullable|string|max:255',
+            'semenProductionDate' => 'nullable|date',
+            'productionCountry' => 'nullable|string|max:255',
+            'semenBatchNumber' => 'nullable|string|max:255',
+            'internationalId' => 'nullable|string|max:255',
+            'aiCode' => 'nullable|string|max:255',
+            'manufacturerName' => 'nullable|string|max:255',
+            'semenSupplier' => 'nullable|string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $data = $request->all();
+        if ($request->has('lastHeatDate')) {
+            $data['lastHeatDate'] = $this->convertDateFormat($request->lastHeatDate);
+        }
+        if ($request->has('inseminationDate')) {
+            $data['inseminationDate'] = $this->convertDateFormat($request->inseminationDate);
+        }
+        if ($request->has('semenProductionDate')) {
+            $data['semenProductionDate'] = $this->convertDateFormat($request->semenProductionDate);
+        }
+
+        $insemination = Insemination::create($data);
+
+        $insemination->load(['livestock', 'farm', 'currentHeatType', 'inseminationService', 'semenStrawType']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Insemination created successfully',
+            'data' => $insemination,
+        ], 201);
+    }
+
+    public function adminShow(Insemination $insemination): JsonResponse
+    {
+        $insemination->load(['livestock', 'farm', 'currentHeatType', 'inseminationService', 'semenStrawType']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Insemination retrieved successfully',
+            'data' => $insemination,
+        ], 200);
+    }
+
+    public function adminUpdate(Request $request, Insemination $insemination): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid' => 'sometimes|required|string|unique:inseminations,uuid,' . $insemination->id,
+            'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
+            'livestockUuid' => 'sometimes|required|string|exists:livestock,uuid',
+            'lastHeatDate' => 'sometimes|nullable|date',
+            'currentHeatTypeId' => 'sometimes|nullable|integer|exists:heat_types,id',
+            'inseminationServiceId' => 'sometimes|nullable|integer|exists:insemination_services,id',
+            'semenStrawTypeId' => 'sometimes|nullable|integer|exists:semen_straw_types,id',
+            'inseminationDate' => 'sometimes|nullable|date',
+            'bullCode' => 'sometimes|nullable|string|max:255',
+            'bullBreed' => 'sometimes|nullable|string|max:255',
+            'semenProductionDate' => 'sometimes|nullable|date',
+            'productionCountry' => 'sometimes|nullable|string|max:255',
+            'semenBatchNumber' => 'sometimes|nullable|string|max:255',
+            'internationalId' => 'sometimes|nullable|string|max:255',
+            'aiCode' => 'sometimes|nullable|string|max:255',
+            'manufacturerName' => 'sometimes|nullable|string|max:255',
+            'semenSupplier' => 'sometimes|nullable|string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $data = $request->except(['lastHeatDate', 'inseminationDate', 'semenProductionDate']);
+
+        if ($request->has('lastHeatDate')) {
+            $data['lastHeatDate'] = $this->convertDateFormat($request->lastHeatDate);
+        }
+        if ($request->has('inseminationDate')) {
+            $data['inseminationDate'] = $this->convertDateFormat($request->inseminationDate);
+        }
+        if ($request->has('semenProductionDate')) {
+            $data['semenProductionDate'] = $this->convertDateFormat($request->semenProductionDate);
+        }
+
+        $insemination->fill($data);
+        $insemination->save();
+
+        $insemination->load(['livestock', 'farm', 'currentHeatType', 'inseminationService', 'semenStrawType']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Insemination updated successfully',
+            'data' => $insemination,
+        ], 200);
+    }
+
+    public function adminDestroy(Insemination $insemination): JsonResponse
+    {
+        $insemination->delete();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Insemination deleted successfully',
+        ], 200);
     }
 }
 

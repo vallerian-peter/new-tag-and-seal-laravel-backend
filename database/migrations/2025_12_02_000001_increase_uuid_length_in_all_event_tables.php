@@ -20,7 +20,7 @@ return new class extends Migration
             'feedings',
             'dewormings',
             'weight_changes',
-            'medications',
+            'treatments', // Renamed from medications
             'vaccinations',
             'disposals',
         ];
@@ -50,7 +50,7 @@ return new class extends Migration
             'feedings',
             'dewormings',
             'weight_changes',
-            'medications',
+            'treatments', // Renamed from medications
             'vaccinations',
             'disposals',
         ];

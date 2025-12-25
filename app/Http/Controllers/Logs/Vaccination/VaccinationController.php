@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class VaccinationController extends Controller
 {
@@ -256,6 +257,111 @@ class VaccinationController extends Controller
         Log::info('Total vaccinations synced: ' . count($syncedVaccinations));
 
         return $syncedVaccinations;
+    }
+
+    // ============================================================================
+    // Admin CRUD Methods (SystemUser-only)
+    // ============================================================================
+
+    public function adminIndex(): JsonResponse
+    {
+        $vaccinations = Vaccination::with(['livestock', 'farm', 'vaccine', 'disease', 'vet', 'extensionOfficer'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Vaccinations retrieved successfully',
+            'data' => $vaccinations,
+        ], 200);
+    }
+
+    public function adminStore(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid' => 'required|string|unique:vaccinations,uuid',
+            'vaccinationNo' => 'nullable|string|unique:vaccinations,vaccinationNo',
+            'farmUuid' => 'required|string|exists:farms,uuid',
+            'livestockUuid' => 'required|string|exists:livestock,uuid',
+            'vaccineUuid' => 'nullable|string|exists:vaccines,uuid',
+            'diseaseId' => 'nullable|integer|exists:diseases,id',
+            'vetId' => 'nullable|string',
+            'extensionOfficerId' => 'nullable|string',
+            'status' => 'nullable|string|in:pending,completed,failed',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $vaccination = Vaccination::create($request->all());
+
+        $vaccination->load(['livestock', 'farm', 'vaccine', 'disease', 'vet', 'extensionOfficer']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Vaccination created successfully',
+            'data' => $vaccination,
+        ], 201);
+    }
+
+    public function adminShow(Vaccination $vaccination): JsonResponse
+    {
+        $vaccination->load(['livestock', 'farm', 'vaccine', 'disease', 'vet', 'extensionOfficer']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Vaccination retrieved successfully',
+            'data' => $vaccination,
+        ], 200);
+    }
+
+    public function adminUpdate(Request $request, Vaccination $vaccination): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid' => 'sometimes|required|string|unique:vaccinations,uuid,' . $vaccination->id,
+            'vaccinationNo' => 'sometimes|nullable|string|unique:vaccinations,vaccinationNo,' . $vaccination->id,
+            'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
+            'livestockUuid' => 'sometimes|required|string|exists:livestock,uuid',
+            'vaccineUuid' => 'sometimes|nullable|string|exists:vaccines,uuid',
+            'diseaseId' => 'sometimes|nullable|integer|exists:diseases,id',
+            'vetId' => 'sometimes|nullable|string',
+            'extensionOfficerId' => 'sometimes|nullable|string',
+            'status' => 'sometimes|nullable|string|in:pending,completed,failed',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $vaccination->fill($request->all());
+        $vaccination->save();
+
+        $vaccination->load(['livestock', 'farm', 'vaccine', 'disease', 'vet', 'extensionOfficer']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Vaccination updated successfully',
+            'data' => $vaccination,
+        ], 200);
+    }
+
+    public function adminDestroy(Vaccination $vaccination): JsonResponse
+    {
+        $vaccination->delete();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Vaccination deleted successfully',
+        ], 200);
     }
 }
 

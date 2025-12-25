@@ -224,4 +224,116 @@ class FeedingController extends Controller
         Log::info("Total feedings synced: " . count($syncedFeedings));
         return $syncedFeedings;
     }
+
+    // ============================================================================
+    // Admin CRUD Methods (SystemUser-only)
+    // ============================================================================
+
+    public function adminIndex(): JsonResponse
+    {
+        $feedings = Feeding::with(['livestock', 'feedingType', 'farm'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Feedings retrieved successfully',
+            'data' => $feedings,
+        ], 200);
+    }
+
+    public function adminStore(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid' => 'required|string|unique:feedings,uuid',
+            'farmUuid' => 'required|string|exists:farms,uuid',
+            'livestockUuid' => 'required|string|exists:livestock,uuid',
+            'feedingTypeId' => 'nullable|integer|exists:feeding_types,id',
+            'nextFeedingTime' => 'nullable|date',
+            'amount' => 'nullable|string|max:255',
+            'remarks' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $data = $request->all();
+        if ($request->has('nextFeedingTime')) {
+            $data['nextFeedingTime'] = $this->convertDateFormat($request->nextFeedingTime);
+        }
+
+        $feeding = Feeding::create($data);
+
+        $feeding->load(['livestock', 'feedingType', 'farm']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Feeding created successfully',
+            'data' => $feeding,
+        ], 201);
+    }
+
+    public function adminShow(Feeding $feeding): JsonResponse
+    {
+        $feeding->load(['livestock', 'feedingType', 'farm']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Feeding retrieved successfully',
+            'data' => $feeding,
+        ], 200);
+    }
+
+    public function adminUpdate(Request $request, Feeding $feeding): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid' => 'sometimes|required|string|unique:feedings,uuid,' . $feeding->id,
+            'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
+            'livestockUuid' => 'sometimes|required|string|exists:livestock,uuid',
+            'feedingTypeId' => 'sometimes|nullable|integer|exists:feeding_types,id',
+            'nextFeedingTime' => 'sometimes|nullable|date',
+            'amount' => 'sometimes|nullable|string|max:255',
+            'remarks' => 'sometimes|nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $data = $request->except(['nextFeedingTime']);
+
+        if ($request->has('nextFeedingTime')) {
+            $data['nextFeedingTime'] = $this->convertDateFormat($request->nextFeedingTime);
+        }
+
+        $feeding->fill($data);
+        $feeding->save();
+
+        $feeding->load(['livestock', 'feedingType', 'farm']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Feeding updated successfully',
+            'data' => $feeding,
+        ], 200);
+    }
+
+    public function adminDestroy(Feeding $feeding): JsonResponse
+    {
+        $feeding->delete();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Feeding deleted successfully',
+        ], 200);
+    }
 }

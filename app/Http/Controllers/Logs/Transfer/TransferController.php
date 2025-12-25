@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class TransferController extends Controller
 {
@@ -235,6 +236,124 @@ class TransferController extends Controller
         Log::info('Total transfers synced: ' . count($syncedTransfers));
 
         return $syncedTransfers;
+    }
+
+    // ============================================================================
+    // Admin CRUD Methods (SystemUser-only)
+    // ============================================================================
+
+    public function adminIndex(): JsonResponse
+    {
+        $transfers = Transfer::with(['livestock', 'fromFarm', 'toFarm'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Transfers retrieved successfully',
+            'data' => $transfers,
+        ], 200);
+    }
+
+    public function adminStore(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid' => 'required|string|unique:transfers,uuid',
+            'farmUuid' => 'required|string|exists:farms,uuid',
+            'livestockUuid' => 'required|string|exists:livestock,uuid',
+            'toFarmUuid' => 'required|string|exists:farms,uuid',
+            'transporterId' => 'nullable|string|max:255',
+            'reason' => 'nullable|string',
+            'price' => 'nullable|numeric',
+            'transferDate' => 'nullable|date',
+            'remarks' => 'nullable|string',
+            'status' => 'nullable|string|in:active,inactive',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $data = $request->all();
+        if ($request->has('transferDate')) {
+            $data['transferDate'] = $this->convertDateFormat($request->transferDate);
+        }
+
+        $transfer = Transfer::create($data);
+
+        $transfer->load(['livestock', 'fromFarm', 'toFarm']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Transfer created successfully',
+            'data' => $transfer,
+        ], 201);
+    }
+
+    public function adminShow(Transfer $transfer): JsonResponse
+    {
+        $transfer->load(['livestock', 'fromFarm', 'toFarm']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Transfer retrieved successfully',
+            'data' => $transfer,
+        ], 200);
+    }
+
+    public function adminUpdate(Request $request, Transfer $transfer): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid' => 'sometimes|required|string|unique:transfers,uuid,' . $transfer->id,
+            'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
+            'livestockUuid' => 'sometimes|required|string|exists:livestock,uuid',
+            'toFarmUuid' => 'sometimes|required|string|exists:farms,uuid',
+            'transporterId' => 'sometimes|nullable|string|max:255',
+            'reason' => 'sometimes|nullable|string',
+            'price' => 'sometimes|nullable|numeric',
+            'transferDate' => 'sometimes|nullable|date',
+            'remarks' => 'sometimes|nullable|string',
+            'status' => 'sometimes|nullable|string|in:active,inactive',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $data = $request->except(['transferDate']);
+
+        if ($request->has('transferDate')) {
+            $data['transferDate'] = $this->convertDateFormat($request->transferDate);
+        }
+
+        $transfer->fill($data);
+        $transfer->save();
+
+        $transfer->load(['livestock', 'fromFarm', 'toFarm']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Transfer updated successfully',
+            'data' => $transfer,
+        ], 200);
+    }
+
+    public function adminDestroy(Transfer $transfer): JsonResponse
+    {
+        $transfer->delete();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Transfer deleted successfully',
+        ], 200);
     }
 }
 

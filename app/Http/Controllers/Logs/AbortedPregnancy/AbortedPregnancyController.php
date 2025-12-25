@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
 class AbortedPregnancyController extends Controller
@@ -235,6 +236,120 @@ class AbortedPregnancyController extends Controller
             'status' => $payload['status'] ?? 'active',
             'updated_at' => $timestamps['updatedAt']->format('Y-m-d H:i:s'),
         ];
+    }
+
+    // ============================================================================
+    // Admin CRUD Methods (SystemUser-only)
+    // ============================================================================
+
+    public function adminIndex(): JsonResponse
+    {
+        $abortedPregnancies = AbortedPregnancy::with([
+            'livestock',
+            'farm',
+            'reproductiveProblem',
+        ])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Aborted pregnancies retrieved successfully',
+            'data' => $abortedPregnancies,
+        ], 200);
+    }
+
+    public function adminStore(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid' => 'required|string|unique:aborted_pregnancies,uuid',
+            'farmUuid' => 'required|string|exists:farms,uuid',
+            'livestockUuid' => 'required|string|exists:livestock,uuid',
+            'abortionDate' => 'required|date',
+            'reproductiveProblemId' => 'nullable|integer|exists:reproductive_problems,id',
+            'remarks' => 'nullable|string',
+            'status' => 'nullable|string|in:active,inactive',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $data = $request->all();
+        $data['abortionDate'] = $this->convertDateFormat($request->abortionDate);
+
+        $abortedPregnancy = AbortedPregnancy::create($data);
+
+        $abortedPregnancy->load(['livestock', 'farm', 'reproductiveProblem']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Aborted pregnancy created successfully',
+            'data' => $abortedPregnancy,
+        ], 201);
+    }
+
+    public function adminShow(AbortedPregnancy $abortedPregnancy): JsonResponse
+    {
+        $abortedPregnancy->load(['livestock', 'farm', 'reproductiveProblem']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Aborted pregnancy retrieved successfully',
+            'data' => $abortedPregnancy,
+        ], 200);
+    }
+
+    public function adminUpdate(Request $request, AbortedPregnancy $abortedPregnancy): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid' => 'sometimes|required|string|unique:aborted_pregnancies,uuid,' . $abortedPregnancy->id,
+            'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
+            'livestockUuid' => 'sometimes|required|string|exists:livestock,uuid',
+            'abortionDate' => 'sometimes|required|date',
+            'reproductiveProblemId' => 'sometimes|nullable|integer|exists:reproductive_problems,id',
+            'remarks' => 'sometimes|nullable|string',
+            'status' => 'sometimes|nullable|string|in:active,inactive',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $data = $request->except(['abortionDate']);
+        
+        if ($request->has('abortionDate')) {
+            $data['abortionDate'] = $this->convertDateFormat($request->abortionDate);
+        }
+
+        $abortedPregnancy->fill($data);
+        $abortedPregnancy->save();
+
+        $abortedPregnancy->load(['livestock', 'farm', 'reproductiveProblem']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Aborted pregnancy updated successfully',
+            'data' => $abortedPregnancy,
+        ], 200);
+    }
+
+    public function adminDestroy(AbortedPregnancy $abortedPregnancy): JsonResponse
+    {
+        $abortedPregnancy->delete();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Aborted pregnancy deleted successfully',
+        ], 200);
     }
 }
 

@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class DisposalController extends Controller
 {
@@ -269,6 +270,107 @@ class DisposalController extends Controller
                 'error' => $e->getMessage(),
             ]);
         }
+    }
+
+    // ============================================================================
+    // Admin CRUD Methods (SystemUser-only)
+    // ============================================================================
+
+    public function adminIndex(): JsonResponse
+    {
+        $disposals = Disposal::with(['livestock', 'farm', 'disposalType'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Disposals retrieved successfully',
+            'data' => $disposals,
+        ], 200);
+    }
+
+    public function adminStore(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid' => 'required|string|unique:disposals,uuid',
+            'farmUuid' => 'required|string|exists:farms,uuid',
+            'livestockUuid' => 'required|string|exists:livestock,uuid',
+            'disposalTypeId' => 'nullable|integer|exists:disposal_types,id',
+            'reasons' => 'nullable|string',
+            'remarks' => 'nullable|string',
+            'status' => 'nullable|string|in:active,inactive',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $disposal = Disposal::create($request->all());
+
+        $disposal->load(['livestock', 'farm', 'disposalType']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Disposal created successfully',
+            'data' => $disposal,
+        ], 201);
+    }
+
+    public function adminShow(Disposal $disposal): JsonResponse
+    {
+        $disposal->load(['livestock', 'farm', 'disposalType']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Disposal retrieved successfully',
+            'data' => $disposal,
+        ], 200);
+    }
+
+    public function adminUpdate(Request $request, Disposal $disposal): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid' => 'sometimes|required|string|unique:disposals,uuid,' . $disposal->id,
+            'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
+            'livestockUuid' => 'sometimes|required|string|exists:livestock,uuid',
+            'disposalTypeId' => 'sometimes|nullable|integer|exists:disposal_types,id',
+            'reasons' => 'sometimes|nullable|string',
+            'remarks' => 'sometimes|nullable|string',
+            'status' => 'sometimes|nullable|string|in:active,inactive',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $disposal->fill($request->all());
+        $disposal->save();
+
+        $disposal->load(['livestock', 'farm', 'disposalType']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Disposal updated successfully',
+            'data' => $disposal,
+        ], 200);
+    }
+
+    public function adminDestroy(Disposal $disposal): JsonResponse
+    {
+        $disposal->delete();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Disposal deleted successfully',
+        ], 200);
     }
 }
 

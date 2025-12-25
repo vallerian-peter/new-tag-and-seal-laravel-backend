@@ -537,4 +537,125 @@ class ExtensionOfficerFarmInviteController extends Controller
 
         return $syncedIds;
     }
+
+    // ============================================================================
+    // Admin CRUD Methods (SystemUser-only)
+    // ============================================================================
+
+    public function adminIndex(): JsonResponse
+    {
+        $invites = ExtensionOfficerFarmInvite::with(['extensionOfficer', 'farmer'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Extension officer farm invites retrieved successfully',
+            'data' => $invites,
+        ], 200);
+    }
+
+    public function adminStore(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'extensionOfficerId' => 'required|integer|exists:extension_officers,id',
+            'farmerId' => 'required|integer|exists:farmers,id',
+            'access_code' => [
+                'required',
+                'string',
+                'unique:extension_officer_farm_invites,access_code',
+                'regex:/^ACODE-\d{5}[A-Z]{3}=7-\d{2}$/',
+            ],
+        ], [
+            'access_code.regex' => 'The access code format is invalid. Expected format: ACODE-{5numbers}{3letters}=7-{2numbers}',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        // Check if invite already exists
+        $existingInvite = ExtensionOfficerFarmInvite::where('extensionOfficerId', $request->extensionOfficerId)
+            ->where('farmerId', $request->farmerId)
+            ->first();
+
+        if ($existingInvite) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Extension officer has already been invited to this farm',
+                'data' => $existingInvite,
+            ], 409);
+        }
+
+        $invite = ExtensionOfficerFarmInvite::create($request->all());
+
+        $invite->load(['extensionOfficer', 'farmer']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Extension officer farm invite created successfully',
+            'data' => $invite,
+        ], 201);
+    }
+
+    public function adminShow(ExtensionOfficerFarmInvite $extensionOfficerFarmInvite): JsonResponse
+    {
+        $extensionOfficerFarmInvite->load(['extensionOfficer', 'farmer']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Extension officer farm invite retrieved successfully',
+            'data' => $extensionOfficerFarmInvite,
+        ], 200);
+    }
+
+    public function adminUpdate(Request $request, ExtensionOfficerFarmInvite $extensionOfficerFarmInvite): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'extensionOfficerId' => 'sometimes|required|integer|exists:extension_officers,id',
+            'farmerId' => 'sometimes|required|integer|exists:farmers,id',
+            'access_code' => [
+                'sometimes',
+                'required',
+                'string',
+                'unique:extension_officer_farm_invites,access_code,' . $extensionOfficerFarmInvite->id,
+                'regex:/^ACODE-\d{5}[A-Z]{3}=7-\d{2}$/',
+            ],
+        ], [
+            'access_code.regex' => 'The access code format is invalid. Expected format: ACODE-{5numbers}{3letters}=7-{2numbers}',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $extensionOfficerFarmInvite->fill($request->all());
+        $extensionOfficerFarmInvite->save();
+
+        $extensionOfficerFarmInvite->load(['extensionOfficer', 'farmer']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Extension officer farm invite updated successfully',
+            'data' => $extensionOfficerFarmInvite,
+        ], 200);
+    }
+
+    public function adminDestroy(ExtensionOfficerFarmInvite $extensionOfficerFarmInvite): JsonResponse
+    {
+        $extensionOfficerFarmInvite->delete();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Extension officer farm invite deleted successfully',
+        ], 200);
+    }
 }

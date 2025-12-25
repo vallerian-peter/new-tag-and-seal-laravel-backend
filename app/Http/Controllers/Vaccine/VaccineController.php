@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Vaccine;
 
 use App\Http\Controllers\Controller;
 use App\Models\Vaccine;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class VaccineController extends Controller
 {
@@ -159,6 +162,111 @@ class VaccineController extends Controller
         Log::info("Total vaccines synced: " . count($syncedVaccines));
 
         return $syncedVaccines;
+    }
+
+    // ============================================================================
+    // Admin CRUD Methods (SystemUser-only)
+    // ============================================================================
+
+    public function adminIndex(): JsonResponse
+    {
+        $vaccines = Vaccine::with(['vaccineType', 'farm'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Vaccines retrieved successfully',
+            'data' => $vaccines,
+        ], 200);
+    }
+
+    public function adminStore(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid' => 'required|string|unique:vaccines,uuid',
+            'farmUuid' => 'required|string|exists:farms,uuid',
+            'name' => 'required|string|max:255',
+            'lot' => 'nullable|string|max:255',
+            'formulationType' => 'nullable|string|in:live-attenuated,inactivated',
+            'dose' => 'nullable|string|max:255',
+            'status' => 'nullable|string|in:active,inactive,expired',
+            'vaccineTypeId' => 'nullable|integer|exists:vaccine_types,id',
+            'vaccineSchedule' => 'nullable|string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $vaccine = Vaccine::create($request->all());
+
+        $vaccine->load(['vaccineType', 'farm']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Vaccine created successfully',
+            'data' => $vaccine,
+        ], 201);
+    }
+
+    public function adminShow(Vaccine $vaccine): JsonResponse
+    {
+        $vaccine->load(['vaccineType', 'farm']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Vaccine retrieved successfully',
+            'data' => $vaccine,
+        ], 200);
+    }
+
+    public function adminUpdate(Request $request, Vaccine $vaccine): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid' => 'sometimes|required|string|unique:vaccines,uuid,' . $vaccine->id,
+            'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
+            'name' => 'sometimes|required|string|max:255',
+            'lot' => 'sometimes|nullable|string|max:255',
+            'formulationType' => 'sometimes|nullable|string|in:live-attenuated,inactivated',
+            'dose' => 'sometimes|nullable|string|max:255',
+            'status' => 'sometimes|nullable|string|in:active,inactive,expired',
+            'vaccineTypeId' => 'sometimes|nullable|integer|exists:vaccine_types,id',
+            'vaccineSchedule' => 'sometimes|nullable|string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $vaccine->fill($request->all());
+        $vaccine->save();
+
+        $vaccine->load(['vaccineType', 'farm']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Vaccine updated successfully',
+            'data' => $vaccine,
+        ], 200);
+    }
+
+    public function adminDestroy(Vaccine $vaccine): JsonResponse
+    {
+        $vaccine->delete();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Vaccine deleted successfully',
+        ], 200);
     }
 }
 

@@ -220,14 +220,30 @@ class AuthController extends Controller
 
     /**
      * Login user with username/email and password.
+     *
+     * Supports both:
+     * - New structure (documented):  login, password, device_name
+     * - Legacy/mobile structure:     username, password, deviceName
      */
     public function login(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'username' => 'required|string',
-            'password' => 'required|string',
-            'deviceName' => 'nullable|string',
-        ]);
+        // Support both `login` and `username` as the identifier
+        // and both `device_name` and `deviceName` for device label.
+        $loginValue = $request->input('login', $request->input('username'));
+        $deviceName = $request->input('device_name', $request->input('deviceName'));
+
+        $validator = Validator::make(
+            [
+                'login' => $loginValue,
+                'password' => $request->input('password'),
+                'device_name' => $deviceName,
+            ],
+            [
+                'login' => 'required|string',
+                'password' => 'required|string',
+                'device_name' => 'nullable|string',
+            ]
+        );
 
         if ($validator->fails()) {
             return response()->json([
@@ -237,24 +253,24 @@ class AuthController extends Controller
             ], 422);
         }
 
-        // Determine if username is email or username
-        $fieldType = filter_var($request->username, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
+        // Determine if login is email or username
+        $fieldType = filter_var($loginValue, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
 
         // Find user by email or username
-        $user = User::where($fieldType, $request->username)->first();
+        $user = User::where($fieldType, $loginValue)->first();
 
         // Enhanced logging for debugging farm user login
         if ($fieldType === 'email') {
-            Log::info("🔐 Login attempt with email: {$request->username}");
+            Log::info("🔐 Login attempt with email: {$loginValue}");
             if (!$user) {
-                Log::warning("❌ No user found with email: {$request->username}");
+                Log::warning("❌ No user found with email: {$loginValue}");
             } else {
                 Log::info("✅ User found: ID={$user->id}, Email={$user->email}, Username={$user->username}, Role={$user->role}");
             }
         } else {
-            Log::info("🔐 Login attempt with username: {$request->username}");
+            Log::info("🔐 Login attempt with username: {$loginValue}");
             if (!$user) {
-                Log::warning("❌ No user found with username: {$request->username}");
+                Log::warning("❌ No user found with username: {$loginValue}");
             } else {
                 Log::info("✅ User found: ID={$user->id}, Email={$user->email}, Username={$user->username}, Role={$user->role}");
             }
@@ -354,8 +370,8 @@ class AuthController extends Controller
         }
 
         // Generate API token
-        $deviceName = $request->deviceName ?? $request->header('User-Agent') ?? 'unknown';
-        $token = $user->createToken($deviceName)->plainTextToken;
+        $resolvedDeviceName = $deviceName ?? $request->header('User-Agent') ?? 'unknown';
+        $token = $user->createToken($resolvedDeviceName)->plainTextToken;
 
         Log::info("✅ Login successful for user: {$user->email}, Role: {$user->role}");
 
@@ -377,6 +393,10 @@ class AuthController extends Controller
                     'gender' => $profileData->gender ?? ''
                 ],
                 'profile' => $profileData,
+                // New/documented field names
+                'access_token' => $token,
+                'token_type' => 'Bearer',
+                // Backwards-compatible field names
                 'accessToken' => $token,
                 'tokenType' => 'Bearer',
             ]
@@ -428,7 +448,7 @@ class AuthController extends Controller
 
             // 2) Get the Extension Officer from the invite
             $officer = $invite->extensionOfficer;
-            
+
             if (! $officer) {
                 return response()->json([
                     'status' => false,
@@ -439,7 +459,7 @@ class AuthController extends Controller
             // 3) Validate password using Hash::check() (support both hashed and legacy plaintext)
             $passwordMatches = false;
             $stored = (string) ($officer->password ?? '');
-            
+
             if (!empty($stored)) {
                 // First check if the stored password is already hashed
                 if (preg_match('/^\$2[ayb]\$.{56}$/', $stored)) {
@@ -448,7 +468,7 @@ class AuthController extends Controller
                 } else {
                     // Password is plaintext, compare directly
                     $passwordMatches = hash_equals($stored, $plainPassword);
-                    
+
                     // If password matches, update to hashed version
                     if ($passwordMatches) {
                         $officer->password = Hash::make($plainPassword);
@@ -492,7 +512,7 @@ class AuthController extends Controller
                     'roleId' => $officer->id,
                     'status' => UserStatus::ACTIVE,
                 ]);
-                
+
                 Log::info("✅ Auto-created User account for extension officer: {$email}, User ID: {$user->id}");
             }
 
@@ -794,7 +814,7 @@ class AuthController extends Controller
 
             // Send OTP via Email or SMS
             $userName = $userProfile->firstName ?? 'User';
-            
+
             if ($email) {
                 // Send OTP via Email using Brevo
                 $subject = 'Password Reset OTP - Tag & Seal';
@@ -821,7 +841,7 @@ class AuthController extends Controller
                     </html>
                 ";
                 $textContent = "Hello {$userName}, your password reset OTP is: {$otp}. This code will expire in 10 minutes. Do not share this code with anyone.";
-                
+
                 $emailSent = $this->brevoEmailService->sendTransactionalEmail(
                     $email,
                     $userName,
@@ -829,16 +849,16 @@ class AuthController extends Controller
                     $htmlContent,
                     $textContent
                 );
-                
+
                 if (!$emailSent) {
                     Log::warning("Failed to send OTP email to {$email}");
                 }
             } elseif ($phone && $contactMethod) {
                 // Send OTP via SMS
                 $message = "Hello {$userName}, your password reset OTP is: {$otp}. This code will expire in 10 minutes. Do not share this code with anyone.";
-                
+
                 $smsSent = $this->smsService->sendSms($message, [$contactMethod]);
-                
+
                 if (!$smsSent) {
                     Log::warning("Failed to send OTP SMS to {$contactMethod}");
                 } else {

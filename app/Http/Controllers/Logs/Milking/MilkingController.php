@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class MilkingController extends Controller
 {
@@ -196,6 +197,123 @@ class MilkingController extends Controller
             'status' => $payload['status'] ?? 'active',
             'updated_at' => $timestamps['updatedAt']->format('Y-m-d H:i:s'),
         ];
+    }
+
+    // ============================================================================
+    // Admin CRUD Methods (SystemUser-only)
+    // ============================================================================
+
+    public function adminIndex(): JsonResponse
+    {
+        $milkings = Milking::with(['livestock', 'farm', 'milkingMethod'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Milkings retrieved successfully',
+            'data' => $milkings,
+        ], 200);
+    }
+
+    public function adminStore(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid' => 'required|string|unique:milkings,uuid',
+            'farmUuid' => 'required|string|exists:farms,uuid',
+            'livestockUuid' => 'required|string|exists:livestock,uuid',
+            'milkingMethodId' => 'nullable|integer|exists:milking_methods,id',
+            'amount' => 'nullable|string|max:255',
+            'lactometerReading' => 'nullable|string|max:255',
+            'solid' => 'nullable|string|max:255',
+            'solidNonFat' => 'nullable|string|max:255',
+            'protein' => 'nullable|string|max:255',
+            'correctedLactometerReading' => 'nullable|string|max:255',
+            'totalSolids' => 'nullable|string|max:255',
+            'colonyFormingUnits' => 'nullable|string|max:255',
+            'acidity' => 'nullable|string|max:255',
+            'session' => 'nullable|string|in:morning,evening',
+            'status' => 'nullable|string|in:active,inactive',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $milking = Milking::create($request->all());
+
+        $milking->load(['livestock', 'farm', 'milkingMethod']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Milking created successfully',
+            'data' => $milking,
+        ], 201);
+    }
+
+    public function adminShow(Milking $milking): JsonResponse
+    {
+        $milking->load(['livestock', 'farm', 'milkingMethod']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Milking retrieved successfully',
+            'data' => $milking,
+        ], 200);
+    }
+
+    public function adminUpdate(Request $request, Milking $milking): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'uuid' => 'sometimes|required|string|unique:milkings,uuid,' . $milking->id,
+            'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
+            'livestockUuid' => 'sometimes|required|string|exists:livestock,uuid',
+            'milkingMethodId' => 'sometimes|nullable|integer|exists:milking_methods,id',
+            'amount' => 'sometimes|nullable|string|max:255',
+            'lactometerReading' => 'sometimes|nullable|string|max:255',
+            'solid' => 'sometimes|nullable|string|max:255',
+            'solidNonFat' => 'sometimes|nullable|string|max:255',
+            'protein' => 'sometimes|nullable|string|max:255',
+            'correctedLactometerReading' => 'sometimes|nullable|string|max:255',
+            'totalSolids' => 'sometimes|nullable|string|max:255',
+            'colonyFormingUnits' => 'sometimes|nullable|string|max:255',
+            'acidity' => 'sometimes|nullable|string|max:255',
+            'session' => 'sometimes|nullable|string|in:morning,evening',
+            'status' => 'sometimes|nullable|string|in:active,inactive',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $milking->fill($request->all());
+        $milking->save();
+
+        $milking->load(['livestock', 'farm', 'milkingMethod']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Milking updated successfully',
+            'data' => $milking,
+        ], 200);
+    }
+
+    public function adminDestroy(Milking $milking): JsonResponse
+    {
+        $milking->delete();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Milking deleted successfully',
+        ], 200);
     }
 }
 

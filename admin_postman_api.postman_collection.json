@@ -1,0 +1,1877 @@
+{
+  "info": {
+    "_postman_id": "00000000-0000-0000-0000-000000000001",
+    "name": "admin_postman_api",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Admin Portal API collection for Tag & Seal backend, using role=\"systemUser\". Targets /api/v1/admin/... endpoints."
+  },
+  "item": [
+    {
+      "name": "Auth (Admin Portal)",
+      "item": [
+        {
+          "name": "Login (systemUser)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"login\": \"admin@example.com\",\n  \"password\": \"AdminPassword123\",\n  \"device_name\": \"Admin Portal\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Profile (current user)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "profile"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Logout (current device)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Logout All Devices",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout-all",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout-all"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Users",
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/users?active_only=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "users"],
+              "query": [
+                { "key": "active_only", "value": "true" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "users"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"new_admin\",\n  \"email\": \"new_admin@example.com\",\n  \"password\": \"Admin@12345\",\n  \"password_confirmation\": \"Admin@12345\",\n  \"role\": \"systemUser\",\n  \"first_name\": \"New\",\n  \"surname\": \"Admin\",\n  \"phone\": \"+255712345678\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "users", "{{userId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "users", "{{userId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "users", "{{userId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "User Statistics",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/users/statistics",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "users", "statistics"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Countries",
+      "item": [
+        {
+          "name": "List Countries",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/countries",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "countries"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Country",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/countries",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "countries"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Tanzania\",\n  \"shortName\": \"TZ\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Country Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/countries/{{countryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "countries", "{{countryId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Country",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/countries/{{countryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "countries", "{{countryId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"United Republic of Tanzania\",\n  \"shortName\": \"TZ\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Country",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/countries/{{countryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "countries", "{{countryId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Regions",
+      "item": [
+        {
+          "name": "List Regions",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/regions",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "regions"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Region",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/regions",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "regions"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Dar es Salaam\",\n  \"shortName\": \"DSM\",\n  \"countryId\": {{countryId}}\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Region Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/regions/{{regionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "regions", "{{regionId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Region",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/regions/{{regionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "regions", "{{regionId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Dar es Salaam Region\",\n  \"shortName\": \"DSM\",\n  \"countryId\": {{countryId}}\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Region",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/regions/{{regionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "regions", "{{regionId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Districts",
+      "item": [
+        {
+          "name": "List Districts",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/districts",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "districts"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create District",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/districts",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "districts"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ilala\",\n  \"shortName\": \"ILA\",\n  \"regionId\": {{regionId}}\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get District Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/districts/{{districtId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "districts", "{{districtId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update District",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/districts/{{districtId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "districts", "{{districtId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ilala District\",\n  \"shortName\": \"ILA\",\n  \"regionId\": {{regionId}}\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete District",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/districts/{{districtId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "districts", "{{districtId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Wards",
+      "item": [
+        {
+          "name": "List Wards",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/wards",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "wards"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Ward",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/wards",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "wards"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Kariakoo\",\n  \"shortName\": \"KRK\",\n  \"districtId\": {{districtId}}\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Ward Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/wards/{{wardId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "wards", "{{wardId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Ward",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/wards/{{wardId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "wards", "{{wardId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Kariakoo Ward\",\n  \"shortName\": \"KRK\",\n  \"districtId\": {{districtId}}\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Ward",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/wards/{{wardId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "wards", "{{wardId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Villages",
+      "item": [
+        {
+          "name": "List Villages",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/villages",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "villages"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Village",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/villages",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "villages"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Some Village\",\n  \"shortName\": \"SV\",\n  \"wardId\": {{wardId}}\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Village Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/villages/{{villageId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "villages", "{{villageId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Village",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/villages/{{villageId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "villages", "{{villageId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Some Village Updated\",\n  \"shortName\": \"SV\",\n  \"wardId\": {{wardId}}\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Village",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/villages/{{villageId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "villages", "{{villageId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Streets",
+      "item": [
+        {
+          "name": "List Streets",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/streets",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "streets"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Street",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/streets",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "streets"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Some Street\",\n  \"wardId\": {{wardId}}\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Street Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/streets/{{streetId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "streets", "{{streetId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Street",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/streets/{{streetId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "streets", "{{streetId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Some Street Updated\",\n  \"wardId\": {{wardId}}\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Street",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/streets/{{streetId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "streets", "{{streetId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Divisions",
+      "item": [
+        {
+          "name": "List Divisions",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/divisions",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "divisions"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Division",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/divisions",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "divisions"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Some Division\",\n  \"districtId\": {{districtId}}\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Division Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/divisions/{{divisionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "divisions", "{{divisionId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Division",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/divisions/{{divisionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "divisions", "{{divisionId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Some Division Updated\",\n  \"districtId\": {{districtId}}\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Division",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/locations/divisions/{{divisionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "locations", "divisions", "{{divisionId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Reference Data",
+      "item": [
+        {
+          "name": "Birth Problems",
+          "item": [
+            {
+              "name": "List Birth Problems",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Accept", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/admin/reference/birth-problems",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "admin", "reference", "birth-problems"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Create Birth Problem",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Accept", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/admin/reference/birth-problems",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "admin", "reference", "birth-problems"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Difficult Birth\",\n  \"livestockTypeId\": 1\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Birth Problem Details",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Accept", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/admin/reference/birth-problems/{{birthProblemId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "admin", "reference", "birth-problems", "{{birthProblemId}}"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Birth Problem",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Accept", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/admin/reference/birth-problems/{{birthProblemId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "admin", "reference", "birth-problems", "{{birthProblemId}}"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Updated Birth Problem\",\n  \"livestockTypeId\": 1\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Birth Problem",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Accept", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/admin/reference/birth-problems/{{birthProblemId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "admin", "reference", "birth-problems", "{{birthProblemId}}"]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Birth Types",
+          "item": [
+            {
+              "name": "List Birth Types",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Accept", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/admin/reference/birth-types",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "admin", "reference", "birth-types"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Create Birth Type",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Accept", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/admin/reference/birth-types",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "admin", "reference", "birth-types"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Natural Birth\",\n  \"livestockTypeId\": 1\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Birth Type Details",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Accept", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/admin/reference/birth-types/{{birthTypeId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "admin", "reference", "birth-types", "{{birthTypeId}}"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Birth Type",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Accept", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/admin/reference/birth-types/{{birthTypeId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "admin", "reference", "birth-types", "{{birthTypeId}}"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Updated Birth Type\",\n  \"livestockTypeId\": 1\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Birth Type",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Accept", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/admin/reference/birth-types/{{birthTypeId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "admin", "reference", "birth-types", "{{birthTypeId}}"]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Diseases",
+          "item": [
+            {
+              "name": "List Diseases",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Accept", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/admin/reference/diseases",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "admin", "reference", "diseases"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Create Disease",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Accept", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/admin/reference/diseases",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "admin", "reference", "diseases"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Foot and Mouth Disease\",\n  \"status\": \"spreadable\"\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Disease Details",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Accept", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/admin/reference/diseases/{{diseaseId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "admin", "reference", "diseases", "{{diseaseId}}"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Disease",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Accept", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/admin/reference/diseases/{{diseaseId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "admin", "reference", "diseases", "{{diseaseId}}"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Updated Disease\",\n  \"status\": \"non-spreadable\"\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Disease",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Accept", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/admin/reference/diseases/{{diseaseId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "admin", "reference", "diseases", "{{diseaseId}}"]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Disposal Types",
+          "item": [
+            {
+              "name": "List Disposal Types",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Accept", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/admin/reference/disposal-types",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "admin", "reference", "disposal-types"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Create Disposal Type",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Accept", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/admin/reference/disposal-types",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "admin", "reference", "disposal-types"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Burial\"\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Disposal Type Details",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Accept", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/admin/reference/disposal-types/{{disposalTypeId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "admin", "reference", "disposal-types", "{{disposalTypeId}}"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Disposal Type",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Accept", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/admin/reference/disposal-types/{{disposalTypeId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "admin", "reference", "disposal-types", "{{disposalTypeId}}"]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Updated Disposal Type\"\n}"
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Disposal Type",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Accept", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/admin/reference/disposal-types/{{disposalTypeId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "admin", "reference", "disposal-types", "{{disposalTypeId}}"]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Administration Routes",
+          "item": [
+            { "name": "List Administration Routes", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/administration-routes", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "administration-routes"] } }, "response": [] },
+            { "name": "Create Administration Route", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/administration-routes", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "administration-routes"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Oral\"\n}" } }, "response": [] },
+            { "name": "Get Administration Route Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/administration-routes/{{administrationRouteId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "administration-routes", "{{administrationRouteId}}"] } }, "response": [] },
+            { "name": "Update Administration Route", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/administration-routes/{{administrationRouteId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "administration-routes", "{{administrationRouteId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Route\"\n}" } }, "response": [] },
+            { "name": "Delete Administration Route", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/administration-routes/{{administrationRouteId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "administration-routes", "{{administrationRouteId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Breeds",
+          "item": [
+            { "name": "List Breeds", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/breeds", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "breeds"] } }, "response": [] },
+            { "name": "Create Breed", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/breeds", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "breeds"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Holstein\",\n  \"group\": \"Dairy\",\n  \"livestockTypeId\": 1\n}" } }, "response": [] },
+            { "name": "Get Breed Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/breeds/{{breedId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "breeds", "{{breedId}}"] } }, "response": [] },
+            { "name": "Update Breed", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/breeds/{{breedId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "breeds", "{{breedId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Breed\",\n  \"group\": \"Updated Group\",\n  \"livestockTypeId\": 1\n}" } }, "response": [] },
+            { "name": "Delete Breed", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/breeds/{{breedId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "breeds", "{{breedId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Heat Types",
+          "item": [
+            { "name": "List Heat Types", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/heat-types", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "heat-types"] } }, "response": [] },
+            { "name": "Create Heat Type", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/heat-types", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "heat-types"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Natural Heat\"\n}" } }, "response": [] },
+            { "name": "Get Heat Type Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/heat-types/{{heatTypeId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "heat-types", "{{heatTypeId}}"] } }, "response": [] },
+            { "name": "Update Heat Type", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/heat-types/{{heatTypeId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "heat-types", "{{heatTypeId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Heat Type\"\n}" } }, "response": [] },
+            { "name": "Delete Heat Type", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/heat-types/{{heatTypeId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "heat-types", "{{heatTypeId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Feeding Types",
+          "item": [
+            { "name": "List Feeding Types", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/feeding-types", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "feeding-types"] } }, "response": [] },
+            { "name": "Create Feeding Type", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/feeding-types", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "feeding-types"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Grazing\"\n}" } }, "response": [] },
+            { "name": "Get Feeding Type Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/feeding-types/{{feedingTypeId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "feeding-types", "{{feedingTypeId}}"] } }, "response": [] },
+            { "name": "Update Feeding Type", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/feeding-types/{{feedingTypeId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "feeding-types", "{{feedingTypeId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Feeding Type\"\n}" } }, "response": [] },
+            { "name": "Delete Feeding Type", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/feeding-types/{{feedingTypeId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "feeding-types", "{{feedingTypeId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Identity Card Types",
+          "item": [
+            { "name": "List Identity Card Types", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/identity-card-types", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "identity-card-types"] } }, "response": [] },
+            { "name": "Create Identity Card Type", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/identity-card-types", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "identity-card-types"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"National ID\"\n}" } }, "response": [] },
+            { "name": "Get Identity Card Type Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/identity-card-types/{{identityCardTypeId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "identity-card-types", "{{identityCardTypeId}}"] } }, "response": [] },
+            { "name": "Update Identity Card Type", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/identity-card-types/{{identityCardTypeId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "identity-card-types", "{{identityCardTypeId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Identity Card Type\"\n}" } }, "response": [] },
+            { "name": "Delete Identity Card Type", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/identity-card-types/{{identityCardTypeId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "identity-card-types", "{{identityCardTypeId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Insemination Services",
+          "item": [
+            { "name": "List Insemination Services", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/insemination-services", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "insemination-services"] } }, "response": [] },
+            { "name": "Create Insemination Service", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/insemination-services", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "insemination-services"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"AI Service\"\n}" } }, "response": [] },
+            { "name": "Get Insemination Service Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/insemination-services/{{inseminationServiceId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "insemination-services", "{{inseminationServiceId}}"] } }, "response": [] },
+            { "name": "Update Insemination Service", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/insemination-services/{{inseminationServiceId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "insemination-services", "{{inseminationServiceId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Insemination Service\"\n}" } }, "response": [] },
+            { "name": "Delete Insemination Service", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/insemination-services/{{inseminationServiceId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "insemination-services", "{{inseminationServiceId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Legal Statuses",
+          "item": [
+            { "name": "List Legal Statuses", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/legal-statuses", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "legal-statuses"] } }, "response": [] },
+            { "name": "Create Legal Status", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/legal-statuses", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "legal-statuses"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Registered\"\n}" } }, "response": [] },
+            { "name": "Get Legal Status Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/legal-statuses/{{legalStatusId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "legal-statuses", "{{legalStatusId}}"] } }, "response": [] },
+            { "name": "Update Legal Status", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/legal-statuses/{{legalStatusId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "legal-statuses", "{{legalStatusId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Legal Status\"\n}" } }, "response": [] },
+            { "name": "Delete Legal Status", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/legal-statuses/{{legalStatusId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "legal-statuses", "{{legalStatusId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Livestock Obtained Methods",
+          "item": [
+            { "name": "List Livestock Obtained Methods", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/livestock-obtained-methods", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "livestock-obtained-methods"] } }, "response": [] },
+            { "name": "Create Livestock Obtained Method", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/livestock-obtained-methods", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "livestock-obtained-methods"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Purchase\"\n}" } }, "response": [] },
+            { "name": "Get Livestock Obtained Method Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/livestock-obtained-methods/{{livestockObtainedMethodId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "livestock-obtained-methods", "{{livestockObtainedMethodId}}"] } }, "response": [] },
+            { "name": "Update Livestock Obtained Method", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/livestock-obtained-methods/{{livestockObtainedMethodId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "livestock-obtained-methods", "{{livestockObtainedMethodId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Method\"\n}" } }, "response": [] },
+            { "name": "Delete Livestock Obtained Method", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/livestock-obtained-methods/{{livestockObtainedMethodId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "livestock-obtained-methods", "{{livestockObtainedMethodId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Livestock Types",
+          "item": [
+            { "name": "List Livestock Types", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/livestock-types", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "livestock-types"] } }, "response": [] },
+            { "name": "Create Livestock Type", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/livestock-types", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "livestock-types"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Cattle\"\n}" } }, "response": [] },
+            { "name": "Get Livestock Type Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/livestock-types/{{livestockTypeId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "livestock-types", "{{livestockTypeId}}"] } }, "response": [] },
+            { "name": "Update Livestock Type", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/livestock-types/{{livestockTypeId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "livestock-types", "{{livestockTypeId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Livestock Type\"\n}" } }, "response": [] },
+            { "name": "Delete Livestock Type", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/livestock-types/{{livestockTypeId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "livestock-types", "{{livestockTypeId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Medicine Types",
+          "item": [
+            { "name": "List Medicine Types", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/medicine-types", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "medicine-types"] } }, "response": [] },
+            { "name": "Create Medicine Type", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/medicine-types", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "medicine-types"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Antibiotic\"\n}" } }, "response": [] },
+            { "name": "Get Medicine Type Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/medicine-types/{{medicineTypeId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "medicine-types", "{{medicineTypeId}}"] } }, "response": [] },
+            { "name": "Update Medicine Type", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/medicine-types/{{medicineTypeId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "medicine-types", "{{medicineTypeId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Medicine Type\"\n}" } }, "response": [] },
+            { "name": "Delete Medicine Type", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/medicine-types/{{medicineTypeId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "medicine-types", "{{medicineTypeId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Medicines",
+          "item": [
+            { "name": "List Medicines", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/medicines", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "medicines"] } }, "response": [] },
+            { "name": "Create Medicine", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/medicines", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "medicines"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Penicillin\",\n  \"medicineTypeId\": 1\n}" } }, "response": [] },
+            { "name": "Get Medicine Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/medicines/{{medicineId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "medicines", "{{medicineId}}"] } }, "response": [] },
+            { "name": "Update Medicine", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/medicines/{{medicineId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "medicines", "{{medicineId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Medicine\",\n  \"medicineTypeId\": 1\n}" } }, "response": [] },
+            { "name": "Delete Medicine", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/medicines/{{medicineId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "medicines", "{{medicineId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Milking Methods",
+          "item": [
+            { "name": "List Milking Methods", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/milking-methods", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "milking-methods"] } }, "response": [] },
+            { "name": "Create Milking Method", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/milking-methods", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "milking-methods"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Hand Milking\"\n}" } }, "response": [] },
+            { "name": "Get Milking Method Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/milking-methods/{{milkingMethodId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "milking-methods", "{{milkingMethodId}}"] } }, "response": [] },
+            { "name": "Update Milking Method", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/milking-methods/{{milkingMethodId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "milking-methods", "{{milkingMethodId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Milking Method\"\n}" } }, "response": [] },
+            { "name": "Delete Milking Method", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/milking-methods/{{milkingMethodId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "milking-methods", "{{milkingMethodId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Reproductive Problems",
+          "item": [
+            { "name": "List Reproductive Problems", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/reproductive-problems", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "reproductive-problems"] } }, "response": [] },
+            { "name": "Create Reproductive Problem", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/reproductive-problems", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "reproductive-problems"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Infertility\"\n}" } }, "response": [] },
+            { "name": "Get Reproductive Problem Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/reproductive-problems/{{reproductiveProblemId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "reproductive-problems", "{{reproductiveProblemId}}"] } }, "response": [] },
+            { "name": "Update Reproductive Problem", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/reproductive-problems/{{reproductiveProblemId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "reproductive-problems", "{{reproductiveProblemId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Reproductive Problem\"\n}" } }, "response": [] },
+            { "name": "Delete Reproductive Problem", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/reproductive-problems/{{reproductiveProblemId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "reproductive-problems", "{{reproductiveProblemId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "School Levels",
+          "item": [
+            { "name": "List School Levels", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/school-levels", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "school-levels"] } }, "response": [] },
+            { "name": "Create School Level", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/school-levels", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "school-levels"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Primary\"\n}" } }, "response": [] },
+            { "name": "Get School Level Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/school-levels/{{schoolLevelId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "school-levels", "{{schoolLevelId}}"] } }, "response": [] },
+            { "name": "Update School Level", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/school-levels/{{schoolLevelId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "school-levels", "{{schoolLevelId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated School Level\"\n}" } }, "response": [] },
+            { "name": "Delete School Level", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/school-levels/{{schoolLevelId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "school-levels", "{{schoolLevelId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Semen Straw Types",
+          "item": [
+            { "name": "List Semen Straw Types", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/semen-straw-types", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "semen-straw-types"] } }, "response": [] },
+            { "name": "Create Semen Straw Type", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/semen-straw-types", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "semen-straw-types"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Conventional\",\n  \"category\": \"Standard\"\n}" } }, "response": [] },
+            { "name": "Get Semen Straw Type Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/semen-straw-types/{{semenStrawTypeId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "semen-straw-types", "{{semenStrawTypeId}}"] } }, "response": [] },
+            { "name": "Update Semen Straw Type", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/semen-straw-types/{{semenStrawTypeId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "semen-straw-types", "{{semenStrawTypeId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Semen Straw Type\",\n  \"category\": \"Updated Category\"\n}" } }, "response": [] },
+            { "name": "Delete Semen Straw Type", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/semen-straw-types/{{semenStrawTypeId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "semen-straw-types", "{{semenStrawTypeId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Species",
+          "item": [
+            { "name": "List Species", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/species", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "species"] } }, "response": [] },
+            { "name": "Create Specie", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/species", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "species"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Bos taurus\",\n  \"livestockTypeId\": 1\n}" } }, "response": [] },
+            { "name": "Get Specie Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/species/{{specieId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "species", "{{specieId}}"] } }, "response": [] },
+            { "name": "Update Specie", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/species/{{specieId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "species", "{{specieId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Specie\",\n  \"livestockTypeId\": 1\n}" } }, "response": [] },
+            { "name": "Delete Specie", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/species/{{specieId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "species", "{{specieId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Stages",
+          "item": [
+            { "name": "List Stages", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/stages", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "stages"] } }, "response": [] },
+            { "name": "Create Stage", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/stages", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "stages"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Lactating\",\n  \"livestockTypeId\": 1\n}" } }, "response": [] },
+            { "name": "Get Stage Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/stages/{{stageId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "stages", "{{stageId}}"] } }, "response": [] },
+            { "name": "Update Stage", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/stages/{{stageId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "stages", "{{stageId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Stage\",\n  \"livestockTypeId\": 1\n}" } }, "response": [] },
+            { "name": "Delete Stage", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/stages/{{stageId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "stages", "{{stageId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Test Results",
+          "item": [
+            { "name": "List Test Results", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/test-results", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "test-results"] } }, "response": [] },
+            { "name": "Create Test Result", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/test-results", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "test-results"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Positive\"\n}" } }, "response": [] },
+            { "name": "Get Test Result Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/test-results/{{testResultId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "test-results", "{{testResultId}}"] } }, "response": [] },
+            { "name": "Update Test Result", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/test-results/{{testResultId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "test-results", "{{testResultId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Test Result\"\n}" } }, "response": [] },
+            { "name": "Delete Test Result", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/test-results/{{testResultId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "test-results", "{{testResultId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Vaccine Types",
+          "item": [
+            { "name": "List Vaccine Types", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/vaccine-types", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "vaccine-types"] } }, "response": [] },
+            { "name": "Create Vaccine Type", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/vaccine-types", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "vaccine-types"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Live Vaccine\"\n}" } }, "response": [] },
+            { "name": "Get Vaccine Type Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/vaccine-types/{{vaccineTypeId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "vaccine-types", "{{vaccineTypeId}}"] } }, "response": [] },
+            { "name": "Update Vaccine Type", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/vaccine-types/{{vaccineTypeId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "vaccine-types", "{{vaccineTypeId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Vaccine Type\"\n}" } }, "response": [] },
+            { "name": "Delete Vaccine Type", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/reference/vaccine-types/{{vaccineTypeId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "reference", "vaccine-types", "{{vaccineTypeId}}"] } }, "response": [] }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Admin - Entities",
+      "item": [
+        {
+          "name": "Extension Officers",
+          "item": [
+            { "name": "List Extension Officers", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/extension-officers", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "extension-officers"] } }, "response": [] },
+            { "name": "Create Extension Officer", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/extension-officers", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "extension-officers"] }, "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"password123\",\n  \"phone\": \"+255123456789\",\n  \"countryId\": 1,\n  \"regionId\": 1\n}" } }, "response": [] },
+            { "name": "Get Extension Officer Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/extension-officers/{{extensionOfficerId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "extension-officers", "{{extensionOfficerId}}"] } }, "response": [] },
+            { "name": "Update Extension Officer", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/extension-officers/{{extensionOfficerId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "extension-officers", "{{extensionOfficerId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"Updated Name\"\n}" } }, "response": [] },
+            { "name": "Delete Extension Officer", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/extension-officers/{{extensionOfficerId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "extension-officers", "{{extensionOfficerId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Extension Officer Farm Invites",
+          "item": [
+            { "name": "List Extension Officer Farm Invites", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/extension-officer-farm-invites", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "extension-officer-farm-invites"] } }, "response": [] },
+            { "name": "Create Extension Officer Farm Invite", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/extension-officer-farm-invites", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "extension-officer-farm-invites"] }, "body": { "mode": "raw", "raw": "{\n  \"extensionOfficerId\": 1,\n  \"farmerId\": 1,\n  \"access_code\": \"ACODE-12345ABC=7-12\"\n}" } }, "response": [] },
+            { "name": "Get Extension Officer Farm Invite Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/extension-officer-farm-invites/{{extensionOfficerFarmInviteId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "extension-officer-farm-invites", "{{extensionOfficerFarmInviteId}}"] } }, "response": [] },
+            { "name": "Update Extension Officer Farm Invite", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/extension-officer-farm-invites/{{extensionOfficerFarmInviteId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "extension-officer-farm-invites", "{{extensionOfficerFarmInviteId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"access_code\": \"ACODE-54321XYZ=7-34\"\n}" } }, "response": [] },
+            { "name": "Delete Extension Officer Farm Invite", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/extension-officer-farm-invites/{{extensionOfficerFarmInviteId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "extension-officer-farm-invites", "{{extensionOfficerFarmInviteId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Farmers",
+          "item": [
+            { "name": "List Farmers", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/farmers", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "farmers"] } }, "response": [] },
+            { "name": "Create Farmer", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/farmers", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "farmers"] }, "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"Jane\",\n  \"surname\": \"Smith\",\n  \"phone1\": \"+255987654321\",\n  \"email\": \"jane.smith@example.com\",\n  \"countryId\": 1,\n  \"regionId\": 1\n}" } }, "response": [] },
+            { "name": "Get Farmer Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/farmers/{{farmerId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "farmers", "{{farmerId}}"] } }, "response": [] },
+            { "name": "Update Farmer", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/farmers/{{farmerId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "farmers", "{{farmerId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"Updated Name\"\n}" } }, "response": [] },
+            { "name": "Delete Farmer", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/farmers/{{farmerId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "farmers", "{{farmerId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Farms",
+          "item": [
+            { "name": "List Farms", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/farms", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "farms"] } }, "response": [] },
+            { "name": "Create Farm", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/farms", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "farms"] }, "body": { "mode": "raw", "raw": "{\n  \"farmerId\": 1,\n  \"uuid\": \"farm-uuid-123\",\n  \"name\": \"My Farm\",\n  \"countryId\": 1,\n  \"regionId\": 1,\n  \"districtId\": 1,\n  \"wardId\": 1\n}" } }, "response": [] },
+            { "name": "Get Farm Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/farms/{{farmId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "farms", "{{farmId}}"] } }, "response": [] },
+            { "name": "Update Farm", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/farms/{{farmId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "farms", "{{farmId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Farm Name\"\n}" } }, "response": [] },
+            { "name": "Delete Farm", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/farms/{{farmId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "farms", "{{farmId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Livestock",
+          "item": [
+            { "name": "List Livestock", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/livestock", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "livestock"] } }, "response": [] },
+            { "name": "Create Livestock", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/livestock", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "livestock"] }, "body": { "mode": "raw", "raw": "{\n  \"farmUuid\": \"farm-uuid-123\",\n  \"uuid\": \"livestock-uuid-456\",\n  \"name\": \"Cow 001\",\n  \"livestockTypeId\": 1,\n  \"gender\": \"female\"\n}" } }, "response": [] },
+            { "name": "Get Livestock Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/livestock/{{livestockId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "livestock", "{{livestockId}}"] } }, "response": [] },
+            { "name": "Update Livestock", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/livestock/{{livestockId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "livestock", "{{livestockId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Livestock Name\"\n}" } }, "response": [] },
+            { "name": "Delete Livestock", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/livestock/{{livestockId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "livestock", "{{livestockId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Vets",
+          "item": [
+            { "name": "List Vets", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/vets", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "vets"] } }, "response": [] },
+            { "name": "Create Vet", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/vets", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "vets"] }, "body": { "mode": "raw", "raw": "{\n  \"fullName\": \"Dr. John Vet\",\n  \"email\": \"vet@example.com\",\n  \"phoneNumber\": \"+255123456789\",\n  \"medicalLicenseNo\": \"VET-12345\",\n  \"countryId\": 1,\n  \"regionId\": 1\n}" } }, "response": [] },
+            { "name": "Get Vet Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/vets/{{vetId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "vets", "{{vetId}}"] } }, "response": [] },
+            { "name": "Update Vet", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/vets/{{vetId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "vets", "{{vetId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"fullName\": \"Updated Vet Name\"\n}" } }, "response": [] },
+            { "name": "Delete Vet", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/vets/{{vetId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "vets", "{{vetId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Vaccines",
+          "item": [
+            { "name": "List Vaccines", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/vaccines", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "vaccines"] } }, "response": [] },
+            { "name": "Create Vaccine", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/vaccines", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "vaccines"] }, "body": { "mode": "raw", "raw": "{\n  \"uuid\": \"vaccine-uuid-789\",\n  \"farmUuid\": \"farm-uuid-123\",\n  \"name\": \"Vaccine Name\",\n  \"vaccineTypeId\": 1,\n  \"status\": \"active\"\n}" } }, "response": [] },
+            { "name": "Get Vaccine Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/vaccines/{{vaccineId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "vaccines", "{{vaccineId}}"] } }, "response": [] },
+            { "name": "Update Vaccine", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/vaccines/{{vaccineId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "vaccines", "{{vaccineId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Vaccine Name\"\n}" } }, "response": [] },
+            { "name": "Delete Vaccine", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/vaccines/{{vaccineId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "vaccines", "{{vaccineId}}"] } }, "response": [] }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Admin - Logs",
+      "item": [
+        {
+          "name": "Birth Events",
+          "item": [
+            { "name": "List Birth Events", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/birth-events", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "birth-events"] } }, "response": [] },
+            { "name": "Create Birth Event", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/birth-events", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "birth-events"] }, "body": { "mode": "raw", "raw": "{\n  \"uuid\": \"birth-event-uuid-123\",\n  \"farmUuid\": \"farm-uuid-123\",\n  \"livestockUuid\": \"livestock-uuid-456\",\n  \"startDate\": \"2024-01-15\",\n  \"birthTypeId\": 1\n}" } }, "response": [] },
+            { "name": "Get Birth Event Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/birth-events/{{birthEventId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "birth-events", "{{birthEventId}}"] } }, "response": [] },
+            { "name": "Update Birth Event", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/birth-events/{{birthEventId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "birth-events", "{{birthEventId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"remarks\": \"Updated remarks\"\n}" } }, "response": [] },
+            { "name": "Delete Birth Event", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/birth-events/{{birthEventId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "birth-events", "{{birthEventId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Aborted Pregnancies",
+          "item": [
+            { "name": "List Aborted Pregnancies", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/aborted-pregnancies", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "aborted-pregnancies"] } }, "response": [] },
+            { "name": "Create Aborted Pregnancy", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/aborted-pregnancies", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "aborted-pregnancies"] }, "body": { "mode": "raw", "raw": "{\n  \"uuid\": \"aborted-pregnancy-uuid-123\",\n  \"farmUuid\": \"farm-uuid-123\",\n  \"livestockUuid\": \"livestock-uuid-456\",\n  \"abortionDate\": \"2024-01-15\",\n  \"reproductiveProblemId\": 1\n}" } }, "response": [] },
+            { "name": "Get Aborted Pregnancy Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/aborted-pregnancies/{{abortedPregnancyId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "aborted-pregnancies", "{{abortedPregnancyId}}"] } }, "response": [] },
+            { "name": "Update Aborted Pregnancy", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/aborted-pregnancies/{{abortedPregnancyId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "aborted-pregnancies", "{{abortedPregnancyId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"remarks\": \"Updated remarks\"\n}" } }, "response": [] },
+            { "name": "Delete Aborted Pregnancy", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/aborted-pregnancies/{{abortedPregnancyId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "aborted-pregnancies", "{{abortedPregnancyId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Feedings",
+          "item": [
+            { "name": "List Feedings", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/feedings", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "feedings"] } }, "response": [] },
+            { "name": "Create Feeding", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/feedings", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "feedings"] }, "body": { "mode": "raw", "raw": "{\n  \"uuid\": \"feeding-uuid-123\",\n  \"farmUuid\": \"farm-uuid-123\",\n  \"livestockUuid\": \"livestock-uuid-456\",\n  \"feedingTypeId\": 1,\n  \"amount\": \"5kg\"\n}" } }, "response": [] },
+            { "name": "Get Feeding Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/feedings/{{feedingId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "feedings", "{{feedingId}}"] } }, "response": [] },
+            { "name": "Update Feeding", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/feedings/{{feedingId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "feedings", "{{feedingId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"amount\": \"6kg\"\n}" } }, "response": [] },
+            { "name": "Delete Feeding", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/feedings/{{feedingId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "feedings", "{{feedingId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Weight Changes",
+          "item": [
+            { "name": "List Weight Changes", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/weight-changes", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "weight-changes"] } }, "response": [] },
+            { "name": "Create Weight Change", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/weight-changes", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "weight-changes"] }, "body": { "mode": "raw", "raw": "{\n  \"uuid\": \"weight-change-uuid-123\",\n  \"farmUuid\": \"farm-uuid-123\",\n  \"livestockUuid\": \"livestock-uuid-456\",\n  \"oldWeight\": \"200kg\",\n  \"newWeight\": \"220kg\"\n}" } }, "response": [] },
+            { "name": "Get Weight Change Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/weight-changes/{{weightChangeId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "weight-changes", "{{weightChangeId}}"] } }, "response": [] },
+            { "name": "Update Weight Change", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/weight-changes/{{weightChangeId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "weight-changes", "{{weightChangeId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"newWeight\": \"230kg\"\n}" } }, "response": [] },
+            { "name": "Delete Weight Change", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/weight-changes/{{weightChangeId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "weight-changes", "{{weightChangeId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Dewormings",
+          "item": [
+            { "name": "List Dewormings", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/dewormings", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "dewormings"] } }, "response": [] },
+            { "name": "Create Deworming", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/dewormings", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "dewormings"] }, "body": { "mode": "raw", "raw": "{\n  \"uuid\": \"deworming-uuid-123\",\n  \"farmUuid\": \"farm-uuid-123\",\n  \"livestockUuid\": \"livestock-uuid-456\",\n  \"medicineId\": 1,\n  \"administrationRouteId\": 1\n}" } }, "response": [] },
+            { "name": "Get Deworming Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/dewormings/{{dewormingId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "dewormings", "{{dewormingId}}"] } }, "response": [] },
+            { "name": "Update Deworming", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/dewormings/{{dewormingId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "dewormings", "{{dewormingId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"quantity\": \"10ml\"\n}" } }, "response": [] },
+            { "name": "Delete Deworming", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/dewormings/{{dewormingId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "dewormings", "{{dewormingId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Treatments",
+          "item": [
+            { "name": "List Treatments", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/treatments", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "treatments"] } }, "response": [] },
+            { "name": "Create Treatment", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/treatments", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "treatments"] }, "body": { "mode": "raw", "raw": "{\n  \"uuid\": \"treatment-uuid-123\",\n  \"farmUuid\": \"farm-uuid-123\",\n  \"livestockUuid\": \"livestock-uuid-456\",\n  \"medicineId\": 1,\n  \"diseaseId\": 1,\n  \"medicationDate\": \"2024-01-15\",\n  \"nextMedicationDate\": \"2024-01-22\"\n}" } }, "response": [] },
+            { "name": "Get Treatment Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/treatments/{{treatmentId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "treatments", "{{treatmentId}}"] } }, "response": [] },
+            { "name": "Update Treatment", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/treatments/{{treatmentId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "treatments", "{{treatmentId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"quantity\": \"20ml\",\n  \"nextMedicationDate\": \"2024-01-22\"\n}" } }, "response": [] },
+            { "name": "Delete Treatment", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/treatments/{{treatmentId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "treatments", "{{treatmentId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Vaccinations",
+          "item": [
+            { "name": "List Vaccinations", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/vaccinations", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "vaccinations"] } }, "response": [] },
+            { "name": "Create Vaccination", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/vaccinations", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "vaccinations"] }, "body": { "mode": "raw", "raw": "{\n  \"uuid\": \"vaccination-uuid-123\",\n  \"farmUuid\": \"farm-uuid-123\",\n  \"livestockUuid\": \"livestock-uuid-456\",\n  \"vaccineUuid\": \"vaccine-uuid-789\",\n  \"diseaseId\": 1,\n  \"status\": \"completed\"\n}" } }, "response": [] },
+            { "name": "Get Vaccination Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/vaccinations/{{vaccinationId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "vaccinations", "{{vaccinationId}}"] } }, "response": [] },
+            { "name": "Update Vaccination", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/vaccinations/{{vaccinationId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "vaccinations", "{{vaccinationId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"status\": \"completed\"\n}" } }, "response": [] },
+            { "name": "Delete Vaccination", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/vaccinations/{{vaccinationId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "vaccinations", "{{vaccinationId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Disposals",
+          "item": [
+            { "name": "List Disposals", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/disposals", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "disposals"] } }, "response": [] },
+            { "name": "Create Disposal", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/disposals", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "disposals"] }, "body": { "mode": "raw", "raw": "{\n  \"uuid\": \"disposal-uuid-123\",\n  \"farmUuid\": \"farm-uuid-123\",\n  \"livestockUuid\": \"livestock-uuid-456\",\n  \"disposalTypeId\": 1,\n  \"reasons\": \"Old age\"\n}" } }, "response": [] },
+            { "name": "Get Disposal Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/disposals/{{disposalId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "disposals", "{{disposalId}}"] } }, "response": [] },
+            { "name": "Update Disposal", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/disposals/{{disposalId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "disposals", "{{disposalId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"reasons\": \"Updated reason\"\n}" } }, "response": [] },
+            { "name": "Delete Disposal", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/disposals/{{disposalId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "disposals", "{{disposalId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Milkings",
+          "item": [
+            { "name": "List Milkings", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/milkings", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "milkings"] } }, "response": [] },
+            { "name": "Create Milking", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/milkings", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "milkings"] }, "body": { "mode": "raw", "raw": "{\n  \"uuid\": \"milking-uuid-123\",\n  \"farmUuid\": \"farm-uuid-123\",\n  \"livestockUuid\": \"livestock-uuid-456\",\n  \"milkingMethodId\": 1,\n  \"amount\": \"10L\",\n  \"session\": \"morning\"\n}" } }, "response": [] },
+            { "name": "Get Milking Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/milkings/{{milkingId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "milkings", "{{milkingId}}"] } }, "response": [] },
+            { "name": "Update Milking", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/milkings/{{milkingId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "milkings", "{{milkingId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"amount\": \"12L\"\n}" } }, "response": [] },
+            { "name": "Delete Milking", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/milkings/{{milkingId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "milkings", "{{milkingId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Pregnancies",
+          "item": [
+            { "name": "List Pregnancies", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/pregnancies", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "pregnancies"] } }, "response": [] },
+            { "name": "Create Pregnancy", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/pregnancies", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "pregnancies"] }, "body": { "mode": "raw", "raw": "{\n  \"uuid\": \"pregnancy-uuid-123\",\n  \"farmUuid\": \"farm-uuid-123\",\n  \"livestockUuid\": \"livestock-uuid-456\",\n  \"testResultId\": 1,\n  \"testDate\": \"2024-01-15\",\n  \"noOfMonths\": 3\n}" } }, "response": [] },
+            { "name": "Get Pregnancy Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/pregnancies/{{pregnancyId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "pregnancies", "{{pregnancyId}}"] } }, "response": [] },
+            { "name": "Update Pregnancy", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/pregnancies/{{pregnancyId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "pregnancies", "{{pregnancyId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"noOfMonths\": 4\n}" } }, "response": [] },
+            { "name": "Delete Pregnancy", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/pregnancies/{{pregnancyId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "pregnancies", "{{pregnancyId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Inseminations",
+          "item": [
+            { "name": "List Inseminations", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/inseminations", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "inseminations"] } }, "response": [] },
+            { "name": "Create Insemination", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/inseminations", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "inseminations"] }, "body": { "mode": "raw", "raw": "{\n  \"uuid\": \"insemination-uuid-123\",\n  \"farmUuid\": \"farm-uuid-123\",\n  \"livestockUuid\": \"livestock-uuid-456\",\n  \"inseminationDate\": \"2024-01-15\",\n  \"currentHeatTypeId\": 1\n}" } }, "response": [] },
+            { "name": "Get Insemination Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/inseminations/{{inseminationId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "inseminations", "{{inseminationId}}"] } }, "response": [] },
+            { "name": "Update Insemination", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/inseminations/{{inseminationId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "inseminations", "{{inseminationId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"bullCode\": \"BULL-001\"\n}" } }, "response": [] },
+            { "name": "Delete Insemination", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/inseminations/{{inseminationId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "inseminations", "{{inseminationId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Dryoffs",
+          "item": [
+            { "name": "List Dryoffs", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/dryoffs", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "dryoffs"] } }, "response": [] },
+            { "name": "Create Dryoff", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/dryoffs", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "dryoffs"] }, "body": { "mode": "raw", "raw": "{\n  \"uuid\": \"dryoff-uuid-123\",\n  \"farmUuid\": \"farm-uuid-123\",\n  \"livestockUuid\": \"livestock-uuid-456\",\n  \"startDate\": \"2024-01-15\",\n  \"reason\": \"Pregnancy\"\n}" } }, "response": [] },
+            { "name": "Get Dryoff Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/dryoffs/{{dryoffId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "dryoffs", "{{dryoffId}}"] } }, "response": [] },
+            { "name": "Update Dryoff", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/dryoffs/{{dryoffId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "dryoffs", "{{dryoffId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"endDate\": \"2024-02-15\"\n}" } }, "response": [] },
+            { "name": "Delete Dryoff", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/dryoffs/{{dryoffId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "dryoffs", "{{dryoffId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Transfers",
+          "item": [
+            { "name": "List Transfers", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/transfers", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "transfers"] } }, "response": [] },
+            { "name": "Create Transfer", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/transfers", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "transfers"] }, "body": { "mode": "raw", "raw": "{\n  \"uuid\": \"transfer-uuid-123\",\n  \"farmUuid\": \"farm-uuid-123\",\n  \"livestockUuid\": \"livestock-uuid-456\",\n  \"toFarmUuid\": \"farm-uuid-789\",\n  \"transferDate\": \"2024-01-15\"\n}" } }, "response": [] },
+            { "name": "Get Transfer Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/transfers/{{transferId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "transfers", "{{transferId}}"] } }, "response": [] },
+            { "name": "Update Transfer", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/transfers/{{transferId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "transfers", "{{transferId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"price\": 50000\n}" } }, "response": [] },
+            { "name": "Delete Transfer", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/transfers/{{transferId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "transfers", "{{transferId}}"] } }, "response": [] }
+          ]
+        },
+        {
+          "name": "Calvings",
+          "item": [
+            { "name": "List Calvings", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/calvings", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "calvings"] } }, "response": [] },
+            { "name": "Create Calving", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/calvings", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "calvings"] }, "body": { "mode": "raw", "raw": "{\n  \"uuid\": \"calving-uuid-123\",\n  \"farmUuid\": \"farm-uuid-123\",\n  \"livestockUuid\": \"livestock-uuid-456\",\n  \"startDate\": \"2024-01-15\",\n  \"calvingTypeId\": 1\n}" } }, "response": [] },
+            { "name": "Get Calving Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/calvings/{{calvingId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "calvings", "{{calvingId}}"] } }, "response": [] },
+            { "name": "Update Calving", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/calvings/{{calvingId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "calvings", "{{calvingId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"remarks\": \"Updated remarks\"\n}" } }, "response": [] },
+            { "name": "Delete Calving", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/calvings/{{calvingId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "calvings", "{{calvingId}}"] } }, "response": [] }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000/api"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": "1"
+    },
+    {
+      "key": "countryId",
+      "value": "1"
+    },
+    {
+      "key": "regionId",
+      "value": "1"
+    },
+    {
+      "key": "districtId",
+      "value": "1"
+    },
+    {
+      "key": "wardId",
+      "value": "1"
+    },
+    {
+      "key": "villageId",
+      "value": "1"
+    },
+    {
+      "key": "streetId",
+      "value": "1"
+    },
+    {
+      "key": "divisionId",
+      "value": "1"
+    },
+    {
+      "key": "birthProblemId",
+      "value": "1"
+    },
+    {
+      "key": "birthTypeId",
+      "value": "1"
+    },
+    {
+      "key": "diseaseId",
+      "value": "1"
+    },
+    {
+      "key": "disposalTypeId",
+      "value": "1"
+    },
+    {
+      "key": "administrationRouteId",
+      "value": "1"
+    },
+    {
+      "key": "breedId",
+      "value": "1"
+    },
+    {
+      "key": "heatTypeId",
+      "value": "1"
+    },
+    {
+      "key": "feedingTypeId",
+      "value": "1"
+    },
+    {
+      "key": "identityCardTypeId",
+      "value": "1"
+    },
+    {
+      "key": "inseminationServiceId",
+      "value": "1"
+    },
+    {
+      "key": "legalStatusId",
+      "value": "1"
+    },
+    {
+      "key": "livestockObtainedMethodId",
+      "value": "1"
+    },
+    {
+      "key": "livestockTypeId",
+      "value": "1"
+    },
+    {
+      "key": "medicineTypeId",
+      "value": "1"
+    },
+    {
+      "key": "medicineId",
+      "value": "1"
+    },
+    {
+      "key": "milkingMethodId",
+      "value": "1"
+    },
+    {
+      "key": "reproductiveProblemId",
+      "value": "1"
+    },
+    {
+      "key": "schoolLevelId",
+      "value": "1"
+    },
+    {
+      "key": "semenStrawTypeId",
+      "value": "1"
+    },
+    {
+      "key": "specieId",
+      "value": "1"
+    },
+    {
+      "key": "stageId",
+      "value": "1"
+    },
+    {
+      "key": "testResultId",
+      "value": "1"
+    },
+    {
+      "key": "vaccineTypeId",
+      "value": "1"
+    },
+    {
+      "key": "extensionOfficerId",
+      "value": "1"
+    },
+    {
+      "key": "extensionOfficerFarmInviteId",
+      "value": "1"
+    },
+    {
+      "key": "farmerId",
+      "value": "1"
+    },
+    {
+      "key": "farmId",
+      "value": "1"
+    },
+    {
+      "key": "livestockId",
+      "value": "1"
+    },
+    {
+      "key": "vetId",
+      "value": "1"
+    },
+    {
+      "key": "vaccineId",
+      "value": "1"
+    },
+    {
+      "key": "birthEventId",
+      "value": "1"
+    },
+    {
+      "key": "abortedPregnancyId",
+      "value": "1"
+    },
+    {
+      "key": "feedingId",
+      "value": "1"
+    },
+    {
+      "key": "weightChangeId",
+      "value": "1"
+    },
+    {
+      "key": "dewormingId",
+      "value": "1"
+    },
+    {
+      "key": "medicationId",
+      "value": "1"
+    },
+    {
+      "key": "vaccinationId",
+      "value": "1"
+    },
+    {
+      "key": "disposalId",
+      "value": "1"
+    },
+    {
+      "key": "milkingId",
+      "value": "1"
+    },
+    {
+      "key": "pregnancyId",
+      "value": "1"
+    },
+    {
+      "key": "inseminationId",
+      "value": "1"
+    },
+    {
+      "key": "dryoffId",
+      "value": "1"
+    },
+    {
+      "key": "transferId",
+      "value": "1"
+    },
+    {
+      "key": "calvingId",
+      "value": "1"
+    }
+  ]
+}
+
+
