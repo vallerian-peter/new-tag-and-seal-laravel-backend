@@ -84,6 +84,7 @@ class TransferController extends Controller
                     'farmName' => optional($transfer->fromFarm)->name,
                     'toFarmName' => optional($transfer->toFarm)->name,
                     'livestockName' => optional($transfer->livestock)->name,
+                    'eventDate' => $transfer->eventDate ? Carbon::parse($transfer->eventDate)->toIso8601String() : $transfer->created_at?->toIso8601String(),
                     'createdAt' => $transfer->created_at?->toIso8601String(),
                     'updatedAt' => $transfer->updated_at?->toIso8601String(),
                 ];
@@ -126,6 +127,11 @@ class TransferController extends Controller
                     ? Carbon::parse($transferData['updatedAt'])->format('Y-m-d H:i:s')
                     : now();
 
+                // Handle eventDate - if not provided, default to createdAt for backward compatibility
+                $eventDate = isset($transferData['eventDate'])
+                    ? Carbon::parse($transferData['eventDate'])->format('Y-m-d H:i:s')
+                    : $createdAt;
+
                 $price = isset($transferData['price'])
                     ? (string)$transferData['price']
                     : null;
@@ -149,6 +155,7 @@ class TransferController extends Controller
                                     'transferDate' => $transferDate,
                                     'remarks' => $transferData['remarks'] ?? $existing->remarks,
                                     'status' => $transferData['status'] ?? $existing->status,
+                                    'eventDate' => $eventDate,
                                     'updated_at' => $updatedAt,
                                 ]);
                                 Log::info("✅ Transfer updated (local newer): UUID {$uuid}");
@@ -158,6 +165,7 @@ class TransferController extends Controller
                         } else {
                             Transfer::create([
                                 'uuid' => $uuid,
+                                'eventDate' => $eventDate,
                                 'farmUuid' => $transferData['farmUuid'] ?? null,
                                 'livestockUuid' => $livestockUuid,
                                 'toFarmUuid' => $transferData['toFarmUuid'] ?? null,
@@ -193,6 +201,7 @@ class TransferController extends Controller
                                     'transferDate' => $transferDate,
                                     'remarks' => $transferData['remarks'] ?? $transfer->remarks,
                                     'status' => $transferData['status'] ?? $transfer->status,
+                                    'eventDate' => $eventDate,
                                     'updated_at' => $updatedAt,
                                 ]);
                                 Log::info("✅ Transfer updated: UUID {$uuid}");
@@ -268,6 +277,7 @@ class TransferController extends Controller
             'transferDate' => 'nullable|date',
             'remarks' => 'nullable|string',
             'status' => 'nullable|string|in:active,inactive',
+            'eventDate' => 'nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -281,6 +291,12 @@ class TransferController extends Controller
         $data = $request->all();
         if ($request->has('transferDate')) {
             $data['transferDate'] = $this->convertDateFormat($request->transferDate);
+        }
+        if ($request->has('eventDate')) {
+            $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
+        } else {
+            // Default to now if not provided
+            $data['eventDate'] = now()->format('Y-m-d H:i:s');
         }
 
         $transfer = Transfer::create($data);
@@ -318,6 +334,7 @@ class TransferController extends Controller
             'transferDate' => 'sometimes|nullable|date',
             'remarks' => 'sometimes|nullable|string',
             'status' => 'sometimes|nullable|string|in:active,inactive',
+            'eventDate' => 'sometimes|nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -328,10 +345,13 @@ class TransferController extends Controller
             ], 422);
         }
 
-        $data = $request->except(['transferDate']);
+        $data = $request->except(['transferDate', 'eventDate']);
 
         if ($request->has('transferDate')) {
             $data['transferDate'] = $this->convertDateFormat($request->transferDate);
+        }
+        if ($request->has('eventDate')) {
+            $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
         }
 
         $transfer->fill($data);

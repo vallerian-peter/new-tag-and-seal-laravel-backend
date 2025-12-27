@@ -56,6 +56,7 @@ class FeedingController extends Controller
                     'nextFeedingTime' => $feed->nextFeedingTime,
                     'amount' => $feed->amount,
                     'remarks' => $feed->remarks,
+                    'eventDate' => $feed->eventDate ? Carbon::parse($feed->eventDate)->toIso8601String() : $feed->created_at?->toIso8601String(),
                     'createdAt' => $feed->created_at?->toIso8601String(),
                     'updatedAt' => $feed->updated_at?->toIso8601String(),
                 ];
@@ -110,6 +111,11 @@ class FeedingController extends Controller
                     ? Carbon::parse($feedingData['updatedAt'])->format('Y-m-d H:i:s')
                     : now();
 
+                // Handle eventDate - if not provided, default to createdAt for backward compatibility
+                $eventDate = isset($feedingData['eventDate'])
+                    ? Carbon::parse($feedingData['eventDate'])->format('Y-m-d H:i:s')
+                    : $createdAt;
+
                 // Amount is stored as string to retain unit (e.g. "54kg")
                 $amount = isset($feedingData['amount'])
                     ? trim((string) $feedingData['amount'])
@@ -134,6 +140,7 @@ class FeedingController extends Controller
                                     'nextFeedingTime' => $nextFeedingTime,
                                     'amount' => $amount,
                                     'remarks' => $feedingData['remarks'] ?? null,
+                                    'eventDate' => $eventDate,
                                     'updated_at' => $updatedAt,
                                 ]);
 
@@ -144,6 +151,7 @@ class FeedingController extends Controller
                         } else {
                             Feeding::create([
                                 'uuid' => $uuid,
+                                'eventDate' => $eventDate,
                                 'feedingTypeId' => $feedingData['feedingTypeId'],
                                 'farmUuid' => $farmUuid,
                                 'livestockUuid' => $livestockUuid,
@@ -175,6 +183,7 @@ class FeedingController extends Controller
                                     'nextFeedingTime' => $nextFeedingTime,
                                     'amount' => $amount,
                                     'remarks' => $feedingData['remarks'] ?? null,
+                                    'eventDate' => $eventDate,
                                     'updated_at' => $updatedAt,
                                 ]);
 
@@ -252,6 +261,7 @@ class FeedingController extends Controller
             'nextFeedingTime' => 'nullable|date',
             'amount' => 'nullable|string|max:255',
             'remarks' => 'nullable|string',
+            'eventDate' => 'nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -265,6 +275,12 @@ class FeedingController extends Controller
         $data = $request->all();
         if ($request->has('nextFeedingTime')) {
             $data['nextFeedingTime'] = $this->convertDateFormat($request->nextFeedingTime);
+        }
+        if ($request->has('eventDate')) {
+            $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
+        } else {
+            // Default to now if not provided
+            $data['eventDate'] = now()->format('Y-m-d H:i:s');
         }
 
         $feeding = Feeding::create($data);
@@ -299,6 +315,7 @@ class FeedingController extends Controller
             'nextFeedingTime' => 'sometimes|nullable|date',
             'amount' => 'sometimes|nullable|string|max:255',
             'remarks' => 'sometimes|nullable|string',
+            'eventDate' => 'sometimes|nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -309,10 +326,13 @@ class FeedingController extends Controller
             ], 422);
         }
 
-        $data = $request->except(['nextFeedingTime']);
+        $data = $request->except(['nextFeedingTime', 'eventDate']);
 
         if ($request->has('nextFeedingTime')) {
             $data['nextFeedingTime'] = $this->convertDateFormat($request->nextFeedingTime);
+        }
+        if ($request->has('eventDate')) {
+            $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
         }
 
         $feeding->fill($data);

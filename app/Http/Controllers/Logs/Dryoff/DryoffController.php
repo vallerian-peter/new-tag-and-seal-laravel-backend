@@ -62,6 +62,7 @@ class DryoffController extends Controller
                     'endDate' => $dryoff->endDate,
                     'reason' => $dryoff->reason,
                     'remarks' => $dryoff->remarks,
+                    'eventDate' => $dryoff->eventDate ? Carbon::parse($dryoff->eventDate)->toIso8601String() : $dryoff->created_at?->toIso8601String(),
                     'createdAt' => $dryoff->created_at?->toIso8601String(),
                     'updatedAt' => $dryoff->updated_at?->toIso8601String(),
                 ];
@@ -152,13 +153,18 @@ class DryoffController extends Controller
 
     private function resolveTimestamps(array $payload): array
     {
+        $createdAt = isset($payload['createdAt'])
+            ? Carbon::parse($payload['createdAt'])
+            : now();
+        
         return [
-            'createdAt' => isset($payload['createdAt'])
-                ? Carbon::parse($payload['createdAt'])
-                : now(),
+            'createdAt' => $createdAt,
             'updatedAt' => isset($payload['updatedAt'])
                 ? Carbon::parse($payload['updatedAt'])
                 : now(),
+            'eventDate' => isset($payload['eventDate'])
+                ? Carbon::parse($payload['eventDate'])
+                : $createdAt,
         ];
     }
 
@@ -183,6 +189,7 @@ class DryoffController extends Controller
             'endDate' => $this->convertDateFormat($sanitize($payload['endDate'] ?? null)),
             'reason' => $sanitize($payload['reason'] ?? null),
             'remarks' => $sanitize($payload['remarks'] ?? null),
+            'eventDate' => $timestamps['eventDate']->format('Y-m-d H:i:s'),
             'updated_at' => $timestamps['updatedAt']->format('Y-m-d H:i:s'),
         ];
     }
@@ -214,6 +221,7 @@ class DryoffController extends Controller
             'endDate' => 'nullable|date',
             'reason' => 'nullable|string',
             'remarks' => 'nullable|string',
+            'eventDate' => 'nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -228,6 +236,12 @@ class DryoffController extends Controller
         $data['startDate'] = $this->convertDateFormat($request->startDate);
         if ($request->has('endDate')) {
             $data['endDate'] = $this->convertDateFormat($request->endDate);
+        }
+        if ($request->has('eventDate')) {
+            $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
+        } else {
+            // Default to now if not provided
+            $data['eventDate'] = now()->format('Y-m-d H:i:s');
         }
 
         $dryoff = Dryoff::create($data);
@@ -262,6 +276,7 @@ class DryoffController extends Controller
             'endDate' => 'sometimes|nullable|date',
             'reason' => 'sometimes|nullable|string',
             'remarks' => 'sometimes|nullable|string',
+            'eventDate' => 'sometimes|nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -272,13 +287,16 @@ class DryoffController extends Controller
             ], 422);
         }
 
-        $data = $request->except(['startDate', 'endDate']);
+        $data = $request->except(['startDate', 'endDate', 'eventDate']);
 
         if ($request->has('startDate')) {
             $data['startDate'] = $this->convertDateFormat($request->startDate);
         }
         if ($request->has('endDate')) {
             $data['endDate'] = $request->endDate ? $this->convertDateFormat($request->endDate) : null;
+        }
+        if ($request->has('eventDate')) {
+            $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
         }
 
         $dryoff->fill($data);

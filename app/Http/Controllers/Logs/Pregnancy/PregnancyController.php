@@ -63,6 +63,7 @@ class PregnancyController extends Controller
                     'testDate' => $pregnancy->testDate,
                     'status' => $pregnancy->status,
                     'remarks' => $pregnancy->remarks,
+                    'eventDate' => $pregnancy->eventDate ? Carbon::parse($pregnancy->eventDate)->toIso8601String() : $pregnancy->created_at?->toIso8601String(),
                     'createdAt' => $pregnancy->created_at?->toIso8601String(),
                     'updatedAt' => $pregnancy->updated_at?->toIso8601String(),
                 ];
@@ -153,13 +154,18 @@ class PregnancyController extends Controller
 
     private function resolveTimestamps(array $payload): array
     {
+        $createdAt = isset($payload['createdAt'])
+            ? Carbon::parse($payload['createdAt'])
+            : now();
+        
         return [
-            'createdAt' => isset($payload['createdAt'])
-                ? Carbon::parse($payload['createdAt'])
-                : now(),
+            'createdAt' => $createdAt,
             'updatedAt' => isset($payload['updatedAt'])
                 ? Carbon::parse($payload['updatedAt'])
                 : now(),
+            'eventDate' => isset($payload['eventDate'])
+                ? Carbon::parse($payload['eventDate'])
+                : $createdAt,
         ];
     }
 
@@ -183,6 +189,7 @@ class PregnancyController extends Controller
             'testDate' => $this->convertDateFormat($sanitize($payload['testDate'] ?? null)),
             'status' => $payload['status'] ?? 'active',
             'remarks' => $sanitize($payload['remarks'] ?? null),
+            'eventDate' => $timestamps['eventDate']->format('Y-m-d H:i:s'),
             'updated_at' => $timestamps['updatedAt']->format('Y-m-d H:i:s'),
         ];
     }
@@ -215,6 +222,7 @@ class PregnancyController extends Controller
             'testDate' => 'nullable|date',
             'status' => 'nullable|string|in:active,inactive',
             'remarks' => 'nullable|string',
+            'eventDate' => 'nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -228,6 +236,12 @@ class PregnancyController extends Controller
         $data = $request->all();
         if ($request->has('testDate')) {
             $data['testDate'] = $this->convertDateFormat($request->testDate);
+        }
+        if ($request->has('eventDate')) {
+            $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
+        } else {
+            // Default to now if not provided
+            $data['eventDate'] = now()->format('Y-m-d H:i:s');
         }
 
         $pregnancy = Pregnancy::create($data);
@@ -263,6 +277,7 @@ class PregnancyController extends Controller
             'testDate' => 'sometimes|nullable|date',
             'status' => 'sometimes|nullable|string|in:active,inactive',
             'remarks' => 'sometimes|nullable|string',
+            'eventDate' => 'sometimes|nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -273,10 +288,13 @@ class PregnancyController extends Controller
             ], 422);
         }
 
-        $data = $request->except(['testDate']);
+        $data = $request->except(['testDate', 'eventDate']);
         
         if ($request->has('testDate')) {
             $data['testDate'] = $this->convertDateFormat($request->testDate);
+        }
+        if ($request->has('eventDate')) {
+            $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
         }
 
         $pregnancy->fill($data);

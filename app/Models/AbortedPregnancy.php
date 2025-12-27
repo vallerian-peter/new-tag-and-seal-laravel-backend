@@ -9,6 +9,7 @@ class AbortedPregnancy extends Model
 {
     protected $fillable = [
         'uuid',
+        'eventDate',
         'farmUuid',
         'livestockUuid',
         'abortionDate',

@@ -126,6 +126,7 @@ class BirthEventController extends Controller
                     'reproductiveProblemId' => $birthEvent->reproductiveProblemId,
                     'remarks' => $birthEvent->remarks,
                     'status' => $birthEvent->status,
+                    'eventDate' => $birthEvent->eventDate ? Carbon::parse($birthEvent->eventDate)->toIso8601String() : $birthEvent->created_at?->toIso8601String(),
                     'createdAt' => $birthEvent->created_at?->toIso8601String(),
                     'updatedAt' => $birthEvent->updated_at?->toIso8601String(),
                 ];
@@ -232,13 +233,18 @@ class BirthEventController extends Controller
 
     private function resolveTimestamps(array $payload): array
     {
+        $createdAt = isset($payload['createdAt'])
+            ? Carbon::parse($payload['createdAt'])
+            : now();
+        
         return [
-            'createdAt' => isset($payload['createdAt'])
-                ? Carbon::parse($payload['createdAt'])
-                : now(),
+            'createdAt' => $createdAt,
             'updatedAt' => isset($payload['updatedAt'])
                 ? Carbon::parse($payload['updatedAt'])
                 : now(),
+            'eventDate' => isset($payload['eventDate'])
+                ? Carbon::parse($payload['eventDate'])
+                : $createdAt,
         ];
     }
 
@@ -277,6 +283,7 @@ class BirthEventController extends Controller
             'reproductiveProblemId' => $payload['reproductiveProblemId'] ?? null,
             'remarks' => $sanitize($payload['remarks'] ?? null),
             'status' => $payload['status'] ?? 'active',
+            'eventDate' => $timestamps['eventDate']->format('Y-m-d H:i:s'),
             'updated_at' => $timestamps['updatedAt']->format('Y-m-d H:i:s'),
         ];
     }
@@ -318,6 +325,7 @@ class BirthEventController extends Controller
             'reproductiveProblemId' => 'nullable|integer|exists:reproductive_problems,id',
             'remarks' => 'nullable|string',
             'status' => 'nullable|string|in:active,inactive',
+            'eventDate' => 'nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -345,6 +353,12 @@ class BirthEventController extends Controller
         $data['eventType'] = $eventType;
         $data['startDate'] = $this->convertDateFormat($request->startDate);
         $data['endDate'] = $request->endDate ? $this->convertDateFormat($request->endDate) : null;
+        if ($request->has('eventDate')) {
+            $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
+        } else {
+            // Default to now if not provided
+            $data['eventDate'] = now()->format('Y-m-d H:i:s');
+        }
 
         $birthEvent = BirthEvent::create($data);
 
@@ -394,6 +408,7 @@ class BirthEventController extends Controller
             'reproductiveProblemId' => 'sometimes|nullable|integer|exists:reproductive_problems,id',
             'remarks' => 'sometimes|nullable|string',
             'status' => 'sometimes|nullable|string|in:active,inactive',
+            'eventDate' => 'sometimes|nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -404,13 +419,16 @@ class BirthEventController extends Controller
             ], 422);
         }
 
-        $data = $request->except(['startDate', 'endDate']);
+        $data = $request->except(['startDate', 'endDate', 'eventDate']);
         
         if ($request->has('startDate')) {
             $data['startDate'] = $this->convertDateFormat($request->startDate);
         }
         if ($request->has('endDate')) {
             $data['endDate'] = $request->endDate ? $this->convertDateFormat($request->endDate) : null;
+        }
+        if ($request->has('eventDate')) {
+            $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
         }
 
         $birthEvent->fill($data);

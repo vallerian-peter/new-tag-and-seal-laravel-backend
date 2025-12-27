@@ -8,6 +8,7 @@ class Feeding extends Model
 {
     protected $fillable = [
         'uuid',
+        'eventDate',
         'feedingTypeId',
         'farmUuid',
         'livestockUuid',

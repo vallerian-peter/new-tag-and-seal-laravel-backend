@@ -78,6 +78,7 @@ class InseminationController extends Controller
                     'aiCode' => $insemination->aiCode,
                     'manufacturerName' => $insemination->manufacturerName,
                     'semenSupplier' => $insemination->semenSupplier,
+                    'eventDate' => $insemination->eventDate ? Carbon::parse($insemination->eventDate)->toIso8601String() : $insemination->created_at?->toIso8601String(),
                     'createdAt' => $insemination->created_at?->toIso8601String(),
                     'updatedAt' => $insemination->updated_at?->toIso8601String(),
                 ];
@@ -168,13 +169,18 @@ class InseminationController extends Controller
 
     private function resolveTimestamps(array $payload): array
     {
+        $createdAt = isset($payload['createdAt'])
+            ? Carbon::parse($payload['createdAt'])
+            : now();
+        
         return [
-            'createdAt' => isset($payload['createdAt'])
-                ? Carbon::parse($payload['createdAt'])
-                : now(),
+            'createdAt' => $createdAt,
             'updatedAt' => isset($payload['updatedAt'])
                 ? Carbon::parse($payload['updatedAt'])
                 : now(),
+            'eventDate' => isset($payload['eventDate'])
+                ? Carbon::parse($payload['eventDate'])
+                : $createdAt,
         ];
     }
 
@@ -207,6 +213,7 @@ class InseminationController extends Controller
             'aiCode' => $sanitize($payload['aiCode'] ?? null),
             'manufacturerName' => $sanitize($payload['manufacturerName'] ?? null),
             'semenSupplier' => $sanitize($payload['semenSupplier'] ?? null),
+            'eventDate' => $timestamps['eventDate']->format('Y-m-d H:i:s'),
             'updated_at' => $timestamps['updatedAt']->format('Y-m-d H:i:s'),
         ];
     }
@@ -248,6 +255,7 @@ class InseminationController extends Controller
             'aiCode' => 'nullable|string|max:255',
             'manufacturerName' => 'nullable|string|max:255',
             'semenSupplier' => 'nullable|string|max:255',
+            'eventDate' => 'nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -267,6 +275,12 @@ class InseminationController extends Controller
         }
         if ($request->has('semenProductionDate')) {
             $data['semenProductionDate'] = $this->convertDateFormat($request->semenProductionDate);
+        }
+        if ($request->has('eventDate')) {
+            $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
+        } else {
+            // Default to now if not provided
+            $data['eventDate'] = now()->format('Y-m-d H:i:s');
         }
 
         $insemination = Insemination::create($data);
@@ -311,6 +325,7 @@ class InseminationController extends Controller
             'aiCode' => 'sometimes|nullable|string|max:255',
             'manufacturerName' => 'sometimes|nullable|string|max:255',
             'semenSupplier' => 'sometimes|nullable|string|max:255',
+            'eventDate' => 'sometimes|nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -321,7 +336,7 @@ class InseminationController extends Controller
             ], 422);
         }
 
-        $data = $request->except(['lastHeatDate', 'inseminationDate', 'semenProductionDate']);
+        $data = $request->except(['lastHeatDate', 'inseminationDate', 'semenProductionDate', 'eventDate']);
 
         if ($request->has('lastHeatDate')) {
             $data['lastHeatDate'] = $this->convertDateFormat($request->lastHeatDate);
@@ -331,6 +346,9 @@ class InseminationController extends Controller
         }
         if ($request->has('semenProductionDate')) {
             $data['semenProductionDate'] = $this->convertDateFormat($request->semenProductionDate);
+        }
+        if ($request->has('eventDate')) {
+            $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
         }
 
         $insemination->fill($data);

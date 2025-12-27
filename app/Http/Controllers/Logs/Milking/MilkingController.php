@@ -68,6 +68,7 @@ class MilkingController extends Controller
                     'acidity' => $milking->acidity,
                     'session' => $milking->session,
                     'status' => $milking->status,
+                    'eventDate' => $milking->eventDate ? Carbon::parse($milking->eventDate)->toIso8601String() : $milking->created_at?->toIso8601String(),
                     'createdAt' => $milking->created_at?->toIso8601String(),
                     'updatedAt' => $milking->updated_at?->toIso8601String(),
                 ];
@@ -158,13 +159,18 @@ class MilkingController extends Controller
 
     private function resolveTimestamps(array $payload): array
     {
+        $createdAt = isset($payload['createdAt'])
+            ? Carbon::parse($payload['createdAt'])
+            : now();
+        
         return [
-            'createdAt' => isset($payload['createdAt'])
-                ? Carbon::parse($payload['createdAt'])
-                : now(),
+            'createdAt' => $createdAt,
             'updatedAt' => isset($payload['updatedAt'])
                 ? Carbon::parse($payload['updatedAt'])
                 : now(),
+            'eventDate' => isset($payload['eventDate'])
+                ? Carbon::parse($payload['eventDate'])
+                : $createdAt,
         ];
     }
 
@@ -195,6 +201,7 @@ class MilkingController extends Controller
             'acidity' => $sanitize($payload['acidity'] ?? null),
             'session' => $payload['session'] ?? 'morning',
             'status' => $payload['status'] ?? 'active',
+            'eventDate' => $timestamps['eventDate']->format('Y-m-d H:i:s'),
             'updated_at' => $timestamps['updatedAt']->format('Y-m-d H:i:s'),
         ];
     }
@@ -234,6 +241,7 @@ class MilkingController extends Controller
             'acidity' => 'nullable|string|max:255',
             'session' => 'nullable|string|in:morning,evening',
             'status' => 'nullable|string|in:active,inactive',
+            'eventDate' => 'nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -244,7 +252,15 @@ class MilkingController extends Controller
             ], 422);
         }
 
-        $milking = Milking::create($request->all());
+        $data = $request->all();
+        if ($request->has('eventDate')) {
+            $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
+        } else {
+            // Default to now if not provided
+            $data['eventDate'] = now()->format('Y-m-d H:i:s');
+        }
+
+        $milking = Milking::create($data);
 
         $milking->load(['livestock', 'farm', 'milkingMethod']);
 
@@ -284,6 +300,7 @@ class MilkingController extends Controller
             'acidity' => 'sometimes|nullable|string|max:255',
             'session' => 'sometimes|nullable|string|in:morning,evening',
             'status' => 'sometimes|nullable|string|in:active,inactive',
+            'eventDate' => 'sometimes|nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -294,7 +311,12 @@ class MilkingController extends Controller
             ], 422);
         }
 
-        $milking->fill($request->all());
+        $data = $request->except(['eventDate']);
+        if ($request->has('eventDate')) {
+            $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
+        }
+
+        $milking->fill($data);
         $milking->save();
 
         $milking->load(['livestock', 'farm', 'milkingMethod']);

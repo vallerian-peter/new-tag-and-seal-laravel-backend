@@ -8,6 +8,7 @@ class WeightChange extends Model
 {
     protected $fillable = [
         'uuid',
+        'eventDate',
         'farmUuid',
         'livestockUuid',
         'oldWeight',

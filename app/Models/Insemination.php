@@ -9,6 +9,7 @@ class Insemination extends Model
 {
     protected $fillable = [
         'uuid',
+        'eventDate',
         'livestockUuid',
         'farmUuid',
         'lastHeatDate',

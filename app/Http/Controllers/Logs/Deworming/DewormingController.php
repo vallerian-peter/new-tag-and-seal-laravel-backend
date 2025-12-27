@@ -65,6 +65,7 @@ class DewormingController extends Controller
                     'quantity' => $log->quantity,
                     'dose' => $log->dose,
                     'nextAdministrationDate' => $log->nextAdministrationDate?->toDateString(),
+                    'eventDate' => $log->eventDate ? Carbon::parse($log->eventDate)->toIso8601String() : $log->created_at?->toIso8601String(),
                     'createdAt' => $log->created_at?->toIso8601String(),
                     'updatedAt' => $log->updated_at?->toIso8601String(),
                 ];
@@ -118,6 +119,11 @@ class DewormingController extends Controller
                     ? Carbon::parse($dewormingData['updatedAt'])->format('Y-m-d H:i:s')
                     : now();
 
+                // Handle eventDate - if not provided, default to createdAt for backward compatibility
+                $eventDate = isset($dewormingData['eventDate'])
+                    ? Carbon::parse($dewormingData['eventDate'])->format('Y-m-d H:i:s')
+                    : $createdAt;
+
                 switch ($syncAction) {
                     case 'create':
                         $existing = Deworming::where('uuid', $uuid)->first();
@@ -137,6 +143,7 @@ class DewormingController extends Controller
                                     'quantity' => $dewormingData['quantity'] ?? null,
                                     'dose' => $dewormingData['dose'] ?? null,
                                     'nextAdministrationDate' => $nextAdministrationDate,
+                                    'eventDate' => $eventDate,
                                     'updated_at' => $updatedAt,
                                 ]);
 
@@ -147,6 +154,7 @@ class DewormingController extends Controller
                         } else {
                             Deworming::create([
                                 'uuid' => $uuid,
+                                'eventDate' => $eventDate,
                                 'farmUuid' => $farmUuid,
                                 'livestockUuid' => $livestockUuid,
                                 'administrationRouteId' => $dewormingData['administrationRouteId'] ?? null,
@@ -183,6 +191,7 @@ class DewormingController extends Controller
                                     'quantity' => $dewormingData['quantity'] ?? null,
                                     'dose' => $dewormingData['dose'] ?? null,
                                     'nextAdministrationDate' => $nextAdministrationDate,
+                                    'eventDate' => $eventDate,
                                     'updated_at' => $updatedAt,
                                 ]);
 
@@ -262,6 +271,7 @@ class DewormingController extends Controller
             'quantity' => 'nullable|string|max:255',
             'dose' => 'nullable|string|max:255',
             'nextAdministrationDate' => 'nullable|date',
+            'eventDate' => 'nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -275,6 +285,12 @@ class DewormingController extends Controller
         $data = $request->all();
         if ($request->has('nextAdministrationDate')) {
             $data['nextAdministrationDate'] = $this->convertDateFormat($request->nextAdministrationDate);
+        }
+        if ($request->has('eventDate')) {
+            $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
+        } else {
+            // Default to now if not provided
+            $data['eventDate'] = now()->format('Y-m-d H:i:s');
         }
 
         $deworming = Deworming::create($data);
@@ -312,6 +328,7 @@ class DewormingController extends Controller
             'quantity' => 'sometimes|nullable|string|max:255',
             'dose' => 'sometimes|nullable|string|max:255',
             'nextAdministrationDate' => 'sometimes|nullable|date',
+            'eventDate' => 'sometimes|nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -322,10 +339,13 @@ class DewormingController extends Controller
             ], 422);
         }
 
-        $data = $request->except(['nextAdministrationDate']);
+        $data = $request->except(['nextAdministrationDate', 'eventDate']);
         
         if ($request->has('nextAdministrationDate')) {
             $data['nextAdministrationDate'] = $this->convertDateFormat($request->nextAdministrationDate);
+        }
+        if ($request->has('eventDate')) {
+            $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
         }
 
         $deworming->fill($data);

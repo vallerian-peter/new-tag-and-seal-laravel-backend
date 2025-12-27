@@ -9,6 +9,7 @@ class Calving extends Model
 {
     protected $fillable = [
         'uuid',
+        'eventDate',
         'farmUuid',
         'livestockUuid',
         'startDate',

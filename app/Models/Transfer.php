@@ -8,6 +8,7 @@ class Transfer extends Model
 {
     protected $fillable = [
         'uuid',
+        'eventDate',
         'farmUuid',
         'livestockUuid',
         'toFarmUuid',

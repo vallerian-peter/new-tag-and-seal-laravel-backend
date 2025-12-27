@@ -24,6 +24,7 @@ class Vaccination extends Model
 
     protected $fillable = [
         'uuid',
+        'eventDate',
         'vaccinationNo',
         'farmUuid',
         'livestockUuid',

@@ -8,6 +8,7 @@ class Disposal extends Model
 {
     protected $fillable = [
         'uuid',
+        'eventDate',
         'farmUuid',
         'livestockUuid',
         'disposalTypeId',

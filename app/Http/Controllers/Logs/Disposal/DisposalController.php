@@ -62,6 +62,7 @@ class DisposalController extends Controller
                     'reasons' => $log->reasons,
                     'remarks' => $log->remarks,
                     'status' => $log->status,
+                    'eventDate' => $log->eventDate ? Carbon::parse($log->eventDate)->toIso8601String() : $log->created_at?->toIso8601String(),
                     'createdAt' => $log->created_at?->toIso8601String(),
                     'updatedAt' => $log->updated_at?->toIso8601String(),
                 ];
@@ -110,6 +111,11 @@ class DisposalController extends Controller
                     ? Carbon::parse($disposalData['updatedAt'])->format('Y-m-d H:i:s')
                     : now();
 
+                // Handle eventDate - if not provided, default to createdAt for backward compatibility
+                $eventDate = isset($disposalData['eventDate'])
+                    ? Carbon::parse($disposalData['eventDate'])->format('Y-m-d H:i:s')
+                    : $createdAt;
+
                 switch ($syncAction) {
                     case 'create':
                         $existing = Disposal::where('uuid', $uuid)->first();
@@ -126,6 +132,7 @@ class DisposalController extends Controller
                                     'reasons' => $disposalData['reasons'] ?? $existing->reasons,
                                     'remarks' => $disposalData['remarks'] ?? $existing->remarks,
                                     'status' => $status,
+                                    'eventDate' => $eventDate,
                                     'updated_at' => $updatedAt,
                                 ]);
 
@@ -139,6 +146,7 @@ class DisposalController extends Controller
                         } else {
                             Disposal::create([
                                 'uuid' => $uuid,
+                                'eventDate' => $eventDate,
                                 'farmUuid' => $farmUuid,
                                 'livestockUuid' => $livestockUuid,
                                 'disposalTypeId' => $disposalData['disposalTypeId'] ?? null,
@@ -172,6 +180,7 @@ class DisposalController extends Controller
                                     'reasons' => $disposalData['reasons'] ?? $disposal->reasons,
                                     'remarks' => $disposalData['remarks'] ?? $disposal->remarks,
                                     'status' => $status,
+                                    'eventDate' => $eventDate,
                                     'updated_at' => $updatedAt,
                                 ]);
 
@@ -299,6 +308,7 @@ class DisposalController extends Controller
             'reasons' => 'nullable|string',
             'remarks' => 'nullable|string',
             'status' => 'nullable|string|in:active,inactive',
+            'eventDate' => 'nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -309,7 +319,15 @@ class DisposalController extends Controller
             ], 422);
         }
 
-        $disposal = Disposal::create($request->all());
+        $data = $request->all();
+        if ($request->has('eventDate')) {
+            $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
+        } else {
+            // Default to now if not provided
+            $data['eventDate'] = now()->format('Y-m-d H:i:s');
+        }
+
+        $disposal = Disposal::create($data);
 
         $disposal->load(['livestock', 'farm', 'disposalType']);
 
@@ -341,6 +359,7 @@ class DisposalController extends Controller
             'reasons' => 'sometimes|nullable|string',
             'remarks' => 'sometimes|nullable|string',
             'status' => 'sometimes|nullable|string|in:active,inactive',
+            'eventDate' => 'sometimes|nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -351,7 +370,12 @@ class DisposalController extends Controller
             ], 422);
         }
 
-        $disposal->fill($request->all());
+        $data = $request->except(['eventDate']);
+        if ($request->has('eventDate')) {
+            $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
+        }
+
+        $disposal->fill($data);
         $disposal->save();
 
         $disposal->load(['livestock', 'farm', 'disposalType']);

@@ -11,6 +11,7 @@ class BirthEvent extends Model
 
     protected $fillable = [
         'uuid',
+        'eventDate',
         'farmUuid',
         'livestockUuid',
         'eventType', // 'calving' or 'farrowing'

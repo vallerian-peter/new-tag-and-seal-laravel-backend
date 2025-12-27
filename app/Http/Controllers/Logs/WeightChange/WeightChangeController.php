@@ -55,6 +55,7 @@ class WeightChangeController extends Controller
                     'oldWeight' => $log->oldWeight,
                     'newWeight' => $log->newWeight,
                     'remarks' => $log->remarks,
+                    'eventDate' => $log->eventDate ? Carbon::parse($log->eventDate)->toIso8601String() : $log->created_at?->toIso8601String(),
                     'createdAt' => $log->created_at?->toIso8601String(),
                     'updatedAt' => $log->updated_at?->toIso8601String(),
                 ];
@@ -98,6 +99,11 @@ class WeightChangeController extends Controller
                     ? Carbon::parse($logData['updatedAt'])->format('Y-m-d H:i:s')
                     : now();
 
+                // Handle eventDate - if not provided, default to createdAt for backward compatibility
+                $eventDate = isset($logData['eventDate'])
+                    ? Carbon::parse($logData['eventDate'])->format('Y-m-d H:i:s')
+                    : $createdAt;
+
                 $oldWeight = isset($logData['oldWeight'])
                     ? trim((string) $logData['oldWeight'])
                     : null;
@@ -118,6 +124,7 @@ class WeightChangeController extends Controller
                                     'oldWeight' => $oldWeight,
                                     'newWeight' => $newWeight,
                                     'remarks' => $logData['remarks'] ?? null,
+                                    'eventDate' => $eventDate,
                                     'updated_at' => $updatedAt,
                                 ]);
                                 Log::info("✅ Weight log updated (local newer): UUID {$uuid}");
@@ -127,6 +134,7 @@ class WeightChangeController extends Controller
                         } else {
                             WeightChange::create([
                                 'uuid' => $uuid,
+                                'eventDate' => $eventDate,
                                 'farmUuid' => $farmUuid,
                                 'livestockUuid' => $livestockUuid,
                                 'oldWeight' => $oldWeight,
@@ -153,6 +161,7 @@ class WeightChangeController extends Controller
                                     'oldWeight' => $oldWeight,
                                     'newWeight' => $newWeight,
                                     'remarks' => $logData['remarks'] ?? null,
+                                    'eventDate' => $eventDate,
                                     'updated_at' => $updatedAt,
                                 ]);
                                 Log::info("✅ Weight log updated: UUID {$uuid}");
@@ -230,6 +239,7 @@ class WeightChangeController extends Controller
             'oldWeight' => 'nullable|string|max:255',
             'newWeight' => 'nullable|string|max:255',
             'remarks' => 'nullable|string',
+            'eventDate' => 'nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -240,7 +250,15 @@ class WeightChangeController extends Controller
             ], 422);
         }
 
-        $weightChange = WeightChange::create($request->all());
+        $data = $request->all();
+        if ($request->has('eventDate')) {
+            $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
+        } else {
+            // Default to now if not provided
+            $data['eventDate'] = now()->format('Y-m-d H:i:s');
+        }
+
+        $weightChange = WeightChange::create($data);
 
         $weightChange->load(['livestock', 'farm']);
 
@@ -271,6 +289,7 @@ class WeightChangeController extends Controller
             'oldWeight' => 'sometimes|nullable|string|max:255',
             'newWeight' => 'sometimes|nullable|string|max:255',
             'remarks' => 'sometimes|nullable|string',
+            'eventDate' => 'sometimes|nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -281,7 +300,12 @@ class WeightChangeController extends Controller
             ], 422);
         }
 
-        $weightChange->fill($request->all());
+        $data = $request->except(['eventDate']);
+        if ($request->has('eventDate')) {
+            $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
+        }
+
+        $weightChange->fill($data);
         $weightChange->save();
 
         $weightChange->load(['livestock', 'farm']);

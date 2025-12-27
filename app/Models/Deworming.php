@@ -17,6 +17,7 @@ class Deworming extends Model
 
     protected $fillable = [
         'uuid',
+        'eventDate',
         'farmUuid',
         'livestockUuid',
         'administrationRouteId',

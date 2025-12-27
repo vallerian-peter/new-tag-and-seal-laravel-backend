@@ -65,6 +65,7 @@ class TreatmentController extends Controller
                     'medicationDate' => $log->medicationDate,
                     'nextMedicationDate' => $log->nextMedicationDate,
                     'remarks' => $log->remarks,
+                    'eventDate' => $log->eventDate ? Carbon::parse($log->eventDate)->toIso8601String() : $log->created_at?->toIso8601String(),
                     'createdAt' => $log->created_at?->toIso8601String(),
                     'updatedAt' => $log->updated_at?->toIso8601String(),
                 ];
@@ -119,6 +120,11 @@ class TreatmentController extends Controller
                     ? Carbon::parse($treatmentData['updatedAt'])->format('Y-m-d H:i:s')
                     : now();
 
+                // Handle eventDate - if not provided, default to createdAt for backward compatibility
+                $eventDate = isset($treatmentData['eventDate'])
+                    ? Carbon::parse($treatmentData['eventDate'])->format('Y-m-d H:i:s')
+                    : $createdAt;
+
                 switch ($syncAction) {
                     case 'create':
                         $existing = Treatment::where('uuid', $uuid)->first();
@@ -138,6 +144,7 @@ class TreatmentController extends Controller
                                     'medicationDate' => $medicationDate,
                                     'nextMedicationDate' => $nextMedicationDate,
                                     'remarks' => $treatmentData['remarks'] ?? null,
+                                    'eventDate' => $eventDate,
                                     'updated_at' => $updatedAt,
                                 ]);
 
@@ -148,6 +155,7 @@ class TreatmentController extends Controller
                         } else {
                             Treatment::create([
                                 'uuid' => $uuid,
+                                'eventDate' => $eventDate,
                                 'farmUuid' => $farmUuid,
                                 'livestockUuid' => $livestockUuid,
                                 'diseaseId' => $treatmentData['diseaseId'] ?? null,
@@ -184,6 +192,7 @@ class TreatmentController extends Controller
                                     'medicationDate' => $medicationDate,
                                     'nextMedicationDate' => $nextMedicationDate,
                                     'remarks' => $treatmentData['remarks'] ?? null,
+                                    'eventDate' => $eventDate,
                                     'updated_at' => $updatedAt,
                                 ]);
 
@@ -263,6 +272,7 @@ class TreatmentController extends Controller
             'medicationDate' => 'nullable|date',
             'nextMedicationDate' => 'nullable|date',
             'remarks' => 'nullable|string',
+            'eventDate' => 'nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -279,6 +289,12 @@ class TreatmentController extends Controller
         }
         if ($request->has('nextMedicationDate')) {
             $data['nextMedicationDate'] = $this->convertDateFormat($request->nextMedicationDate);
+        }
+        if ($request->has('eventDate')) {
+            $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
+        } else {
+            // Default to now if not provided
+            $data['eventDate'] = now()->format('Y-m-d H:i:s');
         }
 
         $treatment = Treatment::create($data);
@@ -316,6 +332,7 @@ class TreatmentController extends Controller
             'medicationDate' => 'sometimes|nullable|date',
             'nextMedicationDate' => 'sometimes|nullable|date',
             'remarks' => 'sometimes|nullable|string',
+            'eventDate' => 'sometimes|nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -326,13 +343,16 @@ class TreatmentController extends Controller
             ], 422);
         }
 
-        $data = $request->except(['medicationDate', 'nextMedicationDate']);
+        $data = $request->except(['medicationDate', 'nextMedicationDate', 'eventDate']);
         
         if ($request->has('medicationDate')) {
             $data['medicationDate'] = $this->convertDateFormat($request->medicationDate);
         }
         if ($request->has('nextMedicationDate')) {
             $data['nextMedicationDate'] = $this->convertDateFormat($request->nextMedicationDate);
+        }
+        if ($request->has('eventDate')) {
+            $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
         }
 
         $treatment->fill($data);

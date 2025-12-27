@@ -68,6 +68,7 @@ class VaccinationController extends Controller
                     'vetId' => $log->vetId,
                     'extensionOfficerId' => $log->extensionOfficerId,
                     'status' => $log->status,
+                    'eventDate' => $log->eventDate ? Carbon::parse($log->eventDate)->toIso8601String() : $log->created_at?->toIso8601String(),
                     'createdAt' => $log->created_at?->toIso8601String(),
                     'updatedAt' => $log->updated_at?->toIso8601String(),
                 ];
@@ -131,6 +132,11 @@ class VaccinationController extends Controller
                     ? Carbon::parse($vaccinationData['updatedAt'])->format('Y-m-d H:i:s')
                     : now();
 
+                // Handle eventDate - if not provided, default to createdAt for backward compatibility
+                $eventDate = isset($vaccinationData['eventDate'])
+                    ? Carbon::parse($vaccinationData['eventDate'])->format('Y-m-d H:i:s')
+                    : $createdAt;
+
                 // Handle vaccineUuid
                 $vaccineUuid = $vaccinationData['vaccineUuid'] ?? null;
 
@@ -166,6 +172,7 @@ class VaccinationController extends Controller
                                     'vetId' => $vetId,
                                     'extensionOfficerId' => $extensionOfficerId,
                                     'status' => $status,
+                                    'eventDate' => $eventDate,
                                     'updated_at' => $updatedAt,
                                 ]);
 
@@ -176,6 +183,7 @@ class VaccinationController extends Controller
                         } else {
                             Vaccination::create([
                                 'uuid' => $uuid,
+                                'eventDate' => $eventDate,
                                 'vaccinationNo' => $vaccinationNo ?? $uuid,
                                 'farmUuid' => $farmUuid,
                                 'livestockUuid' => $livestockUuid,
@@ -210,6 +218,7 @@ class VaccinationController extends Controller
                                     'vetId' => $vetId,
                                     'extensionOfficerId' => $extensionOfficerId,
                                     'status' => $status,
+                                    'eventDate' => $eventDate,
                                     'updated_at' => $updatedAt,
                                 ]);
 
@@ -288,6 +297,7 @@ class VaccinationController extends Controller
             'vetId' => 'nullable|string',
             'extensionOfficerId' => 'nullable|string',
             'status' => 'nullable|string|in:pending,completed,failed',
+            'eventDate' => 'nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -298,7 +308,15 @@ class VaccinationController extends Controller
             ], 422);
         }
 
-        $vaccination = Vaccination::create($request->all());
+        $data = $request->all();
+        if ($request->has('eventDate')) {
+            $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
+        } else {
+            // Default to now if not provided
+            $data['eventDate'] = now()->format('Y-m-d H:i:s');
+        }
+
+        $vaccination = Vaccination::create($data);
 
         $vaccination->load(['livestock', 'farm', 'vaccine', 'disease', 'vet', 'extensionOfficer']);
 
@@ -332,6 +350,7 @@ class VaccinationController extends Controller
             'vetId' => 'sometimes|nullable|string',
             'extensionOfficerId' => 'sometimes|nullable|string',
             'status' => 'sometimes|nullable|string|in:pending,completed,failed',
+            'eventDate' => 'sometimes|nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -342,7 +361,12 @@ class VaccinationController extends Controller
             ], 422);
         }
 
-        $vaccination->fill($request->all());
+        $data = $request->except(['eventDate']);
+        if ($request->has('eventDate')) {
+            $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
+        }
+
+        $vaccination->fill($data);
         $vaccination->save();
 
         $vaccination->load(['livestock', 'farm', 'vaccine', 'disease', 'vet', 'extensionOfficer']);

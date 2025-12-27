@@ -10,6 +10,7 @@ class Treatment extends Model
 
     protected $fillable = [
         'uuid',
+        'eventDate',
         'farmUuid',
         'livestockUuid',
         'diseaseId',
