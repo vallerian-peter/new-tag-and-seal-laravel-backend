@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Livestock extends Model
 {
+    protected $table = 'livestocks';
+
     protected $fillable = [
         'farmUuid',  // Farm UUID reference (not auto-increment ID)
         'uuid',

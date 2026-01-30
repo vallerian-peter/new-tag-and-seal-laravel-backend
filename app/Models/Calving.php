@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Calving extends Model
 {
+    protected $table = 'calvings';
+
     protected $fillable = [
         'uuid',
         'eventDate',
