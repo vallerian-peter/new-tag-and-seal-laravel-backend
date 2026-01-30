@@ -40,7 +40,7 @@ class Deworming extends Model
 
     public function medicine()
     {
-        return $this->belongsTo(Medicine::class, 'medicineId', 'id');
+        return $this->belongsTo(Medicines::class, 'medicineId', 'id');
     }
 
     public function vet()

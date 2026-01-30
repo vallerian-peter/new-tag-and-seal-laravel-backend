@@ -154,7 +154,6 @@ class LocationController extends Controller
                 return [
                     'id' => $district->id,
                     'name' => $district->name,
-                    'shortName' => $district->shortName ?? null,
                     'regionId' => $district->regionId,
                 ];
             })
@@ -174,7 +173,6 @@ class LocationController extends Controller
                 return [
                     'id' => $ward->id,
                     'name' => $ward->name,
-                    'shortName' => $ward->shortName ?? null,
                     'districtId' => $ward->districtId,
                 ];
             })
@@ -194,7 +192,6 @@ class LocationController extends Controller
                 return [
                     'id' => $village->id,
                     'name' => $village->name,
-                    'shortName' => $village->shortName ?? null,
                     'wardId' => $village->wardId,
                 ];
             })
@@ -463,7 +460,6 @@ class LocationController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255|unique:districts,name',
-            'shortName' => 'nullable|string|max:50|unique:districts,shortName',
             'regionId' => 'required|integer|exists:regions,id',
         ]);
 
@@ -477,7 +473,6 @@ class LocationController extends Controller
 
         $district = District::create([
             'name' => $request->name,
-            'shortName' => $request->shortName,
             'regionId' => $request->regionId,
         ]);
 
@@ -507,7 +502,6 @@ class LocationController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|required|string|max:255|unique:districts,name,' . $district->id,
-            'shortName' => 'sometimes|nullable|string|max:50|unique:districts,shortName,' . $district->id,
             'regionId' => 'sometimes|required|integer|exists:regions,id',
         ]);
 
@@ -519,7 +513,7 @@ class LocationController extends Controller
             ], 422);
         }
 
-        $district->fill($request->only(['name', 'shortName', 'regionId']));
+        $district->fill($request->only(['name', 'regionId']));
         $district->save();
 
         return response()->json([
@@ -563,7 +557,6 @@ class LocationController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255|unique:wards,name',
-            'shortName' => 'nullable|string|max:50|unique:wards,shortName',
             'districtId' => 'required|integer|exists:districts,id',
         ]);
 
@@ -577,7 +570,6 @@ class LocationController extends Controller
 
         $ward = Ward::create([
             'name' => $request->name,
-            'shortName' => $request->shortName,
             'districtId' => $request->districtId,
         ]);
 
@@ -607,7 +599,6 @@ class LocationController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|required|string|max:255|unique:wards,name,' . $ward->id,
-            'shortName' => 'sometimes|nullable|string|max:50|unique:wards,shortName,' . $ward->id,
             'districtId' => 'sometimes|required|integer|exists:districts,id',
         ]);
 
@@ -619,7 +610,7 @@ class LocationController extends Controller
             ], 422);
         }
 
-        $ward->fill($request->only(['name', 'shortName', 'districtId']));
+        $ward->fill($request->only(['name', 'districtId']));
         $ward->save();
 
         return response()->json([
@@ -663,7 +654,6 @@ class LocationController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255|unique:villages,name',
-            'shortName' => 'nullable|string|max:50|unique:villages,shortName',
             'wardId' => 'required|integer|exists:wards,id',
         ]);
 
@@ -677,7 +667,6 @@ class LocationController extends Controller
 
         $village = Village::create([
             'name' => $request->name,
-            'shortName' => $request->shortName,
             'wardId' => $request->wardId,
         ]);
 
@@ -707,7 +696,6 @@ class LocationController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|required|string|max:255|unique:villages,name,' . $village->id,
-            'shortName' => 'sometimes|nullable|string|max:50|unique:villages,shortName,' . $village->id,
             'wardId' => 'sometimes|required|integer|exists:wards,id',
         ]);
 
@@ -719,7 +707,7 @@ class LocationController extends Controller
             ], 422);
         }
 
-        $village->fill($request->only(['name', 'shortName', 'wardId']));
+        $village->fill($request->only(['name', 'wardId']));
         $village->save();
 
         return response()->json([

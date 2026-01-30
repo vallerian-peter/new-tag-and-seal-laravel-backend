@@ -3,7 +3,7 @@
     "_postman_id": "00000000-0000-0000-0000-000000000001",
     "name": "admin_postman_api",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Admin Portal API collection for Tag & Seal backend, using role=\"systemUser\". Targets /api/v1/admin/... endpoints."
+    "description": "Admin Portal API collection for Tag & Seal backend, using role=\"systemUser\". Targets /api/v1/admin/... endpoints.\n\n⚠️ IMPORTANT EXECUTION ORDER:\n1. Login first to get authentication token\n2. Create reference data in this order:\n   - Countries → Regions → Districts → Wards → Villages/Streets/Divisions\n   - Livestock Types → Species → Breeds\n   - Identity Card Types, School Levels, Legal Statuses\n   - Medicine Types → Medicines\n   - Other reference data (Birth Types, Birth Problems, etc.)\n3. Create entities (Farmers, Extension Officers, Vets, Farms)\n4. Create livestock and logs\n\n⚠️ UPDATE TEST DATA:\nReplace placeholder IDs ({{countryId}}, {{regionId}}, etc.) with actual IDs from your database after creating the parent records. Validation will fail if you use non-existent IDs."
   },
   "item": [
     {
@@ -117,7 +117,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"new_admin\",\n  \"email\": \"new_admin@example.com\",\n  \"password\": \"Admin@12345\",\n  \"password_confirmation\": \"Admin@12345\",\n  \"role\": \"systemUser\",\n  \"first_name\": \"New\",\n  \"surname\": \"Admin\",\n  \"phone\": \"+255712345678\"\n}"
+              "raw": "{\n  \"username\": \"new_admin\",\n  \"email\": \"new_admin@example.com\",\n  \"password\": \"Admin@12345\",\n  \"role\": \"systemUser\",\n  \"roleId\": 1,\n  \"status\": \"active\"\n}"
             }
           },
           "response": []
@@ -418,7 +418,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Ilala\",\n  \"shortName\": \"ILA\",\n  \"regionId\": {{regionId}}\n}"
+              "raw": "{\n  \"name\": \"Ilala\",\n  \"regionId\": {{regionId}}\n}"
             }
           },
           "response": []
@@ -455,7 +455,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Ilala District\",\n  \"shortName\": \"ILA\",\n  \"regionId\": {{regionId}}\n}"
+              "raw": "{\n  \"name\": \"Ilala District\",\n  \"regionId\": {{regionId}}\n}"
             }
           },
           "response": []
@@ -513,7 +513,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Kariakoo\",\n  \"shortName\": \"KRK\",\n  \"districtId\": {{districtId}}\n}"
+              "raw": "{\n  \"name\": \"Kariakoo\",\n  \"districtId\": {{districtId}}\n}"
             }
           },
           "response": []
@@ -550,7 +550,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Kariakoo Ward\",\n  \"shortName\": \"KRK\",\n  \"districtId\": {{districtId}}\n}"
+              "raw": "{\n  \"name\": \"Kariakoo Ward\",\n  \"districtId\": {{districtId}}\n}"
             }
           },
           "response": []
@@ -608,7 +608,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Some Village\",\n  \"shortName\": \"SV\",\n  \"wardId\": {{wardId}}\n}"
+              "raw": "{\n  \"name\": \"Some Village\",\n  \"wardId\": {{wardId}}\n}"
             }
           },
           "response": []
@@ -645,7 +645,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Some Village Updated\",\n  \"shortName\": \"SV\",\n  \"wardId\": {{wardId}}\n}"
+              "raw": "{\n  \"name\": \"Some Village Updated\",\n  \"wardId\": {{wardId}}\n}"
             }
           },
           "response": []
@@ -1440,7 +1440,7 @@
           "name": "Extension Officers",
           "item": [
             { "name": "List Extension Officers", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/extension-officers", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "extension-officers"] } }, "response": [] },
-            { "name": "Create Extension Officer", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/extension-officers", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "extension-officers"] }, "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"password123\",\n  \"phone\": \"+255123456789\",\n  \"countryId\": 1,\n  \"regionId\": 1\n}" } }, "response": [] },
+            { "name": "Create Extension Officer", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/extension-officers", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "extension-officers"] }, "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"password123\",\n  \"phone\": \"+255123456789\",\n  \"gender\": \"male\",\n  \"countryId\": 1,\n  \"regionId\": 1,\n  \"districtId\": 1\n}" } }, "response": [] },
             { "name": "Get Extension Officer Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/extension-officers/{{extensionOfficerId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "extension-officers", "{{extensionOfficerId}}"] } }, "response": [] },
             { "name": "Update Extension Officer", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/extension-officers/{{extensionOfficerId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "extension-officers", "{{extensionOfficerId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"Updated Name\"\n}" } }, "response": [] },
             { "name": "Delete Extension Officer", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/extension-officers/{{extensionOfficerId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "extension-officers", "{{extensionOfficerId}}"] } }, "response": [] }
@@ -1460,7 +1460,7 @@
           "name": "Farmers",
           "item": [
             { "name": "List Farmers", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/farmers", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "farmers"] } }, "response": [] },
-            { "name": "Create Farmer", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/farmers", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "farmers"] }, "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"Jane\",\n  \"surname\": \"Smith\",\n  \"phone1\": \"+255987654321\",\n  \"email\": \"jane.smith@example.com\",\n  \"countryId\": 1,\n  \"regionId\": 1\n}" } }, "response": [] },
+            { "name": "Create Farmer", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/farmers", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "farmers"] }, "body": { "mode": "raw", "raw": "{\n  \"farmerNo\": \"F001\",\n  \"firstName\": \"Jane\",\n  \"surname\": \"Smith\",\n  \"phone1\": \"+255987654321\",\n  \"gender\": \"female\",\n  \"farmerType\": \"individual\",\n  \"email\": \"jane.smith@example.com\",\n  \"countryId\": 1\n}" } }, "response": [] },
             { "name": "Get Farmer Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/farmers/{{farmerId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "farmers", "{{farmerId}}"] } }, "response": [] },
             { "name": "Update Farmer", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/farmers/{{farmerId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "farmers", "{{farmerId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"Updated Name\"\n}" } }, "response": [] },
             { "name": "Delete Farmer", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/farmers/{{farmerId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "farmers", "{{farmerId}}"] } }, "response": [] }
@@ -1470,7 +1470,7 @@
           "name": "Farms",
           "item": [
             { "name": "List Farms", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/farms", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "farms"] } }, "response": [] },
-            { "name": "Create Farm", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/farms", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "farms"] }, "body": { "mode": "raw", "raw": "{\n  \"farmerId\": 1,\n  \"uuid\": \"farm-uuid-123\",\n  \"name\": \"My Farm\",\n  \"countryId\": 1,\n  \"regionId\": 1,\n  \"districtId\": 1,\n  \"wardId\": 1\n}" } }, "response": [] },
+            { "name": "Create Farm", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/farms", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "farms"] }, "body": { "mode": "raw", "raw": "{\n  \"farmerId\": 1,\n  \"uuid\": \"farm-uuid-123\",\n  \"referenceNo\": \"FARM001\",\n  \"name\": \"My Farm\",\n  \"size\": 100,\n  \"physicalAddress\": \"123 Main Street\",\n  \"countryId\": 1\n}" } }, "response": [] },
             { "name": "Get Farm Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/farms/{{farmId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "farms", "{{farmId}}"] } }, "response": [] },
             { "name": "Update Farm", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/farms/{{farmId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "farms", "{{farmId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Farm Name\"\n}" } }, "response": [] },
             { "name": "Delete Farm", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/entities/farms/{{farmId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "entities", "farms", "{{farmId}}"] } }, "response": [] }
@@ -1562,12 +1562,12 @@
           ]
         },
         {
-          "name": "Treatments",
+          "name": "Treatments (Medications)",
           "item": [
             { "name": "List Treatments", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/treatments", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "treatments"] } }, "response": [] },
-            { "name": "Create Treatment", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/treatments", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "treatments"] }, "body": { "mode": "raw", "raw": "{\n  \"uuid\": \"treatment-uuid-123\",\n  \"farmUuid\": \"farm-uuid-123\",\n  \"livestockUuid\": \"livestock-uuid-456\",\n  \"medicineId\": 1,\n  \"diseaseId\": 1,\n  \"medicationDate\": \"2024-01-15\",\n  \"nextMedicationDate\": \"2024-01-22\"\n}" } }, "response": [] },
+            { "name": "Create Treatment", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/treatments", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "treatments"] }, "body": { "mode": "raw", "raw": "{\n  \"uuid\": \"treatment-uuid-123\",\n  \"farmUuid\": \"farm-uuid-123\",\n  \"livestockUuid\": \"livestock-uuid-456\",\n  \"medicineId\": 1,\n  \"diseaseId\": 1,\n  \"medicationDate\": \"2024-01-15\",\n  \"nextMedicationDate\": \"2024-01-22\",\n  \"quantity\": \"20ml\",\n  \"withdrawalPeriod\": \"72 hours\",\n  \"remarks\": \"Initial treatment\",\n  \"eventDate\": \"2024-01-15\"\n}" } }, "response": [] },
             { "name": "Get Treatment Details", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/treatments/{{treatmentId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "treatments", "{{treatmentId}}"] } }, "response": [] },
-            { "name": "Update Treatment", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/treatments/{{treatmentId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "treatments", "{{treatmentId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"quantity\": \"20ml\",\n  \"nextMedicationDate\": \"2024-01-22\"\n}" } }, "response": [] },
+            { "name": "Update Treatment", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/treatments/{{treatmentId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "treatments", "{{treatmentId}}"] }, "body": { "mode": "raw", "raw": "{\n  \"quantity\": \"20ml\",\n  \"withdrawalPeriod\": \"72 hours\",\n  \"medicationDate\": \"2024-01-15\",\n  \"nextMedicationDate\": \"2024-01-22\",\n  \"remarks\": \"Updated follow-up\"\n}" } }, "response": [] },
             { "name": "Delete Treatment", "request": { "method": "DELETE", "header": [{ "key": "Accept", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }], "url": { "raw": "{{baseUrl}}/v1/admin/logs/treatments/{{treatmentId}}", "host": ["{{baseUrl}}"], "path": ["v1", "admin", "logs", "treatments", "{{treatmentId}}"] } }, "response": [] }
           ]
         },

@@ -40,17 +40,17 @@ class FarmerController extends Controller
     public function adminStore(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'farmerNo' => 'nullable|string|max:255|unique:farmers,farmerNo',
+            'farmerNo' => 'required|string|max:255|unique:farmers,farmerNo',
             'firstName' => 'required|string|max:255',
             'middleName' => 'nullable|string|max:255',
             'surname' => 'required|string|max:255',
-            'phone1' => 'nullable|string|max:255',
+            'phone1' => 'required|string|max:255',
             'phone2' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',
             'physicalAddress' => 'nullable|string',
             'farmerOrganizationMembership' => 'nullable|string|max:255',
             'dateOfBirth' => 'nullable|date',
-            'gender' => 'nullable|string|max:50',
+            'gender' => 'required|in:male,female',
             'identityCardTypeId' => 'nullable|integer|exists:identity_card_types,id',
             'identityNumber' => 'nullable|string|max:255',
             'streetId' => 'nullable|integer|exists:streets,id',
@@ -60,9 +60,9 @@ class FarmerController extends Controller
             'districtId' => 'nullable|integer|exists:districts,id',
             'regionId' => 'nullable|integer|exists:regions,id',
             'countryId' => 'nullable|integer|exists:countries,id',
-            'farmerType' => 'nullable|string|max:255',
+            'farmerType' => 'required|in:individual,organization',
             'createdBy' => 'nullable|integer|exists:users,id',
-            'status' => 'nullable|string|max:255',
+            'status' => 'nullable|in:active,notActive',
         ]);
 
         if ($validator->fails()) {
@@ -118,17 +118,17 @@ class FarmerController extends Controller
     public function adminUpdate(Request $request, Farmer $farmer): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'farmerNo' => 'sometimes|nullable|string|max:255|unique:farmers,farmerNo,' . $farmer->id,
+            'farmerNo' => 'sometimes|required|string|max:255|unique:farmers,farmerNo,' . $farmer->id,
             'firstName' => 'sometimes|required|string|max:255',
             'middleName' => 'sometimes|nullable|string|max:255',
             'surname' => 'sometimes|required|string|max:255',
-            'phone1' => 'sometimes|nullable|string|max:255',
+            'phone1' => 'sometimes|required|string|max:255',
             'phone2' => 'sometimes|nullable|string|max:255',
             'email' => 'sometimes|nullable|email|max:255',
             'physicalAddress' => 'sometimes|nullable|string',
             'farmerOrganizationMembership' => 'sometimes|nullable|string|max:255',
             'dateOfBirth' => 'sometimes|nullable|date',
-            'gender' => 'sometimes|nullable|string|max:50',
+            'gender' => 'sometimes|required|in:male,female',
             'identityCardTypeId' => 'sometimes|nullable|integer|exists:identity_card_types,id',
             'identityNumber' => 'sometimes|nullable|string|max:255',
             'streetId' => 'sometimes|nullable|integer|exists:streets,id',
@@ -138,9 +138,9 @@ class FarmerController extends Controller
             'districtId' => 'sometimes|nullable|integer|exists:districts,id',
             'regionId' => 'sometimes|nullable|integer|exists:regions,id',
             'countryId' => 'sometimes|nullable|integer|exists:countries,id',
-            'farmerType' => 'sometimes|nullable|string|max:255',
+            'farmerType' => 'sometimes|required|in:individual,organization',
             'createdBy' => 'sometimes|nullable|integer|exists:users,id',
-            'status' => 'sometimes|nullable|string|max:255',
+            'status' => 'sometimes|nullable|in:active,notActive',
         ]);
 
         if ($validator->fails()) {

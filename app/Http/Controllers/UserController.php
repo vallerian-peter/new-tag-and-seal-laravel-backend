@@ -9,23 +9,48 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 
+/**
+ * UserController - Admin User Management
+ * 
+ * IMPORTANT: Frontend user registration is handled by AuthController::register()
+ * This controller is ONLY for admin operations via /api/v1/admin/users endpoints
+ * 
+ * Frontend Flow (DO NOT TOUCH):
+ * - User registration: AuthController::register() -> Creates User + Profile (Farmer/SystemUser/etc)
+ * - User login: AuthController::login()
+ * - User sync: SyncController::splashSync() and postSync()
+ * 
+ * Admin Flow (This Controller):
+ * - List users: GET /api/v1/admin/users
+ * - Create user: POST /api/v1/admin/users (admin portal only)
+ * - View user: GET /api/v1/admin/users/{id}
+ * - Update user: PUT /api/v1/admin/users/{id}
+ * - Delete user: DELETE /api/v1/admin/users/{id}
+ * - Statistics: GET /api/v1/admin/users/statistics
+ */
 class UserController extends Controller
 {
+    // ========================================================================
+    // ADMIN METHODS - Used by Admin Portal (/api/v1/admin/users)
+    // These methods require 'systemUser' role and don't interfere with frontend
+    // ========================================================================
+
     /**
-     * Display a listing of users.
+     * Admin: Display a listing of users.
+     * GET /api/v1/admin/users
      */
     public function index(Request $request): JsonResponse
     {
         $query = User::query();
 
-        // Filter by profile type
-        if ($request->has('profile')) {
-            $query->byProfile($request->profile);
+        // Filter by role
+        if ($request->has('role')) {
+            $query->byRole($request->role);
         }
 
         // Filter by status
-        if ($request->has('status_id')) {
-            $query->byStatus($request->status_id);
+        if ($request->has('status')) {
+            $query->byStatus($request->status);
         }
 
         // Filter active users only
@@ -43,17 +68,21 @@ class UserController extends Controller
     }
 
     /**
-     * Store a newly created user.
+     * Admin: Create a new user (Admin Portal Only).
+     * POST /api/v1/admin/users
+     * 
+     * Note: Frontend uses AuthController::register() instead.
+     * This method is for admin portal to create users manually.
      */
     public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'username' => 'required|email|unique:users,username',
+            'username' => 'required|string|unique:users,username',
+            'email' => 'required|email|unique:users,email',
             'password' => 'required|string|min:6',
-            'profile' => 'required|string|in:SystemUser,Farmer',
-            'profile_id' => 'required|integer',
-            'status_id' => 'integer|min:1',
-            'state_id' => 'nullable|integer',
+            'role' => 'required|string|in:systemUser,farmer,extensionOfficer,vet',
+            'roleId' => 'required|integer',
+            'status' => 'sometimes|string|in:active,notActive',
         ]);
 
         if ($validator->fails()) {
@@ -66,12 +95,12 @@ class UserController extends Controller
 
         $user = User::create([
             'username' => $request->username,
+            'email' => $request->email,
             'password' => Hash::make($request->password),
-            'profile' => $request->profile,
-            'profile_id' => $request->profile_id,
-            'status_id' => $request->status_id ?? 1,
-            'created_by' => Auth::user()->id ?? 1,
-            'state_id' => $request->state_id,
+            'role' => $request->role,
+            'roleId' => $request->roleId,
+            'status' => $request->status ?? 'active',
+            'createdBy' => Auth::id(),
         ]);
 
         return response()->json([
@@ -82,7 +111,8 @@ class UserController extends Controller
     }
 
     /**
-     * Display the specified user.
+     * Admin: Display the specified user.
+     * GET /api/v1/admin/users/{id}
      */
     public function show(User $user): JsonResponse
     {
@@ -94,17 +124,18 @@ class UserController extends Controller
     }
 
     /**
-     * Update the specified user.
+     * Admin: Update the specified user.
+     * PUT /api/v1/admin/users/{id}
      */
     public function update(Request $request, User $user): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'username' => 'sometimes|email|unique:users,username,' . $user->id,
+            'username' => 'sometimes|string|unique:users,username,' . $user->id,
+            'email' => 'sometimes|email|unique:users,email,' . $user->id,
             'password' => 'sometimes|string|min:6',
-            'profile' => 'sometimes|string|in:SystemUser,Farmer',
-            'profile_id' => 'sometimes|integer',
-            'status_id' => 'sometimes|integer|min:1',
-            'state_id' => 'nullable|integer',
+            'role' => 'sometimes|string|in:systemUser,farmer,extensionOfficer,vet',
+            'roleId' => 'sometimes|integer',
+            'status' => 'sometimes|string|in:active,notActive',
         ]);
 
         if ($validator->fails()) {
@@ -115,13 +146,13 @@ class UserController extends Controller
             ], 422);
         }
 
-        $updateData = $request->only(['username', 'profile', 'profile_id', 'status_id', 'state_id']);
+        $updateData = $request->only(['username', 'email', 'role', 'roleId', 'status']);
 
         if ($request->has('password')) {
             $updateData['password'] = Hash::make($request->password);
         }
 
-        $updateData['updated_by'] = Auth::user()->id ?? $user->updated_by;
+        $updateData['updatedBy'] = Auth::id();
         
         $user->update($updateData);
 
@@ -133,7 +164,8 @@ class UserController extends Controller
     }
 
     /**
-     * Remove the specified user.
+     * Admin: Remove the specified user.
+     * DELETE /api/v1/admin/users/{id}
      */
     public function destroy(User $user): JsonResponse
     {
@@ -154,16 +186,19 @@ class UserController extends Controller
     }
 
     /**
-     * Get user statistics.
+     * Admin: Get user statistics.
+     * GET /api/v1/admin/users/statistics
      */
     public function statistics(): JsonResponse
     {
         $stats = [
             'total_users' => User::count(),
-            'system_users' => User::byProfile('SystemUser')->count(),
-            'farmers' => User::byProfile('Farmer')->count(),
+            'system_users' => User::byRole('systemUser')->count(),
+            'farmers' => User::byRole('farmer')->count(),
+            'extension_officers' => User::byRole('extensionOfficer')->count(),
+            'vets' => User::byRole('vet')->count(),
             'active_users' => User::active()->count(),
-            'inactive_users' => User::byStatus(0)->count(),
+            'inactive_users' => User::byStatus('notActive')->count(),
         ];
 
         return response()->json([
