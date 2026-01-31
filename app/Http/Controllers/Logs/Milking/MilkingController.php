@@ -228,7 +228,7 @@ class MilkingController extends Controller
         $validator = Validator::make($request->all(), [
             'uuid' => 'required|string|unique:milkings,uuid',
             'farmUuid' => 'required|string|exists:farms,uuid',
-            'livestockUuid' => 'required|string|exists:livestock,uuid',
+            'livestockUuid' => 'required|string|exists:livestocks,uuid',
             'milkingMethodId' => 'nullable|integer|exists:milking_methods,id',
             'amount' => 'nullable|string|max:255',
             'lactometerReading' => 'nullable|string|max:255',
@@ -287,7 +287,7 @@ class MilkingController extends Controller
         $validator = Validator::make($request->all(), [
             'uuid' => 'sometimes|required|string|unique:milkings,uuid,' . $milking->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
-            'livestockUuid' => 'sometimes|required|string|exists:livestock,uuid',
+            'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'milkingMethodId' => 'sometimes|nullable|integer|exists:milking_methods,id',
             'amount' => 'sometimes|nullable|string|max:255',
             'lactometerReading' => 'sometimes|nullable|string|max:255',

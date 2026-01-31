@@ -235,7 +235,7 @@ class WeightChangeController extends Controller
         $validator = Validator::make($request->all(), [
             'uuid' => 'required|string|unique:weight_changes,uuid',
             'farmUuid' => 'required|string|exists:farms,uuid',
-            'livestockUuid' => 'required|string|exists:livestock,uuid',
+            'livestockUuid' => 'required|string|exists:livestocks,uuid',
             'oldWeight' => 'nullable|string|max:255',
             'newWeight' => 'nullable|string|max:255',
             'remarks' => 'nullable|string',
@@ -285,7 +285,7 @@ class WeightChangeController extends Controller
         $validator = Validator::make($request->all(), [
             'uuid' => 'sometimes|required|string|unique:weight_changes,uuid,' . $weightChange->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
-            'livestockUuid' => 'sometimes|required|string|exists:livestock,uuid',
+            'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'oldWeight' => 'sometimes|nullable|string|max:255',
             'newWeight' => 'sometimes|nullable|string|max:255',
             'remarks' => 'sometimes|nullable|string',

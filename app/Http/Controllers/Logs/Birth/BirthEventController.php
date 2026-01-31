@@ -316,7 +316,7 @@ class BirthEventController extends Controller
         $validator = Validator::make($request->all(), [
             'uuid' => 'required|string|unique:birth_events,uuid',
             'farmUuid' => 'required|string|exists:farms,uuid',
-            'livestockUuid' => 'required|string|exists:livestock,uuid',
+            'livestockUuid' => 'required|string|exists:livestocks,uuid',
             'eventType' => 'nullable|string|in:calving,farrowing',
             'startDate' => 'required|date',
             'endDate' => 'nullable|date',
@@ -399,7 +399,7 @@ class BirthEventController extends Controller
         $validator = Validator::make($request->all(), [
             'uuid' => 'sometimes|required|string|unique:birth_events,uuid,' . $birthEvent->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
-            'livestockUuid' => 'sometimes|required|string|exists:livestock,uuid',
+            'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'eventType' => 'sometimes|nullable|string|in:calving,farrowing',
             'startDate' => 'sometimes|required|date',
             'endDate' => 'sometimes|nullable|date',

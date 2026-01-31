@@ -256,7 +256,7 @@ class FeedingController extends Controller
         $validator = Validator::make($request->all(), [
             'uuid' => 'required|string|unique:feedings,uuid',
             'farmUuid' => 'required|string|exists:farms,uuid',
-            'livestockUuid' => 'required|string|exists:livestock,uuid',
+            'livestockUuid' => 'required|string|exists:livestocks,uuid',
             'feedingTypeId' => 'nullable|integer|exists:feeding_types,id',
             'nextFeedingTime' => 'nullable|date',
             'amount' => 'nullable|string|max:255',
@@ -310,7 +310,7 @@ class FeedingController extends Controller
         $validator = Validator::make($request->all(), [
             'uuid' => 'sometimes|required|string|unique:feedings,uuid,' . $feeding->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
-            'livestockUuid' => 'sometimes|required|string|exists:livestock,uuid',
+            'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'feedingTypeId' => 'sometimes|nullable|integer|exists:feeding_types,id',
             'nextFeedingTime' => 'sometimes|nullable|date',
             'amount' => 'sometimes|nullable|string|max:255',

@@ -216,7 +216,7 @@ class DryoffController extends Controller
         $validator = Validator::make($request->all(), [
             'uuid' => 'required|string|unique:dryoffs,uuid',
             'farmUuid' => 'required|string|exists:farms,uuid',
-            'livestockUuid' => 'required|string|exists:livestock,uuid',
+            'livestockUuid' => 'required|string|exists:livestocks,uuid',
             'startDate' => 'required|date',
             'endDate' => 'nullable|date',
             'reason' => 'nullable|string',
@@ -271,7 +271,7 @@ class DryoffController extends Controller
         $validator = Validator::make($request->all(), [
             'uuid' => 'sometimes|required|string|unique:dryoffs,uuid,' . $dryoff->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
-            'livestockUuid' => 'sometimes|required|string|exists:livestock,uuid',
+            'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'startDate' => 'sometimes|required|date',
             'endDate' => 'sometimes|nullable|date',
             'reason' => 'sometimes|nullable|string',

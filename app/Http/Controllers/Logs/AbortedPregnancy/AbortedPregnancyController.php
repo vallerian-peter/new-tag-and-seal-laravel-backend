@@ -271,7 +271,7 @@ class AbortedPregnancyController extends Controller
         $validator = Validator::make($request->all(), [
             'uuid' => 'required|string|unique:aborted_pregnancies,uuid',
             'farmUuid' => 'required|string|exists:farms,uuid',
-            'livestockUuid' => 'required|string|exists:livestock,uuid',
+            'livestockUuid' => 'required|string|exists:livestocks,uuid',
             'abortionDate' => 'required|date',
             'reproductiveProblemId' => 'nullable|integer|exists:reproductive_problems,id',
             'remarks' => 'nullable|string',
@@ -323,7 +323,7 @@ class AbortedPregnancyController extends Controller
         $validator = Validator::make($request->all(), [
             'uuid' => 'sometimes|required|string|unique:aborted_pregnancies,uuid,' . $abortedPregnancy->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
-            'livestockUuid' => 'sometimes|required|string|exists:livestock,uuid',
+            'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'abortionDate' => 'sometimes|required|date',
             'reproductiveProblemId' => 'sometimes|nullable|integer|exists:reproductive_problems,id',
             'remarks' => 'sometimes|nullable|string',

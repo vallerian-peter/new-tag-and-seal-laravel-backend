@@ -264,7 +264,7 @@ class TreatmentController extends Controller
         $validator = Validator::make($request->all(), [
             'uuid' => 'required|string|unique:treatments,uuid',
             'farmUuid' => 'required|string|exists:farms,uuid',
-            'livestockUuid' => 'required|string|exists:livestock,uuid',
+            'livestockUuid' => 'required|string|exists:livestocks,uuid',
             'diseaseId' => 'nullable|integer|exists:diseases,id',
             'medicineId' => 'nullable|integer|exists:medicines,id',
             'quantity' => 'nullable|string|max:255',
@@ -324,7 +324,7 @@ class TreatmentController extends Controller
         $validator = Validator::make($request->all(), [
             'uuid' => 'sometimes|required|string|unique:treatments,uuid,' . $treatment->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
-            'livestockUuid' => 'sometimes|required|string|exists:livestock,uuid',
+            'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'diseaseId' => 'sometimes|nullable|integer|exists:diseases,id',
             'medicineId' => 'sometimes|nullable|integer|exists:medicines,id',
             'quantity' => 'sometimes|nullable|string|max:255',

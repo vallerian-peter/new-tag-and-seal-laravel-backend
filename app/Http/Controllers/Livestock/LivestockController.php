@@ -388,7 +388,7 @@ class LivestockController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'farmUuid' => 'required|string|exists:farms,uuid',
-            'uuid' => 'required|string|unique:livestock,uuid',
+            'uuid' => 'required|string|unique:livestocks,uuid',
             'identificationNumber' => 'nullable|string|max:255',
             'dummyTagId' => 'nullable|string|max:255',
             'barcodeTagId' => 'nullable|string|max:255',
@@ -396,8 +396,8 @@ class LivestockController extends Controller
             'livestockTypeId' => 'nullable|integer|exists:livestock_types,id',
             'name' => 'nullable|string|max:255',
             'dateOfBirth' => 'nullable|date',
-            'motherUuid' => 'nullable|string|exists:livestock,uuid',
-            'fatherUuid' => 'nullable|string|exists:livestock,uuid',
+            'motherUuid' => 'nullable|string|exists:livestocks,uuid',
+            'fatherUuid' => 'nullable|string|exists:livestocks,uuid',
             'gender' => 'nullable|string|max:50',
             'breedId' => 'nullable|integer|exists:breeds,id',
             'speciesId' => 'nullable|integer|exists:species,id',
@@ -459,7 +459,7 @@ class LivestockController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
-            'uuid' => 'sometimes|required|string|unique:livestock,uuid,' . $livestock->id,
+            'uuid' => 'sometimes|required|string|unique:livestocks,uuid,' . $livestock->id,
             'identificationNumber' => 'sometimes|nullable|string|max:255',
             'dummyTagId' => 'sometimes|nullable|string|max:255',
             'barcodeTagId' => 'sometimes|nullable|string|max:255',
@@ -467,8 +467,8 @@ class LivestockController extends Controller
             'livestockTypeId' => 'sometimes|nullable|integer|exists:livestock_types,id',
             'name' => 'sometimes|nullable|string|max:255',
             'dateOfBirth' => 'sometimes|nullable|date',
-            'motherUuid' => 'sometimes|nullable|string|exists:livestock,uuid',
-            'fatherUuid' => 'sometimes|nullable|string|exists:livestock,uuid',
+            'motherUuid' => 'sometimes|nullable|string|exists:livestocks,uuid',
+            'fatherUuid' => 'sometimes|nullable|string|exists:livestocks,uuid',
             'gender' => 'sometimes|nullable|string|max:50',
             'breedId' => 'sometimes|nullable|integer|exists:breeds,id',
             'speciesId' => 'sometimes|nullable|integer|exists:species,id',

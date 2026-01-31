@@ -58,7 +58,7 @@ class UserController extends Controller
             $query->active();
         }
 
-        $users = $query->orderBy('created_at', 'desc')->paginate(15);
+        $users = $query->orderBy('created_at', 'desc')->get();
 
         return response()->json([
             'status' => true,
@@ -153,7 +153,7 @@ class UserController extends Controller
         }
 
         $updateData['updatedBy'] = Auth::id();
-        
+
         $user->update($updateData);
 
         return response()->json([

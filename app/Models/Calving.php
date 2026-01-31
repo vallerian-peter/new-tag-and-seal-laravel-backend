@@ -7,17 +7,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Calving extends Model
 {
-    protected $table = 'calvings';
+    protected $table = 'birth_events';
 
     protected $fillable = [
         'uuid',
         'eventDate',
         'farmUuid',
         'livestockUuid',
+        'eventType',
         'startDate',
         'endDate',
-        'calvingTypeId',
-        'calvingProblemsId',
+        'birthTypeId',
+        'birthProblemsId',
         'reproductiveProblemId',
         'remarks',
         'status',
@@ -25,12 +26,12 @@ class Calving extends Model
 
     public function calvingType(): BelongsTo
     {
-        return $this->belongsTo(CalvingType::class, 'calvingTypeId');
+        return $this->belongsTo(BirthType::class, 'birthTypeId');
     }
 
     public function calvingProblem(): BelongsTo
     {
-        return $this->belongsTo(CalvingProblem::class, 'calvingProblemsId');
+        return $this->belongsTo(BirthProblem::class, 'birthProblemsId');
     }
 
     public function reproductiveProblem(): BelongsTo

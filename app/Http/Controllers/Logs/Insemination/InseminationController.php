@@ -240,7 +240,7 @@ class InseminationController extends Controller
         $validator = Validator::make($request->all(), [
             'uuid' => 'required|string|unique:inseminations,uuid',
             'farmUuid' => 'required|string|exists:farms,uuid',
-            'livestockUuid' => 'required|string|exists:livestock,uuid',
+            'livestockUuid' => 'required|string|exists:livestocks,uuid',
             'lastHeatDate' => 'nullable|date',
             'currentHeatTypeId' => 'nullable|integer|exists:heat_types,id',
             'inseminationServiceId' => 'nullable|integer|exists:insemination_services,id',
@@ -310,7 +310,7 @@ class InseminationController extends Controller
         $validator = Validator::make($request->all(), [
             'uuid' => 'sometimes|required|string|unique:inseminations,uuid,' . $insemination->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
-            'livestockUuid' => 'sometimes|required|string|exists:livestock,uuid',
+            'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'lastHeatDate' => 'sometimes|nullable|date',
             'currentHeatTypeId' => 'sometimes|nullable|integer|exists:heat_types,id',
             'inseminationServiceId' => 'sometimes|nullable|integer|exists:insemination_services,id',

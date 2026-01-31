@@ -269,7 +269,7 @@ class TransferController extends Controller
         $validator = Validator::make($request->all(), [
             'uuid' => 'required|string|unique:transfers,uuid',
             'farmUuid' => 'required|string|exists:farms,uuid',
-            'livestockUuid' => 'required|string|exists:livestock,uuid',
+            'livestockUuid' => 'required|string|exists:livestocks,uuid',
             'toFarmUuid' => 'required|string|exists:farms,uuid',
             'transporterId' => 'nullable|string|max:255',
             'reason' => 'nullable|string',
@@ -326,7 +326,7 @@ class TransferController extends Controller
         $validator = Validator::make($request->all(), [
             'uuid' => 'sometimes|required|string|unique:transfers,uuid,' . $transfer->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
-            'livestockUuid' => 'sometimes|required|string|exists:livestock,uuid',
+            'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'toFarmUuid' => 'sometimes|required|string|exists:farms,uuid',
             'transporterId' => 'sometimes|nullable|string|max:255',
             'reason' => 'sometimes|nullable|string',

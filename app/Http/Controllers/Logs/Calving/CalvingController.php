@@ -66,8 +66,8 @@ class CalvingController extends Controller
                     'livestockUuid' => $calving->livestockUuid,
                     'startDate' => $calving->startDate,
                     'endDate' => $calving->endDate,
-                    'calvingTypeId' => $calving->calvingTypeId,
-                    'calvingProblemsId' => $calving->calvingProblemsId,
+                    'calvingTypeId' => $calving->birthTypeId,
+                    'calvingProblemsId' => $calving->birthProblemsId,
                     'reproductiveProblemId' => $calving->reproductiveProblemId,
                     'remarks' => $calving->remarks,
                     'status' => $calving->status,
@@ -192,10 +192,11 @@ class CalvingController extends Controller
         return [
             'farmUuid' => $payload['farmUuid'] ?? null,
             'livestockUuid' => $livestockUuid,
+            'eventType' => 'calving',
             'startDate' => $this->convertDateFormat($sanitize($payload['startDate'] ?? null)),
             'endDate' => $this->convertDateFormat($sanitize($payload['endDate'] ?? null)),
-            'calvingTypeId' => $payload['calvingTypeId'] ?? null,
-            'calvingProblemsId' => $payload['calvingProblemsId'] ?? null,
+            'birthTypeId' => $payload['calvingTypeId'] ?? null,
+            'birthProblemsId' => $payload['calvingProblemsId'] ?? null,
             'reproductiveProblemId' => $payload['reproductiveProblemId'] ?? null,
             'remarks' => $sanitize($payload['remarks'] ?? null),
             'status' => $payload['status'] ?? 'active',
@@ -230,9 +231,9 @@ class CalvingController extends Controller
     public function adminStore(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid' => 'required|string|unique:calvings,uuid',
+            'uuid' => 'required|string|unique:birth_events,uuid',
             'farmUuid' => 'required|string|exists:farms,uuid',
-            'livestockUuid' => 'required|string|exists:livestock,uuid',
+            'livestockUuid' => 'required|string|exists:livestocks,uuid',
             'startDate' => 'required|date',
             'endDate' => 'nullable|date',
             'calvingTypeId' => 'nullable|integer|exists:birth_types,id',
@@ -252,6 +253,10 @@ class CalvingController extends Controller
         }
 
         $data = $request->all();
+        $data['eventType'] = 'calving';
+        $data['birthTypeId'] = $request->calvingTypeId;
+        $data['birthProblemsId'] = $request->calvingProblemsId;
+        
         $data['startDate'] = $this->convertDateFormat($request->startDate);
         if ($request->has('endDate')) {
             $data['endDate'] = $this->convertDateFormat($request->endDate);
@@ -300,9 +305,9 @@ class CalvingController extends Controller
     public function adminUpdate(Request $request, Calving $calving): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid' => 'sometimes|required|string|unique:calvings,uuid,' . $calving->id,
+            'uuid' => 'sometimes|required|string|unique:birth_events,uuid,' . $calving->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
-            'livestockUuid' => 'sometimes|required|string|exists:livestock,uuid',
+            'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'startDate' => 'sometimes|required|date',
             'endDate' => 'sometimes|nullable|date',
             'calvingTypeId' => 'sometimes|nullable|integer|exists:birth_types,id',
@@ -321,7 +326,14 @@ class CalvingController extends Controller
             ], 422);
         }
 
-        $data = $request->except(['startDate', 'endDate', 'eventDate']);
+        $data = $request->except(['startDate', 'endDate', 'eventDate', 'calvingTypeId', 'calvingProblemsId']);
+
+        if ($request->has('calvingTypeId')) {
+            $data['birthTypeId'] = $request->calvingTypeId;
+        }
+        if ($request->has('calvingProblemsId')) {
+            $data['birthProblemsId'] = $request->calvingProblemsId;
+        }
 
         if ($request->has('startDate')) {
             $data['startDate'] = $this->convertDateFormat($request->startDate);

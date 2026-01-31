@@ -216,7 +216,7 @@ class PregnancyController extends Controller
         $validator = Validator::make($request->all(), [
             'uuid' => 'required|string|unique:pregnancies,uuid',
             'farmUuid' => 'required|string|exists:farms,uuid',
-            'livestockUuid' => 'required|string|exists:livestock,uuid',
+            'livestockUuid' => 'required|string|exists:livestocks,uuid',
             'testResultId' => 'nullable|integer|exists:test_results,id',
             'noOfMonths' => 'nullable|integer',
             'testDate' => 'nullable|date',
@@ -271,7 +271,7 @@ class PregnancyController extends Controller
         $validator = Validator::make($request->all(), [
             'uuid' => 'sometimes|required|string|unique:pregnancies,uuid,' . $pregnancy->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
-            'livestockUuid' => 'sometimes|required|string|exists:livestock,uuid',
+            'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'testResultId' => 'sometimes|nullable|integer|exists:test_results,id',
             'noOfMonths' => 'sometimes|nullable|integer',
             'testDate' => 'sometimes|nullable|date',

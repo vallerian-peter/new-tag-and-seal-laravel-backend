@@ -263,7 +263,7 @@ class DewormingController extends Controller
         $validator = Validator::make($request->all(), [
             'uuid' => 'required|string|unique:dewormings,uuid',
             'farmUuid' => 'required|string|exists:farms,uuid',
-            'livestockUuid' => 'required|string|exists:livestock,uuid',
+            'livestockUuid' => 'required|string|exists:livestocks,uuid',
             'administrationRouteId' => 'nullable|integer|exists:administration_routes,id',
             'medicineId' => 'nullable|integer|exists:medicines,id',
             'vetId' => 'nullable|string',
@@ -320,7 +320,7 @@ class DewormingController extends Controller
         $validator = Validator::make($request->all(), [
             'uuid' => 'sometimes|required|string|unique:dewormings,uuid,' . $deworming->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
-            'livestockUuid' => 'sometimes|required|string|exists:livestock,uuid',
+            'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'administrationRouteId' => 'sometimes|nullable|integer|exists:administration_routes,id',
             'medicineId' => 'sometimes|nullable|integer|exists:medicines,id',
             'vetId' => 'sometimes|nullable|string',

@@ -303,7 +303,7 @@ class DisposalController extends Controller
         $validator = Validator::make($request->all(), [
             'uuid' => 'required|string|unique:disposals,uuid',
             'farmUuid' => 'required|string|exists:farms,uuid',
-            'livestockUuid' => 'required|string|exists:livestock,uuid',
+            'livestockUuid' => 'required|string|exists:livestocks,uuid',
             'disposalTypeId' => 'nullable|integer|exists:disposal_types,id',
             'reasons' => 'nullable|string',
             'remarks' => 'nullable|string',
@@ -354,7 +354,7 @@ class DisposalController extends Controller
         $validator = Validator::make($request->all(), [
             'uuid' => 'sometimes|required|string|unique:disposals,uuid,' . $disposal->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
-            'livestockUuid' => 'sometimes|required|string|exists:livestock,uuid',
+            'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'disposalTypeId' => 'sometimes|nullable|integer|exists:disposal_types,id',
             'reasons' => 'sometimes|nullable|string',
             'remarks' => 'sometimes|nullable|string',
