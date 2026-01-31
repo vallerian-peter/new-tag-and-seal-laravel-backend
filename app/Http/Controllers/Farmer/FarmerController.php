@@ -40,7 +40,7 @@ class FarmerController extends Controller
     public function adminStore(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'farmerNo' => 'required|string|max:255|unique:farmers,farmerNo',
+            'farmerNo' => 'nullable|string|max:255|unique:farmers,farmerNo',
             'firstName' => 'required|string|max:255',
             'middleName' => 'nullable|string|max:255',
             'surname' => 'required|string|max:255',
@@ -60,7 +60,7 @@ class FarmerController extends Controller
             'districtId' => 'nullable|integer|exists:districts,id',
             'regionId' => 'nullable|integer|exists:regions,id',
             'countryId' => 'nullable|integer|exists:countries,id',
-            'farmerType' => 'required|in:individual,organization',
+            'farmerType' => 'required|in:individual,organization,commercial,cooperative',
             'createdBy' => 'nullable|integer|exists:users,id',
             'status' => 'nullable|in:active,notActive',
         ]);
@@ -73,7 +73,12 @@ class FarmerController extends Controller
             ], 422);
         }
 
-        $farmer = Farmer::create($request->all());
+        $data = $request->all();
+        if (empty($data['farmerNo'])) {
+            $data['farmerNo'] = 'FRM-' . strtoupper(\Illuminate\Support\Str::random(6));
+        }
+
+        $farmer = Farmer::create($data);
 
         $farmer->load([
             'identityCardType',

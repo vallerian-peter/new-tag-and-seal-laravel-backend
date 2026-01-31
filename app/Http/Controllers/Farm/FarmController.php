@@ -449,7 +449,7 @@ class FarmController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'farmerId' => 'required|integer|exists:farmers,id',
-            'uuid' => 'required|string|unique:farms,uuid',
+            'uuid' => 'nullable|string|unique:farms,uuid',
             'referenceNo' => 'nullable|string|max:255',
             'regionalRegNo' => 'nullable|string|max:255',
             'name' => 'required|string|max:255',
@@ -475,7 +475,15 @@ class FarmController extends Controller
             ], 422);
         }
 
-        $farm = Farm::create($request->all());
+        $data = $request->all();
+        if (empty($data['uuid'])) {
+            $data['uuid'] = (string) \Illuminate\Support\Str::uuid();
+        }
+        if (empty($data['referenceNo'])) {
+            $data['referenceNo'] = 'FARM-' . strtoupper(\Illuminate\Support\Str::random(6));
+        }
+
+        $farm = Farm::create($data);
 
         $farm->load(['farmer', 'village', 'ward', 'district', 'region', 'country', 'legalStatus']);
 

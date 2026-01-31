@@ -57,14 +57,14 @@ class TransferController extends Controller
         }
 
         return Transfer::with([
-                'fromFarm:uuid,name',
-                'toFarm:uuid,name',
-                'livestock:uuid,name',
-            ])
+            'fromFarm:uuid,name',
+            'toFarm:uuid,name',
+            'livestock:uuid,name',
+        ])
             ->where(function ($query) use ($farmUuids) {
                 // Check if from farm (farmUuid) OR to farm (toFarmUuid) matches any passed farm UUID
                 $query->whereIn('farmUuid', $farmUuids)
-                      ->orWhereIn('toFarmUuid', $farmUuids);
+                    ->orWhereIn('toFarmUuid', $farmUuids);
             })
             ->orderByDesc('created_at')
             ->get()
@@ -133,7 +133,7 @@ class TransferController extends Controller
                     : $createdAt;
 
                 $price = isset($transferData['price'])
-                    ? (string)$transferData['price']
+                    ? (string) $transferData['price']
                     : null;
 
                 switch ($syncAction) {
@@ -267,7 +267,7 @@ class TransferController extends Controller
     public function adminStore(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid' => 'required|string|unique:transfers,uuid',
+            'uuid' => 'nullable|string|unique:transfers,uuid',
             'farmUuid' => 'required|string|exists:farms,uuid',
             'livestockUuid' => 'required|string|exists:livestocks,uuid',
             'toFarmUuid' => 'required|string|exists:farms,uuid',
@@ -276,9 +276,14 @@ class TransferController extends Controller
             'price' => 'nullable|numeric',
             'transferDate' => 'nullable|date',
             'remarks' => 'nullable|string',
-            'status' => 'nullable|string|in:active,inactive',
+            'status' => 'nullable|string|in:active,inactive,pending,completed,cancelled',
             'eventDate' => 'nullable|date',
         ]);
+
+        $data = $request->all();
+        if (empty($data['uuid'])) {
+            $data['uuid'] = (string) \Illuminate\Support\Str::uuid();
+        }
 
         if ($validator->fails()) {
             return response()->json([

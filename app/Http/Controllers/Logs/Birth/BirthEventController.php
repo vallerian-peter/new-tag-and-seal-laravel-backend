@@ -236,7 +236,7 @@ class BirthEventController extends Controller
         $createdAt = isset($payload['createdAt'])
             ? Carbon::parse($payload['createdAt'])
             : now();
-        
+
         return [
             'createdAt' => $createdAt,
             'updatedAt' => isset($payload['updatedAt'])
@@ -314,7 +314,7 @@ class BirthEventController extends Controller
     public function adminStore(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid' => 'required|string|unique:birth_events,uuid',
+            'uuid' => 'nullable|string|unique:birth_events,uuid',
             'farmUuid' => 'required|string|exists:farms,uuid',
             'livestockUuid' => 'required|string|exists:livestocks,uuid',
             'eventType' => 'nullable|string|in:calving,farrowing',
@@ -327,6 +327,11 @@ class BirthEventController extends Controller
             'status' => 'nullable|string|in:active,inactive',
             'eventDate' => 'nullable|date',
         ]);
+
+        $data = $request->all();
+        if (empty($data['uuid'])) {
+            $data['uuid'] = (string) Str::uuid();
+        }
 
         if ($validator->fails()) {
             return response()->json([
@@ -420,7 +425,7 @@ class BirthEventController extends Controller
         }
 
         $data = $request->except(['startDate', 'endDate', 'eventDate']);
-        
+
         if ($request->has('startDate')) {
             $data['startDate'] = $this->convertDateFormat($request->startDate);
         }

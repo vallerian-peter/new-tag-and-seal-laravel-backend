@@ -162,7 +162,7 @@ class MilkingController extends Controller
         $createdAt = isset($payload['createdAt'])
             ? Carbon::parse($payload['createdAt'])
             : now();
-        
+
         return [
             'createdAt' => $createdAt,
             'updatedAt' => isset($payload['updatedAt'])
@@ -226,7 +226,7 @@ class MilkingController extends Controller
     public function adminStore(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid' => 'required|string|unique:milkings,uuid',
+            'uuid' => 'nullable|string|unique:milkings,uuid',
             'farmUuid' => 'required|string|exists:farms,uuid',
             'livestockUuid' => 'required|string|exists:livestocks,uuid',
             'milkingMethodId' => 'nullable|integer|exists:milking_methods,id',
@@ -239,10 +239,15 @@ class MilkingController extends Controller
             'totalSolids' => 'nullable|string|max:255',
             'colonyFormingUnits' => 'nullable|string|max:255',
             'acidity' => 'nullable|string|max:255',
-            'session' => 'nullable|string|in:morning,evening',
-            'status' => 'nullable|string|in:active,inactive',
+            'session' => 'nullable|string|in:morning,evening,night,midnight',
+            'status' => 'nullable|string|in:active,inactive,pending',
             'eventDate' => 'nullable|date',
         ]);
+
+        $data = $request->all();
+        if (empty($data['uuid'])) {
+            $data['uuid'] = (string) \Illuminate\Support\Str::uuid();
+        }
 
         if ($validator->fails()) {
             return response()->json([

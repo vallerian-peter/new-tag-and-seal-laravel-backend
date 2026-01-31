@@ -47,6 +47,8 @@ class ExtensionOfficerController extends Controller
             'organization' => 'nullable|string|max:255',
             'isVerified' => 'sometimes|boolean',
             'specialization' => 'nullable|string|max:255',
+            'status' => 'nullable|string|in:active,notActive',
+            'officerNo' => 'nullable|string|unique:extension_officers,officerNo',
         ]);
 
         if ($validator->fails()) {
@@ -58,6 +60,9 @@ class ExtensionOfficerController extends Controller
         }
 
         $data = $request->all();
+        if (empty($data['officerNo'])) {
+            $data['officerNo'] = 'OFF-' . strtoupper(\Illuminate\Support\Str::random(6));
+        }
         $data['password'] = Hash::make($request->password);
 
         $officer = ExtensionOfficer::create($data);
@@ -112,7 +117,7 @@ class ExtensionOfficerController extends Controller
         }
 
         $data = $request->except(['password']);
-        
+
         if ($request->has('password')) {
             $data['password'] = Hash::make($request->password);
         }

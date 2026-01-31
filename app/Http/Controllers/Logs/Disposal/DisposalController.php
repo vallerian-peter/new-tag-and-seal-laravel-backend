@@ -301,15 +301,20 @@ class DisposalController extends Controller
     public function adminStore(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid' => 'required|string|unique:disposals,uuid',
+            'uuid' => 'nullable|string|unique:disposals,uuid',
             'farmUuid' => 'required|string|exists:farms,uuid',
             'livestockUuid' => 'required|string|exists:livestocks,uuid',
             'disposalTypeId' => 'nullable|integer|exists:disposal_types,id',
             'reasons' => 'nullable|string',
             'remarks' => 'nullable|string',
-            'status' => 'nullable|string|in:active,inactive',
+            'status' => 'nullable|string|in:completed,pending,failed',
             'eventDate' => 'nullable|date',
         ]);
+
+        $data = $request->all();
+        if (empty($data['uuid'])) {
+            $data['uuid'] = (string) \Illuminate\Support\Str::uuid();
+        }
 
         if ($validator->fails()) {
             return response()->json([

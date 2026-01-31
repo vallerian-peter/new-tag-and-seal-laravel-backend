@@ -262,11 +262,13 @@ class TreatmentController extends Controller
     public function adminStore(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid' => 'required|string|unique:treatments,uuid',
+            'uuid' => 'nullable|string|unique:treatments,uuid',
             'farmUuid' => 'required|string|exists:farms,uuid',
             'livestockUuid' => 'required|string|exists:livestocks,uuid',
             'diseaseId' => 'nullable|integer|exists:diseases,id',
             'medicineId' => 'nullable|integer|exists:medicines,id',
+            'vetId' => 'nullable|string',
+            'extensionOfficerId' => 'nullable|string',
             'quantity' => 'nullable|string|max:255',
             'withdrawalPeriod' => 'nullable|string|max:255',
             'medicationDate' => 'nullable|date',
@@ -284,6 +286,9 @@ class TreatmentController extends Controller
         }
 
         $data = $request->all();
+        if (empty($data['uuid'])) {
+            $data['uuid'] = (string) \Illuminate\Support\Str::uuid();
+        }
         if ($request->has('medicationDate')) {
             $data['medicationDate'] = $this->convertDateFormat($request->medicationDate);
         }
@@ -327,6 +332,8 @@ class TreatmentController extends Controller
             'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'diseaseId' => 'sometimes|nullable|integer|exists:diseases,id',
             'medicineId' => 'sometimes|nullable|integer|exists:medicines,id',
+            'vetId' => 'sometimes|nullable|string',
+            'extensionOfficerId' => 'sometimes|nullable|string',
             'quantity' => 'sometimes|nullable|string|max:255',
             'withdrawalPeriod' => 'sometimes|nullable|string|max:255',
             'medicationDate' => 'sometimes|nullable|date',
@@ -344,7 +351,7 @@ class TreatmentController extends Controller
         }
 
         $data = $request->except(['medicationDate', 'nextMedicationDate', 'eventDate']);
-        
+
         if ($request->has('medicationDate')) {
             $data['medicationDate'] = $this->convertDateFormat($request->medicationDate);
         }

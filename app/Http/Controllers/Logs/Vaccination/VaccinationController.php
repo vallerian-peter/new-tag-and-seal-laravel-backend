@@ -57,22 +57,22 @@ class VaccinationController extends Controller
         \Log::info("VaccinationController: Found " . $vaccinations->count() . " vaccination(s) in database");
 
         return $vaccinations->map(function (Vaccination $log) {
-                return [
-                    'id' => $log->id,
-                    'uuid' => $log->uuid,
-                    'vaccinationNo' => $log->vaccinationNo,
-                    'farmUuid' => $log->farmUuid,
-                    'livestockUuid' => $log->livestockUuid,
-                    'vaccineUuid' => $log->vaccineUuid,
-                    'diseaseId' => $log->diseaseId,
-                    'vetId' => $log->vetId,
-                    'extensionOfficerId' => $log->extensionOfficerId,
-                    'status' => $log->status,
-                    'eventDate' => $log->eventDate ? Carbon::parse($log->eventDate)->toIso8601String() : $log->created_at?->toIso8601String(),
-                    'createdAt' => $log->created_at?->toIso8601String(),
-                    'updatedAt' => $log->updated_at?->toIso8601String(),
-                ];
-            })
+            return [
+                'id' => $log->id,
+                'uuid' => $log->uuid,
+                'vaccinationNo' => $log->vaccinationNo,
+                'farmUuid' => $log->farmUuid,
+                'livestockUuid' => $log->livestockUuid,
+                'vaccineUuid' => $log->vaccineUuid,
+                'diseaseId' => $log->diseaseId,
+                'vetId' => $log->vetId,
+                'extensionOfficerId' => $log->extensionOfficerId,
+                'status' => $log->status,
+                'eventDate' => $log->eventDate ? Carbon::parse($log->eventDate)->toIso8601String() : $log->created_at?->toIso8601String(),
+                'createdAt' => $log->created_at?->toIso8601String(),
+                'updatedAt' => $log->updated_at?->toIso8601String(),
+            ];
+        })
             ->toArray();
     }
 
@@ -288,11 +288,12 @@ class VaccinationController extends Controller
     public function adminStore(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid' => 'required|string|unique:vaccinations,uuid',
+            'uuid' => 'nullable|string|unique:vaccinations,uuid',
             'vaccinationNo' => 'nullable|string|unique:vaccinations,vaccinationNo',
             'farmUuid' => 'required|string|exists:farms,uuid',
             'livestockUuid' => 'required|string|exists:livestocks,uuid',
-            'vaccineUuid' => 'nullable|string|exists:vaccines,uuid',
+            'vaccineUuid' => 'nullable|string',
+            'vaccineId' => 'nullable|integer|exists:vaccines,id',
             'diseaseId' => 'nullable|integer|exists:diseases,id',
             'vetId' => 'nullable|string',
             'extensionOfficerId' => 'nullable|string',
@@ -309,6 +310,13 @@ class VaccinationController extends Controller
         }
 
         $data = $request->all();
+        if (empty($data['uuid'])) {
+            $data['uuid'] = (string) \Illuminate\Support\Str::uuid();
+        }
+        if (empty($data['vaccinationNo'])) {
+            $data['vaccinationNo'] = 'VAC-' . strtoupper(\Illuminate\Support\Str::random(6));
+        }
+
         if ($request->has('eventDate')) {
             $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
         } else {
@@ -345,7 +353,8 @@ class VaccinationController extends Controller
             'vaccinationNo' => 'sometimes|nullable|string|unique:vaccinations,vaccinationNo,' . $vaccination->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
             'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
-            'vaccineUuid' => 'sometimes|nullable|string|exists:vaccines,uuid',
+            'vaccineUuid' => 'sometimes|nullable|string',
+            'vaccineId' => 'sometimes|nullable|integer|exists:vaccines,id',
             'diseaseId' => 'sometimes|nullable|integer|exists:diseases,id',
             'vetId' => 'sometimes|nullable|string',
             'extensionOfficerId' => 'sometimes|nullable|string',

@@ -172,7 +172,7 @@ class InseminationController extends Controller
         $createdAt = isset($payload['createdAt'])
             ? Carbon::parse($payload['createdAt'])
             : now();
-        
+
         return [
             'createdAt' => $createdAt,
             'updatedAt' => isset($payload['updatedAt'])
@@ -238,7 +238,7 @@ class InseminationController extends Controller
     public function adminStore(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid' => 'required|string|unique:inseminations,uuid',
+            'uuid' => 'nullable|string|unique:inseminations,uuid',
             'farmUuid' => 'required|string|exists:farms,uuid',
             'livestockUuid' => 'required|string|exists:livestocks,uuid',
             'lastHeatDate' => 'nullable|date',
@@ -257,6 +257,11 @@ class InseminationController extends Controller
             'semenSupplier' => 'nullable|string|max:255',
             'eventDate' => 'nullable|date',
         ]);
+
+        $data = $request->all();
+        if (empty($data['uuid'])) {
+            $data['uuid'] = (string) \Illuminate\Support\Str::uuid();
+        }
 
         if ($validator->fails()) {
             return response()->json([

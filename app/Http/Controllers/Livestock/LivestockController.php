@@ -135,7 +135,8 @@ class LivestockController extends Controller
             ->toArray();
     }
 
-    public function handlePostLivestockAction(Request $request){
+    public function handlePostLivestockAction(Request $request)
+    {
         try {
             // hendelt syncAction delete && update && create || fromTheServecreatedAt-wins-if-is-greate  & fromServerupdatedAt-wins-if-greater
             $data = $request->all();
@@ -388,7 +389,7 @@ class LivestockController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'farmUuid' => 'required|string|exists:farms,uuid',
-            'uuid' => 'required|string|unique:livestocks,uuid',
+            'uuid' => 'nullable|string|unique:livestocks,uuid',
             'identificationNumber' => 'nullable|string|max:255',
             'dummyTagId' => 'nullable|string|max:255',
             'barcodeTagId' => 'nullable|string|max:255',
@@ -401,7 +402,7 @@ class LivestockController extends Controller
             'gender' => 'nullable|string|max:50',
             'breedId' => 'nullable|integer|exists:breeds,id',
             'speciesId' => 'nullable|integer|exists:species,id',
-            'status' => 'nullable|string|max:255',
+            'status' => 'nullable|string|in:Alive,Active,Dead,Sold,Transferred,Slaughtered',
             'livestockObtainedMethodId' => 'nullable|integer|exists:livestock_obtained_methods,id',
             'dateFirstEnteredToFarm' => 'nullable|date',
             'weightAsOnRegistration' => 'nullable|numeric',
@@ -417,7 +418,12 @@ class LivestockController extends Controller
             ], 422);
         }
 
-        $livestock = Livestock::create($request->all());
+        $data = $request->all();
+        if (empty($data['uuid'])) {
+            $data['uuid'] = (string) \Illuminate\Support\Str::uuid();
+        }
+
+        $livestock = Livestock::create($data);
 
         $livestock->load([
             'farm',
@@ -472,7 +478,7 @@ class LivestockController extends Controller
             'gender' => 'sometimes|nullable|string|max:50',
             'breedId' => 'sometimes|nullable|integer|exists:breeds,id',
             'speciesId' => 'sometimes|nullable|integer|exists:species,id',
-            'status' => 'sometimes|nullable|string|max:255',
+            'status' => 'sometimes|nullable|string|in:Alive,Active,Dead,Sold,Transferred,Slaughtered',
             'livestockObtainedMethodId' => 'sometimes|nullable|integer|exists:livestock_obtained_methods,id',
             'dateFirstEnteredToFarm' => 'sometimes|nullable|date',
             'weightAsOnRegistration' => 'sometimes|nullable|numeric',

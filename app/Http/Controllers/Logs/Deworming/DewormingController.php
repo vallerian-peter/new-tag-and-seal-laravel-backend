@@ -186,8 +186,8 @@ class DewormingController extends Controller
                                     'farmUuid' => $farmUuid,
                                     'administrationRouteId' => $dewormingData['administrationRouteId'] ?? null,
                                     'medicineId' => $dewormingData['medicineId'] ?? null,
-                                'vetId' => $vetId,
-                                'extensionOfficerId' => $extensionOfficerId,
+                                    'vetId' => $vetId,
+                                    'extensionOfficerId' => $extensionOfficerId,
                                     'quantity' => $dewormingData['quantity'] ?? null,
                                     'dose' => $dewormingData['dose'] ?? null,
                                     'nextAdministrationDate' => $nextAdministrationDate,
@@ -261,7 +261,7 @@ class DewormingController extends Controller
     public function adminStore(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid' => 'required|string|unique:dewormings,uuid',
+            'uuid' => 'nullable|string|unique:dewormings,uuid',
             'farmUuid' => 'required|string|exists:farms,uuid',
             'livestockUuid' => 'required|string|exists:livestocks,uuid',
             'administrationRouteId' => 'nullable|integer|exists:administration_routes,id',
@@ -283,6 +283,9 @@ class DewormingController extends Controller
         }
 
         $data = $request->all();
+        if (empty($data['uuid'])) {
+            $data['uuid'] = (string) \Illuminate\Support\Str::uuid();
+        }
         if ($request->has('nextAdministrationDate')) {
             $data['nextAdministrationDate'] = $this->convertDateFormat($request->nextAdministrationDate);
         }
@@ -340,7 +343,7 @@ class DewormingController extends Controller
         }
 
         $data = $request->except(['nextAdministrationDate', 'eventDate']);
-        
+
         if ($request->has('nextAdministrationDate')) {
             $data['nextAdministrationDate'] = $this->convertDateFormat($request->nextAdministrationDate);
         }

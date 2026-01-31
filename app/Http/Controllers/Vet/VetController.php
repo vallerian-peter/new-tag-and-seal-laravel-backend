@@ -39,11 +39,11 @@ class VetController extends Controller
             'countryId' => 'nullable|integer|exists:countries,id',
             'regionId' => 'nullable|integer|exists:regions,id',
             'districtId' => 'nullable|integer|exists:districts,id',
-            'gender' => 'nullable|string|max:50',
+            'gender' => 'nullable|in:male,female',
             'dateOfBirth' => 'nullable|date',
             'identityCardTypeId' => 'nullable|integer|exists:identity_card_types,id',
             'identityNo' => 'nullable|string|max:255',
-            'status' => 'nullable|string|max:255',
+            'status' => 'nullable|string|in:active,notActive',
         ]);
 
         if ($validator->fails()) {
@@ -54,7 +54,18 @@ class VetController extends Controller
             ], 422);
         }
 
-        $vet = Vet::create($request->all());
+        $data = $request->all();
+
+        // Handle name components from frontend
+        if (empty($data['fullName']) && ($request->firstName || $request->lastName)) {
+            $data['fullName'] = trim("{$request->firstName} {$request->middleName} {$request->lastName}");
+        }
+
+        if (empty($data['referenceNo'])) {
+            $data['referenceNo'] = 'VET-' . strtoupper(\Illuminate\Support\Str::random(6));
+        }
+
+        $vet = Vet::create($data);
 
         $vet->load(['country', 'region', 'district']);
 

@@ -27,6 +27,8 @@ class ExtensionOfficer extends Model
         'organization',
         'isVerified',
         'specialization',
+        'officerNo',
+        'status',
     ];
 
     protected $hidden = [

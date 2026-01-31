@@ -42,13 +42,14 @@ class FeedingController extends Controller
         }
     }
 
-    public function fetchFeedingsWithUuid($farmUuid, $livestockUuid){
+    public function fetchFeedingsWithUuid($farmUuid, $livestockUuid)
+    {
         return Feeding::whereIn('farmUuid', $farmUuid)
             ->whereIn('livestockUuid', $livestockUuid)
             ->get()
             ->map(function ($feed) {
                 return [
-                    'id'=>$feed->id,
+                    'id' => $feed->id,
                     'uuid' => $feed->uuid,
                     'farmUuid' => $feed->farmUuid,
                     'livestockUuid' => $feed->livestockUuid,
@@ -254,7 +255,7 @@ class FeedingController extends Controller
     public function adminStore(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid' => 'required|string|unique:feedings,uuid',
+            'uuid' => 'nullable|string|unique:feedings,uuid',
             'farmUuid' => 'required|string|exists:farms,uuid',
             'livestockUuid' => 'required|string|exists:livestocks,uuid',
             'feedingTypeId' => 'nullable|integer|exists:feeding_types,id',
@@ -263,6 +264,11 @@ class FeedingController extends Controller
             'remarks' => 'nullable|string',
             'eventDate' => 'nullable|date',
         ]);
+
+        $data = $request->all();
+        if (empty($data['uuid'])) {
+            $data['uuid'] = (string) \Illuminate\Support\Str::uuid();
+        }
 
         if ($validator->fails()) {
             return response()->json([

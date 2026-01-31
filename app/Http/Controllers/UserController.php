@@ -58,7 +58,7 @@ class UserController extends Controller
             $query->active();
         }
 
-        $users = $query->orderBy('created_at', 'desc')->get();
+        $users = $query->with('profile')->orderBy('created_at', 'desc')->get();
 
         return response()->json([
             'status' => true,
@@ -77,12 +77,12 @@ class UserController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'username' => 'required|string|unique:users,username',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:6',
-            'role' => 'required|string|in:systemUser,farmer,extensionOfficer,vet',
-            'roleId' => 'required|integer',
-            'status' => 'sometimes|string|in:active,notActive',
+            'username' => 'required|string|max:255|unique:users',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => 'required|string|min:8',
+            'role' => 'required|string',
+            'roleId' => 'nullable|integer',
+            'status' => 'nullable|string|in:active,notActive',
         ]);
 
         if ($validator->fails()) {
@@ -93,15 +93,20 @@ class UserController extends Controller
             ], 422);
         }
 
-        $user = User::create([
-            'username' => $request->username,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'role' => $request->role,
-            'roleId' => $request->roleId,
-            'status' => $request->status ?? 'active',
-            'createdBy' => Auth::id(),
-        ]);
+        $data = $request->all();
+
+        // Auto-create SystemUser profile if needed
+        if (in_array($data['role'], [\App\Enums\UserRole::SYSTEM_USER, \App\Enums\UserRole::EXTENSION_OFFICER, \App\Enums\UserRole::VET]) && empty($data['roleId'])) {
+            $systemUser = \App\Models\SystemUser::create([
+                'firstName' => $data['username'], // Fallback
+                'lastName' => $data['username'],  // Fallback
+                'status' => 'active',
+            ]);
+            $data['roleId'] = $systemUser->id;
+        }
+
+        $user = User::create($data);
+        $user->load('profile');
 
         return response()->json([
             'status' => true,
@@ -113,6 +118,51 @@ class UserController extends Controller
     /**
      * Admin: Display the specified user.
      * GET /api/v1/admin/users/{id}
+     */
+    public function adminStore(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'username' => 'required|string|max:255|unique:users',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => 'required|string|min:8',
+            'role' => 'required|string',
+            'roleId' => 'nullable|integer',
+            'status' => 'nullable|string|in:active,notActive',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $data = $request->all();
+
+        // Auto-create SystemUser profile if needed
+        if (in_array($data['role'], [\App\Enums\UserRole::SYSTEM_USER, \App\Enums\UserRole::EXTENSION_OFFICER, \App\Enums\UserRole::VET]) && empty($data['roleId'])) {
+            $systemUser = \App\Models\SystemUser::create([
+                'firstName' => $data['username'],
+                'lastName' => $data['username'],
+                'status' => 'active',
+            ]);
+            $data['roleId'] = $systemUser->id;
+        }
+
+        $user = User::create($data);
+        $user->load('profile');
+
+        return response()->json([
+            'status' => true,
+            'message' => 'User created successfully',
+            'data' => $user,
+        ], 201);
+    }
+
+    /**
+     * Admin: Update the specified user.
+     * PUT /api/v1/admin/users/{id}
      */
     public function show(User $user): JsonResponse
     {

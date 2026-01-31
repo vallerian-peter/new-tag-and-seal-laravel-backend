@@ -157,7 +157,7 @@ class PregnancyController extends Controller
         $createdAt = isset($payload['createdAt'])
             ? Carbon::parse($payload['createdAt'])
             : now();
-        
+
         return [
             'createdAt' => $createdAt,
             'updatedAt' => isset($payload['updatedAt'])
@@ -214,16 +214,21 @@ class PregnancyController extends Controller
     public function adminStore(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid' => 'required|string|unique:pregnancies,uuid',
+            'uuid' => 'nullable|string|unique:pregnancies,uuid',
             'farmUuid' => 'required|string|exists:farms,uuid',
             'livestockUuid' => 'required|string|exists:livestocks,uuid',
             'testResultId' => 'nullable|integer|exists:test_results,id',
             'noOfMonths' => 'nullable|integer',
             'testDate' => 'nullable|date',
-            'status' => 'nullable|string|in:active,inactive',
+            'status' => 'nullable|string|in:active,inactive,confirmed,suspected,delivered,aborted',
             'remarks' => 'nullable|string',
             'eventDate' => 'nullable|date',
         ]);
+
+        $data = $request->all();
+        if (empty($data['uuid'])) {
+            $data['uuid'] = (string) \Illuminate\Support\Str::uuid();
+        }
 
         if ($validator->fails()) {
             return response()->json([
@@ -289,7 +294,7 @@ class PregnancyController extends Controller
         }
 
         $data = $request->except(['testDate', 'eventDate']);
-        
+
         if ($request->has('testDate')) {
             $data['testDate'] = $this->convertDateFormat($request->testDate);
         }
