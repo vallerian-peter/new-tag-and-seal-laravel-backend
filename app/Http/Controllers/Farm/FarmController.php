@@ -190,7 +190,7 @@ class FarmController extends Controller
         }
 
         return Farm::whereIn('uuid', $uuids)
-            ->where('status', 'active')
+            ->where('status', 'active') // Only active farms should sync
             ->with(['village', 'ward', 'district', 'region', 'country', 'legalStatus'])
             ->orderBy('created_at', 'desc')
             ->get()

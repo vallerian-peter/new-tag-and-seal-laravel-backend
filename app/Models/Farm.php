@@ -11,6 +11,9 @@ class Farm extends Model
      *
      * @var array<int, string>
      */
+
+    protected $table = "farms";
+
     protected $fillable = [
         'farmerId',
         'uuid',
@@ -37,7 +40,6 @@ class Farm extends Model
     {
         return $this->belongsTo(Farmer::class, 'farmerId');
     }
-
 
     public function village()
     {

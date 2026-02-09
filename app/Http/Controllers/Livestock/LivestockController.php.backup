@@ -108,28 +108,28 @@ class LivestockController extends Controller
             ->map(function ($livestock) {
                 return [
                     'id' => $livestock->id,
-                    'farmUuid' => $livestock->farmUuid ?? '',
-                    'uuid' => $livestock->uuid ?? '',
-                    'identificationNumber' => $livestock->identificationNumber ?? '',
-                    'dummyTagId' => $livestock->dummyTagId ?? '',
-                    'barcodeTagId' => $livestock->barcodeTagId ?? '',
-                    'rfidTagId' => $livestock->rfidTagId ?? '',
-                    'livestockTypeId' => $livestock->livestockTypeId ?? 0,
-                    'name' => $livestock->name ?? '',
-                    'dateOfBirth' => $livestock->dateOfBirth?->toDateString() ?? '',
-                    'motherUuid' => $livestock->motherUuid ?? '',
-                    'fatherUuid' => $livestock->fatherUuid ?? '',
-                    'gender' => $livestock->gender ?? '',
-                    'breedId' => $livestock->breedId ?? 0,
-                    'speciesId' => $livestock->speciesId ?? 0,
-                    'status' => $livestock->status ?? 'active',
-                    'livestockObtainedMethodId' => $livestock->livestockObtainedMethodId ?? 0,
-                    'dateFirstEnteredToFarm' => $livestock->dateFirstEnteredToFarm?->toDateString() ?? '',
-                    'weightAsOnRegistration' => $livestock->weightAsOnRegistration ?? '0',
+                    'farmUuid' => $livestock->farmUuid,  // Changed from farmId
+                    'uuid' => $livestock->uuid,
+                    'identificationNumber' => $livestock->identificationNumber,
+                    'dummyTagId' => $livestock->dummyTagId,
+                    'barcodeTagId' => $livestock->barcodeTagId,
+                    'rfidTagId' => $livestock->rfidTagId,
+                    'livestockTypeId' => $livestock->livestockTypeId,
+                    'name' => $livestock->name,
+                    'dateOfBirth' => $livestock->dateOfBirth?->toDateString(),
+                    'motherUuid' => $livestock->motherUuid,  // Changed from motherId
+                    'fatherUuid' => $livestock->fatherUuid,  // Changed from fatherId
+                    'gender' => $livestock->gender,
+                    'breedId' => $livestock->breedId,
+                    'speciesId' => $livestock->speciesId,
+                    'status' => $livestock->status,
+                    'livestockObtainedMethodId' => $livestock->livestockObtainedMethodId,
+                    'dateFirstEnteredToFarm' => $livestock->dateFirstEnteredToFarm?->toDateString(),
+                    'weightAsOnRegistration' => $livestock->weightAsOnRegistration,
                     'primaryColor' => $livestock->primaryColor,
                     'secondaryColor' => $livestock->secondaryColor,
-                    'createdAt' => $livestock->created_at?->toIso8601String() ?? '',
-                    'updatedAt' => $livestock->updated_at?->toIso8601String() ?? '',
+                    'createdAt' => $livestock->created_at?->toIso8601String(),
+                    'updatedAt' => $livestock->updated_at?->toIso8601String(),
                 ];
             })
             ->toArray();
