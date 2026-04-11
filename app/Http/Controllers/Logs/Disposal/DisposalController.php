@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Logs\Disposal;
 
 use App\Http\Controllers\Controller;
 use App\Models\Disposal;
-use App\Models\Livestock;
 use App\Models\DisposalType;
+use App\Models\Livestock;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -30,7 +30,7 @@ class DisposalController extends Controller
                 'data' => $disposals,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error fetching disposals: ' . $e->getMessage());
+            Log::error('Error fetching disposals: '.$e->getMessage());
 
             return response()->json([
                 'status' => false,
@@ -62,12 +62,37 @@ class DisposalController extends Controller
                     'reasons' => $log->reasons,
                     'remarks' => $log->remarks,
                     'status' => $log->status,
+                    'saleWeight' => $log->saleWeight !== null ? (float) $log->saleWeight : null,
+                    'salePrice' => $log->salePrice !== null ? (float) $log->salePrice : null,
+                    'buyerName' => $log->buyerName,
                     'eventDate' => $log->eventDate ? Carbon::parse($log->eventDate)->toIso8601String() : $log->created_at?->toIso8601String(),
                     'createdAt' => $log->created_at?->toIso8601String(),
                     'updatedAt' => $log->updated_at?->toIso8601String(),
                 ];
             })
             ->toArray();
+    }
+
+    private function parseOptionalDecimal(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        if (is_numeric($value)) {
+            return (string) $value;
+        }
+
+        return null;
+    }
+
+    private function parseOptionalString(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+        $s = trim((string) $value);
+
+        return $s === '' ? null : $s;
     }
 
     /**
@@ -78,7 +103,7 @@ class DisposalController extends Controller
         $syncedDisposals = [];
 
         Log::info('========== PROCESSING DISPOSALS START ==========');
-        Log::info('Total disposals to process: ' . count($disposals));
+        Log::info('Total disposals to process: '.count($disposals));
         Log::info("Livestock UUID: {$livestockUuid}");
 
         foreach ($disposals as $disposalData) {
@@ -86,8 +111,9 @@ class DisposalController extends Controller
                 $syncAction = $disposalData['syncAction'] ?? 'create';
                 $uuid = $disposalData['uuid'] ?? null;
 
-                if (!$uuid) {
+                if (! $uuid) {
                     Log::warning('⚠️ Disposal entry without UUID skipped', ['disposal' => $disposalData]);
+
                     continue;
                 }
 
@@ -99,7 +125,7 @@ class DisposalController extends Controller
                 $status = isset($disposalData['status'])
                     ? strtolower((string) $disposalData['status'])
                     : 'completed';
-                if (!in_array($status, ['pending', 'completed', 'failed'], true)) {
+                if (! in_array($status, ['pending', 'completed', 'failed'], true)) {
                     $status = 'completed';
                 }
 
@@ -115,6 +141,10 @@ class DisposalController extends Controller
                 $eventDate = isset($disposalData['eventDate'])
                     ? Carbon::parse($disposalData['eventDate'])->format('Y-m-d H:i:s')
                     : $createdAt;
+
+                $saleWeight = $this->parseOptionalDecimal($disposalData['saleWeight'] ?? null);
+                $salePrice = $this->parseOptionalDecimal($disposalData['salePrice'] ?? null);
+                $buyerName = $this->parseOptionalString($disposalData['buyerName'] ?? null);
 
                 switch ($syncAction) {
                     case 'create':
@@ -132,6 +162,9 @@ class DisposalController extends Controller
                                     'reasons' => $disposalData['reasons'] ?? $existing->reasons,
                                     'remarks' => $disposalData['remarks'] ?? $existing->remarks,
                                     'status' => $status,
+                                    'saleWeight' => $saleWeight,
+                                    'salePrice' => $salePrice,
+                                    'buyerName' => $buyerName,
                                     'eventDate' => $eventDate,
                                     'updated_at' => $updatedAt,
                                 ]);
@@ -153,6 +186,9 @@ class DisposalController extends Controller
                                 'reasons' => $disposalData['reasons'] ?? '',
                                 'remarks' => $disposalData['remarks'] ?? '',
                                 'status' => $status,
+                                'saleWeight' => $saleWeight,
+                                'salePrice' => $salePrice,
+                                'buyerName' => $buyerName,
                                 'created_at' => $createdAt,
                                 'updated_at' => $updatedAt,
                             ]);
@@ -180,6 +216,9 @@ class DisposalController extends Controller
                                     'reasons' => $disposalData['reasons'] ?? $disposal->reasons,
                                     'remarks' => $disposalData['remarks'] ?? $disposal->remarks,
                                     'status' => $status,
+                                    'saleWeight' => $saleWeight,
+                                    'salePrice' => $salePrice,
+                                    'buyerName' => $buyerName,
                                     'eventDate' => $eventDate,
                                     'updated_at' => $updatedAt,
                                 ]);
@@ -228,7 +267,7 @@ class DisposalController extends Controller
         }
 
         Log::info('========== PROCESSING DISPOSALS END ==========');
-        Log::info('Total disposals synced: ' . count($syncedDisposals));
+        Log::info('Total disposals synced: '.count($syncedDisposals));
 
         return $syncedDisposals;
     }
@@ -238,10 +277,6 @@ class DisposalController extends Controller
      *
      * All disposal types (Dead, Slaughtered, Lost, Culled) indicate that the livestock
      * is no longer active in the farm, so the status should be updated to 'notActive'.
-     *
-     * @param string $livestockUuid
-     * @param int|null $disposalTypeId
-     * @return void
      */
     private function updateLivestockStatusForDisposal(string $livestockUuid, ?int $disposalTypeId): void
     {
@@ -253,14 +288,16 @@ class DisposalController extends Controller
         try {
             $livestock = Livestock::where('uuid', $livestockUuid)->first();
 
-            if (!$livestock) {
+            if (! $livestock) {
                 Log::warning("⚠️ Livestock not found for disposal status update: UUID {$livestockUuid}");
+
                 return;
             }
 
             // Check if livestock is already notActive (check both formats for backward compatibility)
             if ($livestock->status === 'notActive' || $livestock->status === 'not-active') {
                 Log::debug("ℹ️ Livestock already notActive: UUID {$livestockUuid}");
+
                 return;
             }
 
@@ -273,7 +310,7 @@ class DisposalController extends Controller
 
             Log::info("✅ Livestock status updated to 'notActive' for disposal type '{$disposalTypeName}' (ID: {$disposalTypeId}): UUID {$livestockUuid}");
         } catch (\Exception $e) {
-            Log::error("❌ Failed to update livestock status for disposal", [
+            Log::error('❌ Failed to update livestock status for disposal', [
                 'livestockUuid' => $livestockUuid,
                 'disposalTypeId' => $disposalTypeId,
                 'error' => $e->getMessage(),
@@ -357,7 +394,7 @@ class DisposalController extends Controller
     public function adminUpdate(Request $request, Disposal $disposal): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid' => 'sometimes|required|string|unique:disposals,uuid,' . $disposal->id,
+            'uuid' => 'sometimes|required|string|unique:disposals,uuid,'.$disposal->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
             'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'disposalTypeId' => 'sometimes|nullable|integer|exists:disposal_types,id',
@@ -402,4 +439,3 @@ class DisposalController extends Controller
         ], 200);
     }
 }
-

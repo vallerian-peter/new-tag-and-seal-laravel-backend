@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Validator;
 class CalvingController extends Controller
 {
     use ConvertsDateFormat;
+
     /**
      * Display a listing of calving logs.
      */
@@ -36,7 +37,7 @@ class CalvingController extends Controller
                 'data' => $calvings,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error fetching calving logs: ' . $e->getMessage());
+            Log::error('Error fetching calving logs: '.$e->getMessage());
 
             return response()->json([
                 'status' => false,
@@ -87,15 +88,16 @@ class CalvingController extends Controller
         $synced = [];
 
         Log::info('========== PROCESSING CALVINGS START ==========');
-        Log::info('Total calvings to process: ' . count($calvings));
+        Log::info('Total calvings to process: '.count($calvings));
         Log::info("Livestock UUID: {$livestockUuid}");
 
         foreach ($calvings as $payload) {
             $uuid = $payload['uuid'] ?? null;
             $syncAction = $payload['syncAction'] ?? 'create';
 
-            if (!$uuid) {
+            if (! $uuid) {
                 Log::warning('⚠️ Calving entry without UUID skipped', ['payload' => $payload]);
+
                 continue;
             }
 
@@ -155,7 +157,7 @@ class CalvingController extends Controller
         }
 
         Log::info('========== PROCESSING CALVINGS END ==========');
-        Log::info('Total calvings synced: ' . count($synced));
+        Log::info('Total calvings synced: '.count($synced));
 
         return $synced;
     }
@@ -165,7 +167,7 @@ class CalvingController extends Controller
         $createdAt = isset($payload['createdAt'])
             ? Carbon::parse($payload['createdAt'])
             : now();
-        
+
         return [
             'createdAt' => $createdAt,
             'updatedAt' => isset($payload['updatedAt'])
@@ -180,7 +182,7 @@ class CalvingController extends Controller
     private function mapAttributes(array $payload, string $livestockUuid, array $timestamps): array
     {
         $sanitize = static function ($value) {
-            if (!isset($value)) {
+            if (! isset($value)) {
                 return null;
             }
 
@@ -305,7 +307,7 @@ class CalvingController extends Controller
     public function adminUpdate(Request $request, Calving $calving): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid' => 'sometimes|required|string|unique:birth_events,uuid,' . $calving->id,
+            'uuid' => 'sometimes|required|string|unique:calvings,uuid,'.$calving->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
             'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'startDate' => 'sometimes|required|date',
@@ -373,4 +375,3 @@ class CalvingController extends Controller
         ], 200);
     }
 }
-

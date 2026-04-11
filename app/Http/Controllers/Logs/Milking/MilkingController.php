@@ -28,7 +28,7 @@ class MilkingController extends Controller
                 'data' => $milkings,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error fetching milking logs: ' . $e->getMessage());
+            Log::error('Error fetching milking logs: '.$e->getMessage());
 
             return response()->json([
                 'status' => false,
@@ -84,15 +84,16 @@ class MilkingController extends Controller
         $synced = [];
 
         Log::info('========== PROCESSING MILKINGS START ==========');
-        Log::info('Total milkings to process: ' . count($milkings));
+        Log::info('Total milkings to process: '.count($milkings));
         Log::info("Livestock UUID: {$livestockUuid}");
 
         foreach ($milkings as $payload) {
             $uuid = $payload['uuid'] ?? null;
             $syncAction = $payload['syncAction'] ?? 'create';
 
-            if (!$uuid) {
+            if (! $uuid) {
                 Log::warning('⚠️ Milking entry without UUID skipped', ['payload' => $payload]);
+
                 continue;
             }
 
@@ -152,7 +153,7 @@ class MilkingController extends Controller
         }
 
         Log::info('========== PROCESSING MILKINGS END ==========');
-        Log::info('Total milkings synced: ' . count($synced));
+        Log::info('Total milkings synced: '.count($synced));
 
         return $synced;
     }
@@ -177,7 +178,7 @@ class MilkingController extends Controller
     private function mapAttributes(array $payload, string $livestockUuid, array $timestamps): array
     {
         $sanitize = static function ($value) {
-            if (!isset($value)) {
+            if (! isset($value)) {
                 return null;
             }
 
@@ -290,7 +291,7 @@ class MilkingController extends Controller
     public function adminUpdate(Request $request, Milking $milking): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid' => 'sometimes|required|string|unique:milkings,uuid,' . $milking->id,
+            'uuid' => 'sometimes|required|string|unique:milkings,uuid,'.$milking->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
             'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'milkingMethodId' => 'sometimes|nullable|integer|exists:milking_methods,id',
@@ -343,4 +344,3 @@ class MilkingController extends Controller
         ], 200);
     }
 }
-

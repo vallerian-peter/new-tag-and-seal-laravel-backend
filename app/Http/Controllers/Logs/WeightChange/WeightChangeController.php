@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers\Logs\WeightChange;
 
-use Carbon\Carbon;
+use App\Http\Controllers\Controller;
 use App\Models\WeightChange;
-use Illuminate\Http\Request;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
-use App\Http\Controllers\Controller;
 
 class WeightChangeController extends Controller
 {
@@ -25,18 +25,18 @@ class WeightChangeController extends Controller
             return response()->json([
                 'status' => true,
                 'message' => 'Weight change logs retrieved successfully',
-                'data' => $weightLogs
+                'data' => $weightLogs,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error fetching weight changes: ' . $e->getMessage());
+            Log::error('Error fetching weight changes: '.$e->getMessage());
+
             return response()->json([
                 'status' => false,
                 'message' => 'Failed to retrieve weight logs',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
-
 
     /**
      * Fetch weight logs by UUIDs (mobile sync fetch)
@@ -63,7 +63,6 @@ class WeightChangeController extends Controller
             ->toArray();
     }
 
-
     /**
      * Sync Weight Change logs from mobile app
      */
@@ -71,8 +70,8 @@ class WeightChangeController extends Controller
     {
         $syncedWeights = [];
 
-        Log::info("========== PROCESSING WEIGHT CHANGES START ==========");
-        Log::info("Total logs to process: " . count($weightLogs));
+        Log::info('========== PROCESSING WEIGHT CHANGES START ==========');
+        Log::info('Total logs to process: '.count($weightLogs));
         Log::info("Livestock UUID: {$livestockUuid}");
 
         foreach ($weightLogs as $logData) {
@@ -82,8 +81,9 @@ class WeightChangeController extends Controller
 
                 Log::info("Processing weight change: UUID={$uuid}, Action={$syncAction}");
 
-                if (!$uuid) {
-                    Log::warning("⚠️ Skipped log without UUID");
+                if (! $uuid) {
+                    Log::warning('⚠️ Skipped log without UUID');
+
                     continue;
                 }
 
@@ -129,7 +129,7 @@ class WeightChangeController extends Controller
                                 ]);
                                 Log::info("✅ Weight log updated (local newer): UUID {$uuid}");
                             } else {
-                                Log::info("⏭️ Skip update, server newer");
+                                Log::info('⏭️ Skip update, server newer');
                             }
                         } else {
                             WeightChange::create([
@@ -150,7 +150,6 @@ class WeightChangeController extends Controller
                         $syncedWeights[] = ['uuid' => $uuid];
                         break;
 
-
                     case 'update':
                         $log = WeightChange::where('uuid', $uuid)->first();
 
@@ -166,15 +165,14 @@ class WeightChangeController extends Controller
                                 ]);
                                 Log::info("✅ Weight log updated: UUID {$uuid}");
                             } else {
-                                Log::info("⏭️ Skip update, server newer");
+                                Log::info('⏭️ Skip update, server newer');
                             }
                         } else {
-                            Log::warning("⚠️ Weight log UUID not found for update");
+                            Log::warning('⚠️ Weight log UUID not found for update');
                         }
 
                         $syncedWeights[] = ['uuid' => $uuid];
                         break;
-
 
                     case 'deleted':
                         $log = WeightChange::where('uuid', $uuid)->first();
@@ -183,12 +181,11 @@ class WeightChangeController extends Controller
                             $log->delete();
                             Log::info("✅ Weight log deleted: UUID {$uuid}");
                         } else {
-                            Log::info("⏭️ Already deleted on server");
+                            Log::info('⏭️ Already deleted on server');
                         }
 
                         $syncedWeights[] = ['uuid' => $uuid];
                         break;
-
 
                     default:
                         Log::warning("⚠️ Unknown sync action for weight change: {$syncAction}");
@@ -196,7 +193,7 @@ class WeightChangeController extends Controller
                 }
 
             } catch (\Exception $e) {
-                Log::error("❌ ERROR PROCESSING WEIGHT CHANGE", [
+                Log::error('❌ ERROR PROCESSING WEIGHT CHANGE', [
                     'uuid' => $uuid ?? 'unknown',
                     'syncAction' => $syncAction,
                     'error' => $e->getMessage(),
@@ -207,8 +204,8 @@ class WeightChangeController extends Controller
             }
         }
 
-        Log::info("========== PROCESSING WEIGHT CHANGES END ==========");
-        Log::info("Total logs synced: " . count($syncedWeights));
+        Log::info('========== PROCESSING WEIGHT CHANGES END ==========');
+        Log::info('Total logs synced: '.count($syncedWeights));
 
         return $syncedWeights;
     }
@@ -283,7 +280,7 @@ class WeightChangeController extends Controller
     public function adminUpdate(Request $request, WeightChange $weightChange): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid' => 'sometimes|required|string|unique:weight_changes,uuid,' . $weightChange->id,
+            'uuid' => 'sometimes|required|string|unique:weight_changes,uuid,'.$weightChange->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
             'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'oldWeight' => 'sometimes|nullable|string|max:255',

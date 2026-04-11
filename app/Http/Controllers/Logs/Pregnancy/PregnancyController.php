@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Validator;
 class PregnancyController extends Controller
 {
     use ConvertsDateFormat;
+
     /**
      * Display a listing of pregnancy logs.
      */
@@ -30,7 +31,7 @@ class PregnancyController extends Controller
                 'data' => $pregnancies,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error fetching pregnancy logs: ' . $e->getMessage());
+            Log::error('Error fetching pregnancy logs: '.$e->getMessage());
 
             return response()->json([
                 'status' => false,
@@ -79,15 +80,16 @@ class PregnancyController extends Controller
         $synced = [];
 
         Log::info('========== PROCESSING PREGNANCIES START ==========');
-        Log::info('Total pregnancies to process: ' . count($pregnancies));
+        Log::info('Total pregnancies to process: '.count($pregnancies));
         Log::info("Livestock UUID: {$livestockUuid}");
 
         foreach ($pregnancies as $payload) {
             $uuid = $payload['uuid'] ?? null;
             $syncAction = $payload['syncAction'] ?? 'create';
 
-            if (!$uuid) {
+            if (! $uuid) {
                 Log::warning('⚠️ Pregnancy entry without UUID skipped', ['payload' => $payload]);
+
                 continue;
             }
 
@@ -147,7 +149,7 @@ class PregnancyController extends Controller
         }
 
         Log::info('========== PROCESSING PREGNANCIES END ==========');
-        Log::info('Total pregnancies synced: ' . count($synced));
+        Log::info('Total pregnancies synced: '.count($synced));
 
         return $synced;
     }
@@ -172,7 +174,7 @@ class PregnancyController extends Controller
     private function mapAttributes(array $payload, string $livestockUuid, array $timestamps): array
     {
         $sanitize = static function ($value) {
-            if (!isset($value)) {
+            if (! isset($value)) {
                 return null;
             }
 
@@ -274,7 +276,7 @@ class PregnancyController extends Controller
     public function adminUpdate(Request $request, Pregnancy $pregnancy): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid' => 'sometimes|required|string|unique:pregnancies,uuid,' . $pregnancy->id,
+            'uuid' => 'sometimes|required|string|unique:pregnancies,uuid,'.$pregnancy->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
             'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'testResultId' => 'sometimes|nullable|integer|exists:test_results,id',
@@ -324,4 +326,3 @@ class PregnancyController extends Controller
         ], 200);
     }
 }
-

@@ -21,8 +21,9 @@ class PigStagesSeeder extends Seeder
             ->orWhere('name', 'like', '%Swine%')
             ->first();
 
-        if (!$pigType) {
+        if (! $pigType) {
             $this->command->warn('Pig livestock type not found. Please create it first.');
+
             return;
         }
 
@@ -30,9 +31,11 @@ class PigStagesSeeder extends Seeder
             // Female stages
             ['name' => 'Piglet', 'livestockTypeId' => $pigType->id],
             ['name' => 'Weaner', 'livestockTypeId' => $pigType->id],
+            ['name' => 'Grower', 'livestockTypeId' => $pigType->id],
+            ['name' => 'Finisher', 'livestockTypeId' => $pigType->id],
             ['name' => 'Gilt', 'livestockTypeId' => $pigType->id],
             ['name' => 'Sow', 'livestockTypeId' => $pigType->id],
-            
+
             // Male stages
             ['name' => 'Barrow', 'livestockTypeId' => $pigType->id], // Castrated
             ['name' => 'Stag', 'livestockTypeId' => $pigType->id], // Castrated
@@ -49,4 +52,3 @@ class PigStagesSeeder extends Seeder
         $this->command->info('Pig stages seeded successfully!');
     }
 }
-

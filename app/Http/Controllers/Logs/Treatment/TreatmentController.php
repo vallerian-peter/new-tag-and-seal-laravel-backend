@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Validator;
 class TreatmentController extends Controller
 {
     use ConvertsDateFormat;
+
     /**
      * Display a listing of treatments.
      */
@@ -30,7 +31,7 @@ class TreatmentController extends Controller
                 'data' => $treatments,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error fetching treatment logs: ' . $e->getMessage());
+            Log::error('Error fetching treatment logs: '.$e->getMessage());
 
             return response()->json([
                 'status' => false,
@@ -81,7 +82,7 @@ class TreatmentController extends Controller
         $syncedTreatments = [];
 
         Log::info('========== PROCESSING TREATMENTS START ==========');
-        Log::info('Total treatments to process: ' . count($treatments));
+        Log::info('Total treatments to process: '.count($treatments));
         Log::info("Livestock UUID: {$livestockUuid}");
 
         foreach ($treatments as $treatmentData) {
@@ -89,8 +90,9 @@ class TreatmentController extends Controller
                 $syncAction = $treatmentData['syncAction'] ?? 'create';
                 $uuid = $treatmentData['uuid'] ?? null;
 
-                if (!$uuid) {
+                if (! $uuid) {
                     Log::warning('⚠️ Treatment entry without UUID skipped', ['treatment' => $treatmentData]);
+
                     continue;
                 }
 
@@ -237,7 +239,7 @@ class TreatmentController extends Controller
         }
 
         Log::info('========== PROCESSING TREATMENTS END ==========');
-        Log::info('Total treatments synced: ' . count($syncedTreatments));
+        Log::info('Total treatments synced: '.count($syncedTreatments));
 
         return $syncedTreatments;
     }
@@ -327,7 +329,7 @@ class TreatmentController extends Controller
     public function adminUpdate(Request $request, Treatment $treatment): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid' => 'sometimes|required|string|unique:treatments,uuid,' . $treatment->id,
+            'uuid' => 'sometimes|required|string|unique:treatments,uuid,'.$treatment->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
             'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'diseaseId' => 'sometimes|nullable|integer|exists:diseases,id',
@@ -384,4 +386,3 @@ class TreatmentController extends Controller
         ], 200);
     }
 }
-

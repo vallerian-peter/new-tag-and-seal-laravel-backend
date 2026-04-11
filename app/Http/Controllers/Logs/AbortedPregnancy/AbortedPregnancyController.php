@@ -15,6 +15,7 @@ use Illuminate\Support\Str;
 class AbortedPregnancyController extends Controller
 {
     use ConvertsDateFormat;
+
     /**
      * Display a listing of aborted pregnancy logs.
      */
@@ -35,7 +36,7 @@ class AbortedPregnancyController extends Controller
                 'data' => $abortedPregnancies,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error fetching aborted pregnancies: ' . $e->getMessage());
+            Log::error('Error fetching aborted pregnancies: '.$e->getMessage());
 
             return response()->json([
                 'status' => false,
@@ -97,7 +98,7 @@ class AbortedPregnancyController extends Controller
                 'data' => $abortedPregnancy->load(['livestock', 'farm', 'reproductiveProblem']),
             ], 201);
         } catch (\Exception $e) {
-            Log::error('Error creating aborted pregnancy: ' . $e->getMessage());
+            Log::error('Error creating aborted pregnancy: '.$e->getMessage());
 
             return response()->json([
                 'status' => false,
@@ -115,15 +116,16 @@ class AbortedPregnancyController extends Controller
         $synced = [];
 
         Log::info('========== PROCESSING ABORTED PREGNANCIES START ==========');
-        Log::info('Total aborted pregnancies to process: ' . count($abortedPregnancies));
+        Log::info('Total aborted pregnancies to process: '.count($abortedPregnancies));
         Log::info("Livestock UUID: {$livestockUuid}");
 
         foreach ($abortedPregnancies as $payload) {
             $uuid = $payload['uuid'] ?? null;
             $syncAction = $payload['syncAction'] ?? 'create';
 
-            if (!$uuid) {
+            if (! $uuid) {
                 Log::warning('⚠️ Aborted pregnancy entry without UUID skipped', ['payload' => $payload]);
+
                 continue;
             }
 
@@ -199,7 +201,7 @@ class AbortedPregnancyController extends Controller
         }
 
         Log::info('========== PROCESSING ABORTED PREGNANCIES END ==========');
-        Log::info('Total aborted pregnancies synced: ' . count($synced));
+        Log::info('Total aborted pregnancies synced: '.count($synced));
 
         return $synced;
     }
@@ -209,7 +211,7 @@ class AbortedPregnancyController extends Controller
         $createdAt = isset($payload['createdAt'])
             ? Carbon::parse($payload['createdAt'])
             : now();
-        
+
         return [
             'createdAt' => $createdAt,
             'updatedAt' => isset($payload['updatedAt'])
@@ -224,7 +226,7 @@ class AbortedPregnancyController extends Controller
     private function mapAttributes(array $payload, string $livestockUuid, array $timestamps): array
     {
         $sanitize = static function ($value) {
-            if (!isset($value)) {
+            if (! isset($value)) {
                 return null;
             }
 
@@ -321,7 +323,7 @@ class AbortedPregnancyController extends Controller
     public function adminUpdate(Request $request, AbortedPregnancy $abortedPregnancy): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid' => 'sometimes|required|string|unique:aborted_pregnancies,uuid,' . $abortedPregnancy->id,
+            'uuid' => 'sometimes|required|string|unique:aborted_pregnancies,uuid,'.$abortedPregnancy->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
             'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'abortionDate' => 'sometimes|required|date',
@@ -340,7 +342,7 @@ class AbortedPregnancyController extends Controller
         }
 
         $data = $request->except(['abortionDate', 'eventDate']);
-        
+
         if ($request->has('abortionDate')) {
             $data['abortionDate'] = $this->convertDateFormat($request->abortionDate);
         }
@@ -370,4 +372,3 @@ class AbortedPregnancyController extends Controller
         ], 200);
     }
 }
-

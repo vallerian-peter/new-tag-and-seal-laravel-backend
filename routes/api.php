@@ -1,8 +1,8 @@
 <?php
 
 use App\Enums\UserRole;
-use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\AdministrationRoute\AdministrationRouteController;
+use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\BirthProblem\BirthProblemController;
 use App\Http\Controllers\BirthType\BirthTypeController;
 use App\Http\Controllers\Breed\BreedController;
@@ -26,26 +26,35 @@ use App\Http\Controllers\Location\LocationController;
 use App\Http\Controllers\Logs\AbortedPregnancy\AbortedPregnancyController;
 use App\Http\Controllers\Logs\Birth\BirthEventController;
 use App\Http\Controllers\Logs\Calving\CalvingController;
-use App\Http\Controllers\Logs\Disposal\DisposalController;
 use App\Http\Controllers\Logs\Deworming\DewormingController;
+use App\Http\Controllers\Logs\Disposal\DisposalController;
 use App\Http\Controllers\Logs\Dryoff\DryoffController;
 use App\Http\Controllers\Logs\Feeding\FeedingController;
 use App\Http\Controllers\Logs\Insemination\InseminationController;
-use App\Http\Controllers\Logs\Treatment\TreatmentController;
 use App\Http\Controllers\Logs\Milking\MilkingController;
 use App\Http\Controllers\Logs\Pregnancy\PregnancyController;
+use App\Http\Controllers\Logs\PrepuceCondition\PrepuceConditionController;
 use App\Http\Controllers\Logs\Transfer\TransferController;
+use App\Http\Controllers\Logs\Treatment\TreatmentController;
 use App\Http\Controllers\Logs\Vaccination\VaccinationController;
 use App\Http\Controllers\Logs\WeightChange\WeightChangeController;
 use App\Http\Controllers\Medicine\MedicineController;
 use App\Http\Controllers\MedicineType\MedicineTypeController;
 use App\Http\Controllers\MilkingMethod\MilkingMethodController;
+use App\Http\Controllers\PrepuceBreedingStatus\PrepuceBreedingStatusController;
+use App\Http\Controllers\PrepuceCauseRisk\PrepuceCauseRiskController;
+use App\Http\Controllers\PrepuceClinicalSign\PrepuceClinicalSignController;
+use App\Http\Controllers\PrepuceConditionType\PrepuceConditionTypeController;
+use App\Http\Controllers\PrepuceHealingStatus\PrepuceHealingStatusController;
+use App\Http\Controllers\PrepuceSeverity\PrepuceSeverityController;
+use App\Http\Controllers\PrepuceTreatmentGiven\PrepuceTreatmentGivenController;
 use App\Http\Controllers\ReproductiveProblem\ReproductiveProblemController;
 use App\Http\Controllers\SchoolLevel\SchoolLevelController;
 use App\Http\Controllers\SemenStrawType\SemenStrawTypeController;
 use App\Http\Controllers\Specie\SpecieController;
 use App\Http\Controllers\Stage\StageController;
 use App\Http\Controllers\Sync\SyncController;
+use App\Http\Controllers\TeethClippingMethod\TeethClippingMethodController;
 use App\Http\Controllers\TestResult\TestResultController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\Vaccine\VaccineController;
@@ -167,7 +176,7 @@ Route::middleware('auth:sanctum')->group(function () {
         | and are protected by auth:sanctum + check.role:systemUser.
         */
         Route::prefix('admin')
-            ->middleware('check.role:' . UserRole::SYSTEM_USER)
+            ->middleware('check.role:'.UserRole::SYSTEM_USER)
             ->group(function () {
                 // Admin user management
                 Route::prefix('users')->group(function () {
@@ -338,6 +347,13 @@ Route::middleware('auth:sanctum')->group(function () {
                     Route::put('milking-methods/{milkingMethod}', [MilkingMethodController::class, 'adminUpdate']);
                     Route::delete('milking-methods/{milkingMethod}', [MilkingMethodController::class, 'adminDestroy']);
 
+                    // Teeth Clipping Methods
+                    Route::get('teeth-clipping-methods', [TeethClippingMethodController::class, 'adminIndex']);
+                    Route::post('teeth-clipping-methods', [TeethClippingMethodController::class, 'adminStore']);
+                    Route::get('teeth-clipping-methods/{teethClippingMethod}', [TeethClippingMethodController::class, 'adminShow']);
+                    Route::put('teeth-clipping-methods/{teethClippingMethod}', [TeethClippingMethodController::class, 'adminUpdate']);
+                    Route::delete('teeth-clipping-methods/{teethClippingMethod}', [TeethClippingMethodController::class, 'adminDestroy']);
+
                     // Reproductive Problems
                     Route::get('reproductive-problems', [ReproductiveProblemController::class, 'adminIndex']);
                     Route::post('reproductive-problems', [ReproductiveProblemController::class, 'adminStore']);
@@ -386,6 +402,49 @@ Route::middleware('auth:sanctum')->group(function () {
                     Route::get('vaccine-types/{vaccineType}', [VaccineTypeController::class, 'adminShow']);
                     Route::put('vaccine-types/{vaccineType}', [VaccineTypeController::class, 'adminUpdate']);
                     Route::delete('vaccine-types/{vaccineType}', [VaccineTypeController::class, 'adminDestroy']);
+
+                    // Prepuce split lookups
+                    Route::get('prepuce-condition-types', [PrepuceConditionTypeController::class, 'adminIndex']);
+                    Route::post('prepuce-condition-types', [PrepuceConditionTypeController::class, 'adminStore']);
+                    Route::get('prepuce-condition-types/{prepuceConditionType}', [PrepuceConditionTypeController::class, 'adminShow']);
+                    Route::put('prepuce-condition-types/{prepuceConditionType}', [PrepuceConditionTypeController::class, 'adminUpdate']);
+                    Route::delete('prepuce-condition-types/{prepuceConditionType}', [PrepuceConditionTypeController::class, 'adminDestroy']);
+
+                    Route::get('prepuce-severities', [PrepuceSeverityController::class, 'adminIndex']);
+                    Route::post('prepuce-severities', [PrepuceSeverityController::class, 'adminStore']);
+                    Route::get('prepuce-severities/{prepuceSeverity}', [PrepuceSeverityController::class, 'adminShow']);
+                    Route::put('prepuce-severities/{prepuceSeverity}', [PrepuceSeverityController::class, 'adminUpdate']);
+                    Route::delete('prepuce-severities/{prepuceSeverity}', [PrepuceSeverityController::class, 'adminDestroy']);
+
+                    Route::get('prepuce-clinical-signs', [PrepuceClinicalSignController::class, 'adminIndex']);
+                    Route::post('prepuce-clinical-signs', [PrepuceClinicalSignController::class, 'adminStore']);
+                    Route::get('prepuce-clinical-signs/{prepuceClinicalSign}', [PrepuceClinicalSignController::class, 'adminShow']);
+                    Route::put('prepuce-clinical-signs/{prepuceClinicalSign}', [PrepuceClinicalSignController::class, 'adminUpdate']);
+                    Route::delete('prepuce-clinical-signs/{prepuceClinicalSign}', [PrepuceClinicalSignController::class, 'adminDestroy']);
+
+                    Route::get('prepuce-cause-risks', [PrepuceCauseRiskController::class, 'adminIndex']);
+                    Route::post('prepuce-cause-risks', [PrepuceCauseRiskController::class, 'adminStore']);
+                    Route::get('prepuce-cause-risks/{prepuceCauseRisk}', [PrepuceCauseRiskController::class, 'adminShow']);
+                    Route::put('prepuce-cause-risks/{prepuceCauseRisk}', [PrepuceCauseRiskController::class, 'adminUpdate']);
+                    Route::delete('prepuce-cause-risks/{prepuceCauseRisk}', [PrepuceCauseRiskController::class, 'adminDestroy']);
+
+                    Route::get('prepuce-treatments-given', [PrepuceTreatmentGivenController::class, 'adminIndex']);
+                    Route::post('prepuce-treatments-given', [PrepuceTreatmentGivenController::class, 'adminStore']);
+                    Route::get('prepuce-treatments-given/{prepuceTreatmentGiven}', [PrepuceTreatmentGivenController::class, 'adminShow']);
+                    Route::put('prepuce-treatments-given/{prepuceTreatmentGiven}', [PrepuceTreatmentGivenController::class, 'adminUpdate']);
+                    Route::delete('prepuce-treatments-given/{prepuceTreatmentGiven}', [PrepuceTreatmentGivenController::class, 'adminDestroy']);
+
+                    Route::get('prepuce-breeding-statuses', [PrepuceBreedingStatusController::class, 'adminIndex']);
+                    Route::post('prepuce-breeding-statuses', [PrepuceBreedingStatusController::class, 'adminStore']);
+                    Route::get('prepuce-breeding-statuses/{prepuceBreedingStatus}', [PrepuceBreedingStatusController::class, 'adminShow']);
+                    Route::put('prepuce-breeding-statuses/{prepuceBreedingStatus}', [PrepuceBreedingStatusController::class, 'adminUpdate']);
+                    Route::delete('prepuce-breeding-statuses/{prepuceBreedingStatus}', [PrepuceBreedingStatusController::class, 'adminDestroy']);
+
+                    Route::get('prepuce-healing-statuses', [PrepuceHealingStatusController::class, 'adminIndex']);
+                    Route::post('prepuce-healing-statuses', [PrepuceHealingStatusController::class, 'adminStore']);
+                    Route::get('prepuce-healing-statuses/{prepuceHealingStatus}', [PrepuceHealingStatusController::class, 'adminShow']);
+                    Route::put('prepuce-healing-statuses/{prepuceHealingStatus}', [PrepuceHealingStatusController::class, 'adminUpdate']);
+                    Route::delete('prepuce-healing-statuses/{prepuceHealingStatus}', [PrepuceHealingStatusController::class, 'adminDestroy']);
                 });
 
                 // Admin entity management
@@ -539,6 +598,13 @@ Route::middleware('auth:sanctum')->group(function () {
                     Route::get('transfers/{transfer}', [TransferController::class, 'adminShow']);
                     Route::put('transfers/{transfer}', [TransferController::class, 'adminUpdate']);
                     Route::delete('transfers/{transfer}', [TransferController::class, 'adminDestroy']);
+
+                    // Prepuce Conditions
+                    Route::get('prepuce-conditions', [PrepuceConditionController::class, 'adminIndex']);
+                    Route::post('prepuce-conditions', [PrepuceConditionController::class, 'adminStore']);
+                    Route::get('prepuce-conditions/{prepuceCondition}', [PrepuceConditionController::class, 'adminShow']);
+                    Route::put('prepuce-conditions/{prepuceCondition}', [PrepuceConditionController::class, 'adminUpdate']);
+                    Route::delete('prepuce-conditions/{prepuceCondition}', [PrepuceConditionController::class, 'adminDestroy']);
                 });
             });
 

@@ -13,10 +13,9 @@ use Illuminate\Support\Facades\Validator;
 class LivestockController extends Controller
 {
     use ConvertsDateFormat;
+
     /**
      * Display a listing of all livestock.
-     *
-     * @return JsonResponse
      */
     public function index(): JsonResponse
     {
@@ -28,13 +27,13 @@ class LivestockController extends Controller
             return response()->json([
                 'status' => true,
                 'message' => 'Livestock retrieved successfully',
-                'data' => $livestock
+                'data' => $livestock,
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,
                 'message' => 'Failed to retrieve livestock',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -42,9 +41,6 @@ class LivestockController extends Controller
     /**
      * Get all livestock by farm IDs (for a specific farmer).
      * This is used when a farmer logs in to get all their livestock across all their farms.
-     *
-     * @param array $farmIds
-     * @return JsonResponse
      */
     public function getAllLivestockByFarmIds(array $farmIds): JsonResponse
     {
@@ -58,22 +54,19 @@ class LivestockController extends Controller
                 'status' => true,
                 'message' => 'Livestock retrieved successfully',
                 'data' => $livestock,
-                'count' => $livestock->count()
+                'count' => $livestock->count(),
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,
                 'message' => 'Failed to retrieve livestock',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
 
     /**
      * Display the specified livestock.
-     *
-     * @param Livestock $livestock
-     * @return JsonResponse
      */
     public function show(Livestock $livestock): JsonResponse
     {
@@ -83,22 +76,19 @@ class LivestockController extends Controller
             return response()->json([
                 'status' => true,
                 'message' => 'Livestock retrieved successfully',
-                'data' => $livestock
+                'data' => $livestock,
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,
                 'message' => 'Failed to retrieve livestock',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
 
     /**
      * Fetch livestock by farm UUIDs as array (for sync).
-     *
-     * @param array $farmUuids
-     * @return array
      */
     public function fetchByFarmUuids(array $farmUuids): array
     {
@@ -119,6 +109,9 @@ class LivestockController extends Controller
                     'dateOfBirth' => $livestock->dateOfBirth?->toDateString() ?? '',
                     'motherUuid' => $livestock->motherUuid ?? '',
                     'fatherUuid' => $livestock->fatherUuid ?? '',
+                    'birthEventUuid' => $livestock->birthEventUuid ?? '',
+                    'stageId' => $livestock->stageId ?? 0,
+                    'isIdentified' => $livestock->isIdentified ?? false,
                     'gender' => $livestock->gender ?? '',
                     'breedId' => $livestock->breedId ?? 0,
                     'speciesId' => $livestock->speciesId ?? 0,
@@ -151,7 +144,7 @@ class LivestockController extends Controller
             return response()->json([
                 'status' => false,
                 'message' => 'Failed to handle post livestock action',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -160,16 +153,16 @@ class LivestockController extends Controller
      * Process livestock sync data from mobile app
      * Handles create, update, and delete operations with timestamp-based conflict resolution
      *
-     * @param array $livestock Array of livestock data from mobile app
-     * @param int $farmerId The authenticated farmer's ID
+     * @param  array  $livestock  Array of livestock data from mobile app
+     * @param  int  $farmerId  The authenticated farmer's ID
      * @return array Array of synced livestock UUIDs
      */
     public function processLivestock(array $livestock, int $farmerId): array
     {
         $syncedLivestock = [];
 
-        Log::info("========== PROCESSING LIVESTOCK START ==========");
-        Log::info("Total livestock to process: " . count($livestock));
+        Log::info('========== PROCESSING LIVESTOCK START ==========');
+        Log::info('Total livestock to process: '.count($livestock));
         Log::info("Authenticated Farmer ID: {$farmerId}");
 
         foreach ($livestock as $livestockData) {
@@ -179,8 +172,9 @@ class LivestockController extends Controller
 
                 Log::info("Processing livestock: UUID={$uuid}, Action={$syncAction}, Name={$livestockData['name']}");
 
-                if (!$uuid) {
+                if (! $uuid) {
                     Log::warning('⚠️ Livestock without UUID skipped', ['livestock' => $livestockData]);
+
                     continue;
                 }
 
@@ -215,7 +209,7 @@ class LivestockController extends Controller
                                 // Local is newer - update
                                 $existingLivestock->update([
                                     'farmUuid' => $livestockData['farmUuid'],
-                                    'identificationNumber' => $livestockData['identificationNumber'],
+                                    'identificationNumber' => $livestockData['identificationNumber'] ?? null,
                                     'dummyTagId' => $livestockData['dummyTagId'],
                                     'barcodeTagId' => $livestockData['barcodeTagId'],
                                     'rfidTagId' => $livestockData['rfidTagId'],
@@ -224,6 +218,11 @@ class LivestockController extends Controller
                                     'dateOfBirth' => $dateOfBirth,
                                     'motherUuid' => $livestockData['motherUuid'] ?? null,
                                     'fatherUuid' => $livestockData['fatherUuid'] ?? null,
+                                    'birthEventUuid' => $livestockData['birthEventUuid'] ?? null,
+                                    'stageId' => $livestockData['stageId'] ?? null,
+                                    'isIdentified' => array_key_exists('isIdentified', $livestockData)
+                                        ? (bool) $livestockData['isIdentified']
+                                        : true,
                                     'gender' => $livestockData['gender'],
                                     'breedId' => $livestockData['breedId'],
                                     'speciesId' => $livestockData['speciesId'],
@@ -246,7 +245,7 @@ class LivestockController extends Controller
                             $newLivestock = Livestock::create([
                                 'farmUuid' => $livestockData['farmUuid'],
                                 'uuid' => $uuid,
-                                'identificationNumber' => $livestockData['identificationNumber'],
+                                'identificationNumber' => $livestockData['identificationNumber'] ?? null,
                                 'dummyTagId' => $livestockData['dummyTagId'],
                                 'barcodeTagId' => $livestockData['barcodeTagId'],
                                 'rfidTagId' => $livestockData['rfidTagId'],
@@ -255,6 +254,11 @@ class LivestockController extends Controller
                                 'dateOfBirth' => $dateOfBirth,
                                 'motherUuid' => $livestockData['motherUuid'] ?? null,
                                 'fatherUuid' => $livestockData['fatherUuid'] ?? null,
+                                'birthEventUuid' => $livestockData['birthEventUuid'] ?? null,
+                                'stageId' => $livestockData['stageId'] ?? null,
+                                'isIdentified' => array_key_exists('isIdentified', $livestockData)
+                                    ? (bool) $livestockData['isIdentified']
+                                    : true,
                                 'gender' => $livestockData['gender'],
                                 'breedId' => $livestockData['breedId'],
                                 'speciesId' => $livestockData['speciesId'],
@@ -286,7 +290,7 @@ class LivestockController extends Controller
                                 // Local is newer - perform update
                                 $livestock->update([
                                     'farmUuid' => $livestockData['farmUuid'],
-                                    'identificationNumber' => $livestockData['identificationNumber'],
+                                    'identificationNumber' => $livestockData['identificationNumber'] ?? null,
                                     'dummyTagId' => $livestockData['dummyTagId'],
                                     'barcodeTagId' => $livestockData['barcodeTagId'],
                                     'rfidTagId' => $livestockData['rfidTagId'],
@@ -295,6 +299,11 @@ class LivestockController extends Controller
                                     'dateOfBirth' => $dateOfBirth,
                                     'motherUuid' => $livestockData['motherUuid'] ?? null,
                                     'fatherUuid' => $livestockData['fatherUuid'] ?? null,
+                                    'birthEventUuid' => $livestockData['birthEventUuid'] ?? null,
+                                    'stageId' => $livestockData['stageId'] ?? null,
+                                    'isIdentified' => array_key_exists('isIdentified', $livestockData)
+                                        ? (bool) $livestockData['isIdentified']
+                                        : true,
                                     'gender' => $livestockData['gender'],
                                     'breedId' => $livestockData['breedId'],
                                     'speciesId' => $livestockData['speciesId'],
@@ -340,7 +349,7 @@ class LivestockController extends Controller
                 }
 
             } catch (\Exception $e) {
-                Log::error("❌ ERROR PROCESSING LIVESTOCK", [
+                Log::error('❌ ERROR PROCESSING LIVESTOCK', [
                     'uuid' => $uuid ?? 'unknown',
                     'livestockName' => $livestockData['name'] ?? 'unknown',
                     'farmUuid' => $livestockData['farmUuid'] ?? 'unknown',
@@ -349,13 +358,14 @@ class LivestockController extends Controller
                     'errorCode' => $e->getCode(),
                     'livestockData' => $livestockData,
                 ]);
+
                 // Continue processing other livestock even if one fails
                 continue;
             }
         }
 
-        Log::info("========== PROCESSING LIVESTOCK END ==========");
-        Log::info("Total livestock synced: " . count($syncedLivestock));
+        Log::info('========== PROCESSING LIVESTOCK END ==========');
+        Log::info('Total livestock synced: '.count($syncedLivestock));
 
         return $syncedLivestock;
     }
@@ -373,7 +383,7 @@ class LivestockController extends Controller
             'species',
             'livestockObtainedMethod',
             'mother',
-            'father'
+            'father',
         ])
             ->orderBy('created_at', 'desc')
             ->get();
@@ -399,6 +409,9 @@ class LivestockController extends Controller
             'dateOfBirth' => 'nullable|date',
             'motherUuid' => 'nullable|string|exists:livestocks,uuid',
             'fatherUuid' => 'nullable|string|exists:livestocks,uuid',
+            'birthEventUuid' => 'nullable|string|exists:birth_events,uuid',
+            'stageId' => 'nullable|integer|exists:stages,id',
+            'isIdentified' => 'nullable|boolean',
             'gender' => 'nullable|string|max:50',
             'breedId' => 'nullable|integer|exists:breeds,id',
             'speciesId' => 'nullable|integer|exists:species,id',
@@ -418,7 +431,7 @@ class LivestockController extends Controller
             ], 422);
         }
 
-        $data = $request->all();
+        $data = $request->only((new Livestock)->getFillable());
         if (empty($data['uuid'])) {
             $data['uuid'] = (string) \Illuminate\Support\Str::uuid();
         }
@@ -432,7 +445,7 @@ class LivestockController extends Controller
             'species',
             'livestockObtainedMethod',
             'mother',
-            'father'
+            'father',
         ]);
 
         return response()->json([
@@ -451,7 +464,7 @@ class LivestockController extends Controller
             'species',
             'livestockObtainedMethod',
             'mother',
-            'father'
+            'father',
         ]);
 
         return response()->json([
@@ -465,7 +478,7 @@ class LivestockController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
-            'uuid' => 'sometimes|required|string|unique:livestocks,uuid,' . $livestock->id,
+            'uuid' => 'sometimes|required|string|unique:livestocks,uuid,'.$livestock->id,
             'identificationNumber' => 'sometimes|nullable|string|max:255',
             'dummyTagId' => 'sometimes|nullable|string|max:255',
             'barcodeTagId' => 'sometimes|nullable|string|max:255',
@@ -475,6 +488,9 @@ class LivestockController extends Controller
             'dateOfBirth' => 'sometimes|nullable|date',
             'motherUuid' => 'sometimes|nullable|string|exists:livestocks,uuid',
             'fatherUuid' => 'sometimes|nullable|string|exists:livestocks,uuid',
+            'birthEventUuid' => 'sometimes|nullable|string|exists:birth_events,uuid',
+            'stageId' => 'sometimes|nullable|integer|exists:stages,id',
+            'isIdentified' => 'sometimes|nullable|boolean',
             'gender' => 'sometimes|nullable|string|max:50',
             'breedId' => 'sometimes|nullable|integer|exists:breeds,id',
             'speciesId' => 'sometimes|nullable|integer|exists:species,id',
@@ -494,7 +510,7 @@ class LivestockController extends Controller
             ], 422);
         }
 
-        $livestock->fill($request->all());
+        $livestock->fill($request->only((new Livestock)->getFillable()));
         $livestock->save();
 
         $livestock->load([
@@ -504,7 +520,7 @@ class LivestockController extends Controller
             'species',
             'livestockObtainedMethod',
             'mother',
-            'father'
+            'father',
         ]);
 
         return response()->json([
@@ -524,4 +540,3 @@ class LivestockController extends Controller
         ], 200);
     }
 }
-

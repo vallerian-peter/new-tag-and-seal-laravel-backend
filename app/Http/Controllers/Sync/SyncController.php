@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Sync;
 
 use App\Http\Controllers\AdministrationRoute\AdministrationRouteController;
+use App\Http\Controllers\Bill\BillController;
 use App\Http\Controllers\BirthProblem\BirthProblemController;
 use App\Http\Controllers\BirthType\BirthTypeController;
 use App\Http\Controllers\Breed\BreedController;
@@ -28,25 +29,38 @@ use App\Http\Controllers\Logs\Disposal\DisposalController;
 use App\Http\Controllers\Logs\Dryoff\DryoffController;
 use App\Http\Controllers\Logs\Feeding\FeedingController;
 use App\Http\Controllers\Logs\Insemination\InseminationController;
+use App\Http\Controllers\Logs\IronInjection\IronInjectionController;
+use App\Http\Controllers\Logs\LivestockMarking\LivestockMarkingController;
 use App\Http\Controllers\Logs\LogController;
-use App\Http\Controllers\Logs\Treatment\TreatmentController;
 use App\Http\Controllers\Logs\Milking\MilkingController;
 use App\Http\Controllers\Logs\Pregnancy\PregnancyController;
+use App\Http\Controllers\Logs\PrepuceCondition\PrepuceConditionController;
+use App\Http\Controllers\Logs\StageChange\StageChangeController;
+use App\Http\Controllers\Logs\TailDocking\TailDockingController;
+use App\Http\Controllers\Logs\TeethClipping\TeethClippingController;
 use App\Http\Controllers\Logs\Transfer\TransferController;
+use App\Http\Controllers\Logs\Treatment\TreatmentController;
 use App\Http\Controllers\Logs\Vaccination\VaccinationController;
 use App\Http\Controllers\Logs\WeightChange\WeightChangeController;
 use App\Http\Controllers\Medicine\MedicineController;
 use App\Http\Controllers\MedicineType\MedicineTypeController;
 use App\Http\Controllers\MilkingMethod\MilkingMethodController;
+use App\Http\Controllers\PrepuceConditionLookup\PrepuceConditionLookupController;
 use App\Http\Controllers\ReproductiveProblem\ReproductiveProblemController;
 use App\Http\Controllers\SchoolLevel\SchoolLevelController;
 use App\Http\Controllers\SemenStrawType\SemenStrawTypeController;
 use App\Http\Controllers\Specie\SpecieController;
+use App\Http\Controllers\TeethClippingMethod\TeethClippingMethodController;
 use App\Http\Controllers\TestResult\TestResultController;
 use App\Http\Controllers\Vaccine\VaccineController;
 use App\Http\Controllers\Vaccine\VaccineTypeController;
-use App\Http\Controllers\Bill\BillController;
+use App\Models\Farm;
+use App\Models\FarmUser;
+use App\Models\FinanceExpense;
+use App\Models\Stage;
 use App\Models\User;
+use App\Enums\UserRole;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -137,7 +151,23 @@ class SyncController extends Controller
 
     protected $milkingMethodController;
 
+    protected $teethClippingMethodController;
+
     protected $extensionOfficerFarmInviteController;
+
+    protected $teethClippingController;
+
+    protected $tailDockingController;
+
+    protected $ironInjectionController;
+
+    protected $livestockMarkingController;
+
+    protected $stageChangeController;
+
+    protected $prepuceConditionLookupController;
+
+    protected $prepuceConditionController;
 
     public function __construct(
         LocationController $locationController,
@@ -181,8 +211,16 @@ class SyncController extends Controller
         SemenStrawTypeController $semenStrawTypeController,
         TestResultController $testResultController,
         MilkingMethodController $milkingMethodController,
+        TeethClippingMethodController $teethClippingMethodController,
         ExtensionOfficerFarmInviteController $extensionOfficerFarmInviteController,
-        BillController $billController
+        BillController $billController,
+        TeethClippingController $teethClippingController,
+        TailDockingController $tailDockingController,
+        IronInjectionController $ironInjectionController,
+        LivestockMarkingController $livestockMarkingController,
+        StageChangeController $stageChangeController,
+        PrepuceConditionLookupController $prepuceConditionLookupController,
+        PrepuceConditionController $prepuceConditionController
     ) {
         $this->locationController = $locationController;
         $this->identityCardTypeController = $identityCardTypeController;
@@ -225,8 +263,16 @@ class SyncController extends Controller
         $this->semenStrawTypeController = $semenStrawTypeController;
         $this->testResultController = $testResultController;
         $this->milkingMethodController = $milkingMethodController;
+        $this->teethClippingMethodController = $teethClippingMethodController;
         $this->extensionOfficerFarmInviteController = $extensionOfficerFarmInviteController;
         $this->billController = $billController;
+        $this->teethClippingController = $teethClippingController;
+        $this->tailDockingController = $tailDockingController;
+        $this->ironInjectionController = $ironInjectionController;
+        $this->livestockMarkingController = $livestockMarkingController;
+        $this->stageChangeController = $stageChangeController;
+        $this->prepuceConditionLookupController = $prepuceConditionLookupController;
+        $this->prepuceConditionController = $prepuceConditionController;
     }
 
     /**
@@ -312,7 +358,7 @@ class SyncController extends Controller
                 ],
 
                 // 2. Reference data (for forms, validations, etc.)
-                'referenceData' => [
+                'referenceData' => array_merge([
                     'identityCardTypes' => $this->identityCardTypeController->fetchAll(),
                     'schoolLevels' => $this->schoolLevelController->fetchAll(),
                     'legalStatuses' => $this->legalStatusController->fetchAll(),
@@ -330,7 +376,8 @@ class SyncController extends Controller
                     'semenStrawTypes' => $this->semenStrawTypeController->fetchAll(),
                     'testResults' => $this->testResultController->fetchAll(),
                     'milkingMethods' => $this->milkingMethodController->fetchAll(),
-                ],
+                    'teethClippingMethods' => $this->teethClippingMethodController->fetchAll(),
+                ], $this->prepuceConditionLookupController->referenceDataForSync()),
 
                 // 3. Livestock reference data (species, types, breeds, methods, vaccine types)
                 'livestockReferenceData' => [
@@ -339,6 +386,17 @@ class SyncController extends Controller
                     'breeds' => $this->breedController->fetchAll(),
                     'livestockObtainedMethods' => $this->livestockObtainedMethodController->fetchAll(),
                     'vaccineTypes' => $this->vaccineTypeController->fetchAll(),
+                    'stages' => Stage::query()
+                        ->orderBy('livestockTypeId')
+                        ->orderBy('name')
+                        ->get()
+                        ->map(static fn (Stage $stage) => [
+                            'id' => $stage->id,
+                            'name' => $stage->name,
+                            'livestockTypeId' => $stage->livestockTypeId,
+                        ])
+                        ->values()
+                        ->all(),
                 ],
 
                 // 4. Logs specific data (populated based on role)
@@ -386,6 +444,18 @@ class SyncController extends Controller
                 ];
             }
 
+            // #region agent log
+            $logKeys = [];
+            $usd = $data['userSpecificData'] ?? [];
+            if (is_array($usd) && isset($usd['logs']) && is_array($usd['logs'])) {
+                $logKeys = array_keys($usd['logs']);
+            }
+            $this->appendDebugSessionLog('SyncController.php:splashSync', 'splash success', [
+                'userId' => $userId,
+                'logTypeKeys' => $logKeys,
+            ], 'H3', 'post-fix');
+            // #endregion
+
             return response()->json([
                 'status' => true,
                 'message' => 'Splash sync completed successfully',
@@ -395,6 +465,12 @@ class SyncController extends Controller
 
         } catch (\Exception $e) {
             print_r($e->getMessage());
+
+            // #region agent log
+            $this->appendDebugSessionLog('SyncController.php:splashSync', 'splash exception', [
+                'error' => $e->getMessage(),
+            ], 'H4', 'post-fix');
+            // #endregion
 
             return response()->json([
                 'status' => false,
@@ -446,6 +522,10 @@ class SyncController extends Controller
             $bills = $this->billController->fetchByFarmUuids($farmUuids);
         }
 
+        $financeExpenses = ! empty($farmUuids)
+            ? $this->fetchFinanceExpensesManualForFarmUuids($farmUuids)
+            : [];
+
         // Get all farm users assigned to the farmer's farms
         $farmUsers = [];
         if (! empty($farmUuids)) {
@@ -462,12 +542,14 @@ class SyncController extends Controller
             'logs' => $logs,
             'vaccines' => $vaccines,
             'bills' => $bills,
+            'financeExpenses' => $financeExpenses,
             'farmUsers' => $farmUsers,
             'invitedExtensionOfficers' => $invitedExtensionOfficers,
             'farmsCount' => count($farms),
             'livestockCount' => count($livestock),
             'vaccinesCount' => count($vaccines),
             'billsCount' => count($bills),
+            'financeExpensesCount' => count($financeExpenses),
             'farmUsersCount' => count($farmUsers),
             'invitedExtensionOfficersCount' => count($invitedExtensionOfficers),
         ];
@@ -503,7 +585,7 @@ class SyncController extends Controller
                     $inviteIdParam = $req->query('inviteId') ?: $req->query('invite_id') ?: $req->header('X-ExtensionOfficer-Invite-Id');
                     $accessCodeParam = $req->query('access_code') ?: $req->query('accessCode') ?: $req->query('access-code') ?: $req->header('X-ExtensionOfficer-Access-Code');
 
-                    \Log::info("EO splash params: farmerId=".($farmerIdParam ?: 'null').", inviteId=".($inviteIdParam ?: 'null').", accessCodePresent=".(!empty($accessCodeParam) ? 'yes' : 'no'));
+                    \Log::info('EO splash params: farmerId='.($farmerIdParam ?: 'null').', inviteId='.($inviteIdParam ?: 'null').', accessCodePresent='.(! empty($accessCodeParam) ? 'yes' : 'no'));
 
                     $selectedFarmerId = null;
                     $invite = null;
@@ -578,6 +660,9 @@ class SyncController extends Controller
                     $bills = ! empty($farmUuids)
                         ? $this->billController->fetchByFarmUuids($farmUuids)
                         : [];
+                    $financeExpenses = ! empty($farmUuids)
+                        ? $this->fetchFinanceExpensesManualForFarmUuids($farmUuids)
+                        : [];
 
                     return [
                         'type' => 'field_worker',
@@ -587,11 +672,13 @@ class SyncController extends Controller
                         'logs' => $logs,
                         'vaccines' => $vaccines,
                         'bills' => $bills,
+                        'financeExpenses' => $financeExpenses,
                         'farmsCount' => count($farms),
                         'livestockCount' => count($livestock),
                         'logsCount' => is_array($logs) ? count($logs) : 0,
                         'vaccinesCount' => count($vaccines),
                         'billsCount' => count($bills),
+                        'financeExpensesCount' => count($financeExpenses),
                         'selectedInvite' => [
                             'inviteId' => $invite->id ?? null,
                             'farmerId' => $selectedFarmerId,
@@ -973,9 +1060,16 @@ class SyncController extends Controller
                     'inseminations' => [],
                     'dryoffs' => [],
                     'transfers' => [],
+                    'teethClippings' => [],
+                    'tailDockings' => [],
+                    'ironInjections' => [],
+                    'livestockMarkings' => [],
+                    'stageChanges' => [],
+                    'prepuceConditions' => [],
                 ],
                 'syncedVaccines' => [],
                 'syncedBills' => [],
+                'syncedFinanceExpenses' => [],
                 'syncedFarmUsers' => [],
                 'syncedInvitedExtensionOfficers' => [],
                 'invitedExtensionOfficers' => [],
@@ -1101,6 +1195,54 @@ class SyncController extends Controller
                 fn (array $collection, string $livestockUuid) => $this->transferController->processTransfers($collection, $livestockUuid)
             );
 
+            $syncedData['syncedLogs']['teethClippings'] = $this->processLogSync(
+                $logsPayload['teethClippings'] ?? [],
+                $user,
+                $userId,
+                'teeth clipping',
+                fn (array $collection, string $livestockUuid) => $this->teethClippingController->processTeethClippings($collection, $livestockUuid)
+            );
+
+            $syncedData['syncedLogs']['tailDockings'] = $this->processLogSync(
+                $logsPayload['tailDockings'] ?? [],
+                $user,
+                $userId,
+                'tail docking',
+                fn (array $collection, string $livestockUuid) => $this->tailDockingController->processTailDockings($collection, $livestockUuid)
+            );
+
+            $syncedData['syncedLogs']['ironInjections'] = $this->processLogSync(
+                $logsPayload['ironInjections'] ?? [],
+                $user,
+                $userId,
+                'iron injection',
+                fn (array $collection, string $livestockUuid) => $this->ironInjectionController->processIronInjections($collection, $livestockUuid)
+            );
+
+            $syncedData['syncedLogs']['livestockMarkings'] = $this->processLogSync(
+                $logsPayload['livestockMarkings'] ?? [],
+                $user,
+                $userId,
+                'livestock marking',
+                fn (array $collection, string $livestockUuid) => $this->livestockMarkingController->processLivestockMarkings($collection, $livestockUuid)
+            );
+
+            $syncedData['syncedLogs']['stageChanges'] = $this->processLogSync(
+                $logsPayload['stageChanges'] ?? [],
+                $user,
+                $userId,
+                'stage change',
+                fn (array $collection, string $livestockUuid) => $this->stageChangeController->processStageChanges($collection, $livestockUuid)
+            );
+
+            $syncedData['syncedLogs']['prepuceConditions'] = $this->processLogSync(
+                $logsPayload['prepuceConditions'] ?? [],
+                $user,
+                $userId,
+                'prepuce condition',
+                fn (array $collection, string $livestockUuid) => $this->prepuceConditionController->processPrepuceConditions($collection, $livestockUuid)
+            );
+
             // Process farm users
             $syncedData['syncedFarmUsers'] = isset($data['farmUsers']) && is_array($data['farmUsers'])
                 ? $this->processFarmUserSync($data['farmUsers'], $user, $userId)
@@ -1114,6 +1256,10 @@ class SyncController extends Controller
             // Process bills LAST and only for extension officers
             $syncedData['syncedBills'] = isset($data['bills']) && is_array($data['bills'])
                 ? $this->processBillSync($data['bills'], $user, $userId)
+                : [];
+
+            $syncedData['syncedFinanceExpenses'] = isset($data['financeExpenses']) && is_array($data['financeExpenses'])
+                ? $this->processFinanceExpenseSync($data['financeExpenses'], $user, $userId)
                 : [];
 
             // TODO: Process other collections (feeds, etc.)
@@ -1164,6 +1310,24 @@ class SyncController extends Controller
                 'syncedTransfersCount' => isset($syncedData['syncedLogs']['transfers'])
                     ? count($syncedData['syncedLogs']['transfers'])
                     : 0,
+                'syncedTeethClippingsCount' => isset($syncedData['syncedLogs']['teethClippings'])
+                    ? count($syncedData['syncedLogs']['teethClippings'])
+                    : 0,
+                'syncedTailDockingsCount' => isset($syncedData['syncedLogs']['tailDockings'])
+                    ? count($syncedData['syncedLogs']['tailDockings'])
+                    : 0,
+                'syncedIronInjectionsCount' => isset($syncedData['syncedLogs']['ironInjections'])
+                    ? count($syncedData['syncedLogs']['ironInjections'])
+                    : 0,
+                'syncedLivestockMarkingsCount' => isset($syncedData['syncedLogs']['livestockMarkings'])
+                    ? count($syncedData['syncedLogs']['livestockMarkings'])
+                    : 0,
+                'syncedStageChangesCount' => isset($syncedData['syncedLogs']['stageChanges'])
+                    ? count($syncedData['syncedLogs']['stageChanges'])
+                    : 0,
+                'syncedPrepuceConditionsCount' => isset($syncedData['syncedLogs']['prepuceConditions'])
+                    ? count($syncedData['syncedLogs']['prepuceConditions'])
+                    : 0,
                 'syncedVaccinesCount' => isset($syncedData['syncedVaccines'])
                     ? count($syncedData['syncedVaccines'])
                     : 0,
@@ -1191,6 +1355,13 @@ class SyncController extends Controller
                 $syncedData['invitedExtensionOfficersCount'] = 0;
             }
 
+            // #region agent log
+            $this->appendDebugSessionLog('SyncController.php:postSync', 'postSync success', [
+                'userId' => $userId,
+                'syncedLogsKeys' => array_keys($syncedData['syncedLogs'] ?? []),
+            ], 'H1', 'post-fix');
+            // #endregion
+
             return response()->json([
                 'status' => true,
                 'message' => 'Post sync completed successfully',
@@ -1202,6 +1373,12 @@ class SyncController extends Controller
             \Log::error('========== POST SYNC ERROR ==========');
             \Log::error('Error: '.$e->getMessage());
             \Log::error('Trace: '.$e->getTraceAsString());
+
+            // #region agent log
+            $this->appendDebugSessionLog('SyncController.php:postSync', 'postSync exception', [
+                'error' => $e->getMessage(),
+            ], 'H2', 'post-fix');
+            // #endregion
 
             return response()->json([
                 'status' => false,
@@ -1484,6 +1661,7 @@ class SyncController extends Controller
     {
         if (empty($bills)) {
             \Log::info('No bills provided for sync.');
+
             return [];
         }
 
@@ -1493,6 +1671,7 @@ class SyncController extends Controller
             \Log::info("Skipping bill sync for non-extension officer role: {$user->role}", [
                 'userId' => $userId,
             ]);
+
             return [];
         }
 
@@ -1504,6 +1683,185 @@ class SyncController extends Controller
         \Log::info("Bill sync complete for user {$userId}", ['count' => count($syncedBills)]);
 
         return $syncedBills;
+    }
+
+    /**
+     * Pull manual finance expenses for the given farms (not bill-linked rows; those follow bills locally).
+     *
+     * @param  array<int, string>  $farmUuids
+     * @return array<int, array<string, mixed>>
+     */
+    private function fetchFinanceExpensesManualForFarmUuids(array $farmUuids): array
+    {
+        if ($farmUuids === []) {
+            return [];
+        }
+
+        return FinanceExpense::query()
+            ->whereIn('farmUuid', $farmUuids)
+            ->where('sourceType', 'manual')
+            ->orderByDesc('expenseDate')
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(static fn (FinanceExpense $row): array => [
+                'uuid' => $row->uuid,
+                'sourceType' => $row->sourceType,
+                'sourceUuid' => $row->sourceUuid,
+                'farmUuid' => $row->farmUuid,
+                'farmerId' => $row->farmerId,
+                'billNo' => $row->billNo,
+                'subjectType' => $row->subjectType,
+                'quantity' => $row->quantity,
+                'unitCost' => (string) $row->unitCost,
+                'totalCost' => (string) $row->totalCost,
+                'status' => $row->status,
+                'notes' => $row->notes,
+                'expenseDate' => $row->expenseDate?->toIso8601String(),
+                'createdAt' => $row->created_at?->toIso8601String(),
+                'updatedAt' => $row->updated_at?->toIso8601String(),
+            ])
+            ->all();
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $expenses
+     * @return array<int, array{uuid: string}>
+     */
+    private function processFinanceExpenseSync(array $expenses, User $user, int $userId): array
+    {
+        if ($expenses === []) {
+            return [];
+        }
+
+        if ($user->role !== UserRole::FARMER && ! $user->isFarmInvitedUser()) {
+            \Log::info("Skipping finance expense sync for role {$user->role}", ['userId' => $userId]);
+
+            return [];
+        }
+
+        $synced = [];
+
+        foreach ($expenses as $data) {
+            if (! is_array($data)) {
+                continue;
+            }
+
+            $uuid = $data['uuid'] ?? null;
+            if (! $uuid) {
+                continue;
+            }
+
+            $syncAction = $data['syncAction'] ?? 'create';
+            $sourceType = $data['sourceType'] ?? 'manual';
+
+            if ($sourceType !== 'manual') {
+                \Log::warning('Rejected finance expense: sourceType must be manual', ['uuid' => $uuid]);
+
+                continue;
+            }
+
+            $farmUuid = $data['farmUuid'] ?? null;
+            if (! $this->userCanWriteFinanceExpenseToFarm($user, $farmUuid)) {
+                \Log::warning('Rejected finance expense: farm access denied', ['uuid' => $uuid, 'farmUuid' => $farmUuid]);
+
+                continue;
+            }
+
+            $farmerIdForRow = $this->resolveFarmerIdForFinanceExpenseFarm($farmUuid);
+            if ($farmerIdForRow === null) {
+                continue;
+            }
+
+            try {
+                switch ($syncAction) {
+                    case 'deleted':
+                        FinanceExpense::query()
+                            ->where('sourceType', 'manual')
+                            ->where(function ($q) use ($uuid): void {
+                                $q->where('uuid', $uuid)->orWhere('sourceUuid', $uuid);
+                            })
+                            ->delete();
+                        $synced[] = ['uuid' => $uuid];
+                        break;
+
+                    case 'create':
+                    case 'update':
+                        $qty = max(1, (int) ($data['quantity'] ?? 1));
+                        $total = (float) ($data['totalCost'] ?? 0);
+                        if ($total <= 0) {
+                            \Log::warning('Finance expense rejected: totalCost', ['uuid' => $uuid]);
+                            break;
+                        }
+                        $unit = $qty > 0 ? $total / $qty : $total;
+                        $status = strtolower((string) ($data['status'] ?? 'pending'));
+                        if (! in_array($status, ['pending', 'paid'], true)) {
+                            $status = 'pending';
+                        }
+                        $expenseDate = isset($data['expenseDate'])
+                            ? Carbon::parse($data['expenseDate'])
+                            : now();
+                        FinanceExpense::updateOrCreate(
+                            [
+                                'sourceType' => 'manual',
+                                'sourceUuid' => $uuid,
+                            ],
+                            [
+                                'uuid' => $uuid,
+                                'farmUuid' => $farmUuid,
+                                'farmerId' => $farmerIdForRow,
+                                'billNo' => $data['billNo'] ?? null,
+                                'subjectType' => substr((string) ($data['subjectType'] ?? 'Other'), 0, 255),
+                                'quantity' => $qty,
+                                'unitCost' => number_format($unit, 2, '.', ''),
+                                'totalCost' => number_format($total, 2, '.', ''),
+                                'status' => $status,
+                                'notes' => $data['notes'] ?? null,
+                                'expenseDate' => $expenseDate,
+                            ]
+                        );
+                        $synced[] = ['uuid' => $uuid];
+                        break;
+
+                    default:
+                        \Log::warning('Unknown finance expense syncAction', ['uuid' => $uuid, 'syncAction' => $syncAction]);
+                }
+            } catch (\Throwable $e) {
+                \Log::error('Finance expense sync error', ['uuid' => $uuid, 'error' => $e->getMessage()]);
+            }
+        }
+
+        return $synced;
+    }
+
+    private function userCanWriteFinanceExpenseToFarm(User $user, ?string $farmUuid): bool
+    {
+        if ($farmUuid === null || $farmUuid === '') {
+            return false;
+        }
+
+        if ($user->role === UserRole::FARMER) {
+            return Farm::where('uuid', $farmUuid)->where('farmerId', $user->roleId)->exists();
+        }
+
+        if ($user->isFarmInvitedUser()) {
+            $farmUser = FarmUser::find($user->roleId);
+            if (! $farmUser) {
+                return false;
+            }
+
+            return in_array($farmUuid, $farmUser->getFarmUuidsArray(), true);
+        }
+
+        return false;
+    }
+
+    private function resolveFarmerIdForFinanceExpenseFarm(?string $farmUuid): ?int
+    {
+        if ($farmUuid === null || $farmUuid === '') {
+            return null;
+        }
+
+        return Farm::where('uuid', $farmUuid)->value('farmerId');
     }
 
     // ============================================================================
@@ -1531,6 +1889,7 @@ class SyncController extends Controller
 
             if (! $extensionOfficer) {
                 \Log::warning("ExtensionOfficer not found for roleId: {$user->roleId}");
+
                 return [];
             }
 
@@ -1541,6 +1900,7 @@ class SyncController extends Controller
 
             if (empty($farmerIds)) {
                 \Log::info("No accepted invites found for extension officer {$user->id}");
+
                 return [];
             }
 
@@ -1693,4 +2053,29 @@ class SyncController extends Controller
 
         return $filtered;
     }
+
+    // #region agent log
+    private function appendDebugSessionLog(string $location, string $message, array $data, string $hypothesisId = 'H', string $runId = 'post-fix'): void
+    {
+        try {
+            $debugPath = dirname(base_path()).'/.cursor/debug-4b9e2d.log';
+            $dir = dirname($debugPath);
+            if (! is_dir($dir)) {
+                @mkdir($dir, 0775, true);
+            }
+            $line = json_encode([
+                'sessionId' => '4b9e2d',
+                'location' => $location,
+                'message' => $message,
+                'hypothesisId' => $hypothesisId,
+                'runId' => $runId,
+                'data' => $data,
+                'timestamp' => (int) round(microtime(true) * 1000),
+            ], JSON_UNESCAPED_SLASHES)."\n";
+            @file_put_contents($debugPath, $line, FILE_APPEND | LOCK_EX);
+        } catch (\Throwable $ignored) {
+        }
+    }
+
+    // #endregion
 }

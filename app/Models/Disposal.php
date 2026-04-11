@@ -15,6 +15,9 @@ class Disposal extends Model
         'reasons',
         'remarks',
         'status',
+        'saleWeight',
+        'salePrice',
+        'buyerName',
     ];
 
     public function farm()

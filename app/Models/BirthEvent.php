@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class BirthEvent extends Model
 {
@@ -22,6 +23,15 @@ class BirthEvent extends Model
         'reproductiveProblemId',
         'remarks',
         'status',
+        'totalBorn',
+        'aliveCount',
+        'deadCount',
+    ];
+
+    protected $casts = [
+        'totalBorn' => 'integer',
+        'aliveCount' => 'integer',
+        'deadCount' => 'integer',
     ];
 
     public function birthType(): BelongsTo
@@ -61,6 +71,14 @@ class BirthEvent extends Model
     }
 
     /**
+     * Offspring animals linked to this birth event (litter / cohort).
+     */
+    public function offspring(): HasMany
+    {
+        return $this->hasMany(Livestock::class, 'birthEventUuid', 'uuid');
+    }
+
+    /**
      * Get display name based on event type
      */
     public function getEventNameAttribute(): string
@@ -76,4 +94,3 @@ class BirthEvent extends Model
         return $this->eventType === 'farrowing' ? 'Piglet' : 'Calf';
     }
 }
-

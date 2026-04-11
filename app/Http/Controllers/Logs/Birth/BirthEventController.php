@@ -17,6 +17,7 @@ use Illuminate\Support\Str;
 class BirthEventController extends Controller
 {
     use ConvertsDateFormat;
+
     /**
      * Display a listing of birth event logs.
      */
@@ -39,7 +40,7 @@ class BirthEventController extends Controller
                 'data' => $birthEvents,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error fetching birth events: ' . $e->getMessage());
+            Log::error('Error fetching birth events: '.$e->getMessage());
 
             return response()->json([
                 'status' => false,
@@ -57,7 +58,7 @@ class BirthEventController extends Controller
         try {
             $livestock = Livestock::where('uuid', $request->livestockUuid)->first();
 
-            if (!$livestock) {
+            if (! $livestock) {
                 return response()->json([
                     'status' => false,
                     'message' => 'Livestock not found',
@@ -88,7 +89,7 @@ class BirthEventController extends Controller
                 'data' => $birthEvent->load(['livestock', 'farm', 'birthType', 'birthProblem', 'reproductiveProblem']),
             ], 201);
         } catch (\Exception $e) {
-            Log::error('Error creating birth event: ' . $e->getMessage());
+            Log::error('Error creating birth event: '.$e->getMessage());
 
             return response()->json([
                 'status' => false,
@@ -126,6 +127,9 @@ class BirthEventController extends Controller
                     'reproductiveProblemId' => $birthEvent->reproductiveProblemId,
                     'remarks' => $birthEvent->remarks,
                     'status' => $birthEvent->status,
+                    'totalBorn' => $birthEvent->totalBorn,
+                    'aliveCount' => $birthEvent->aliveCount,
+                    'deadCount' => $birthEvent->deadCount,
                     'eventDate' => $birthEvent->eventDate ? Carbon::parse($birthEvent->eventDate)->toIso8601String() : $birthEvent->created_at?->toIso8601String(),
                     'createdAt' => $birthEvent->created_at?->toIso8601String(),
                     'updatedAt' => $birthEvent->updated_at?->toIso8601String(),
@@ -142,15 +146,16 @@ class BirthEventController extends Controller
         $synced = [];
 
         Log::info('========== PROCESSING BIRTH EVENTS START ==========');
-        Log::info('Total birth events to process: ' . count($birthEvents));
+        Log::info('Total birth events to process: '.count($birthEvents));
         Log::info("Livestock UUID: {$livestockUuid}");
 
         foreach ($birthEvents as $payload) {
             $uuid = $payload['uuid'] ?? null;
             $syncAction = $payload['syncAction'] ?? 'create';
 
-            if (!$uuid) {
+            if (! $uuid) {
                 Log::warning('⚠️ Birth event entry without UUID skipped', ['payload' => $payload]);
+
                 continue;
             }
 
@@ -226,7 +231,7 @@ class BirthEventController extends Controller
         }
 
         Log::info('========== PROCESSING BIRTH EVENTS END ==========');
-        Log::info('Total birth events synced: ' . count($synced));
+        Log::info('Total birth events synced: '.count($synced));
 
         return $synced;
     }
@@ -251,7 +256,7 @@ class BirthEventController extends Controller
     private function mapAttributes(array $payload, string $livestockUuid, array $timestamps): array
     {
         $sanitize = static function ($value) {
-            if (!isset($value)) {
+            if (! isset($value)) {
                 return null;
             }
 
@@ -262,7 +267,7 @@ class BirthEventController extends Controller
 
         // Determine eventType if not provided
         $eventType = $payload['eventType'] ?? null;
-        if (!$eventType) {
+        if (! $eventType) {
             $livestock = Livestock::where('uuid', $livestockUuid)->first();
             if ($livestock) {
                 $species = Specie::find($livestock->speciesId);
@@ -283,6 +288,9 @@ class BirthEventController extends Controller
             'reproductiveProblemId' => $payload['reproductiveProblemId'] ?? null,
             'remarks' => $sanitize($payload['remarks'] ?? null),
             'status' => $payload['status'] ?? 'active',
+            'totalBorn' => isset($payload['totalBorn']) ? (int) $payload['totalBorn'] : null,
+            'aliveCount' => isset($payload['aliveCount']) ? (int) $payload['aliveCount'] : null,
+            'deadCount' => isset($payload['deadCount']) ? (int) $payload['deadCount'] : null,
             'eventDate' => $timestamps['eventDate']->format('Y-m-d H:i:s'),
             'updated_at' => $timestamps['updatedAt']->format('Y-m-d H:i:s'),
         ];
@@ -324,6 +332,9 @@ class BirthEventController extends Controller
             'birthProblemsId' => 'nullable|integer|exists:birth_problems,id',
             'reproductiveProblemId' => 'nullable|integer|exists:reproductive_problems,id',
             'remarks' => 'nullable|string',
+            'totalBorn' => 'nullable|integer|min:0',
+            'aliveCount' => 'nullable|integer|min:0',
+            'deadCount' => 'nullable|integer|min:0',
             'status' => 'nullable|string|in:active,inactive',
             'eventDate' => 'nullable|date',
         ]);
@@ -342,7 +353,7 @@ class BirthEventController extends Controller
         }
 
         // Auto-determine eventType if not provided
-        if (!$request->has('eventType')) {
+        if (! $request->has('eventType')) {
             $livestock = Livestock::where('uuid', $request->livestockUuid)->first();
             if ($livestock) {
                 $species = Specie::find($livestock->speciesId);
@@ -354,7 +365,7 @@ class BirthEventController extends Controller
             $eventType = $request->eventType;
         }
 
-        $data = $request->all();
+        $data = $request->only((new BirthEvent)->getFillable());
         $data['eventType'] = $eventType;
         $data['startDate'] = $this->convertDateFormat($request->startDate);
         $data['endDate'] = $request->endDate ? $this->convertDateFormat($request->endDate) : null;
@@ -402,7 +413,7 @@ class BirthEventController extends Controller
     public function adminUpdate(Request $request, BirthEvent $birthEvent): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid' => 'sometimes|required|string|unique:birth_events,uuid,' . $birthEvent->id,
+            'uuid' => 'sometimes|required|string|unique:birth_events,uuid,'.$birthEvent->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
             'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'eventType' => 'sometimes|nullable|string|in:calving,farrowing',
@@ -412,6 +423,9 @@ class BirthEventController extends Controller
             'birthProblemsId' => 'sometimes|nullable|integer|exists:birth_problems,id',
             'reproductiveProblemId' => 'sometimes|nullable|integer|exists:reproductive_problems,id',
             'remarks' => 'sometimes|nullable|string',
+            'totalBorn' => 'sometimes|nullable|integer|min:0',
+            'aliveCount' => 'sometimes|nullable|integer|min:0',
+            'deadCount' => 'sometimes|nullable|integer|min:0',
             'status' => 'sometimes|nullable|string|in:active,inactive',
             'eventDate' => 'sometimes|nullable|date',
         ]);
@@ -464,4 +478,3 @@ class BirthEventController extends Controller
         ], 200);
     }
 }
-

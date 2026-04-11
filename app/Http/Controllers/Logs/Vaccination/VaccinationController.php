@@ -28,7 +28,7 @@ class VaccinationController extends Controller
                 'data' => $vaccinations,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error fetching vaccination logs: ' . $e->getMessage());
+            Log::error('Error fetching vaccination logs: '.$e->getMessage());
 
             return response()->json([
                 'status' => false,
@@ -44,17 +44,18 @@ class VaccinationController extends Controller
     public function fetchVaccinationsWithUuid($farmUuids, $livestockUuids): array
     {
         if (empty($farmUuids) || empty($livestockUuids)) {
-            \Log::info("VaccinationController: Empty farmUuids or livestockUuids - farmUuids: " . json_encode($farmUuids) . ", livestockUuids: " . json_encode($livestockUuids));
+            \Log::info('VaccinationController: Empty farmUuids or livestockUuids - farmUuids: '.json_encode($farmUuids).', livestockUuids: '.json_encode($livestockUuids));
+
             return [];
         }
 
-        \Log::info("VaccinationController: Fetching vaccinations - farmUuids: " . json_encode($farmUuids) . ", livestockUuids: " . json_encode($livestockUuids));
+        \Log::info('VaccinationController: Fetching vaccinations - farmUuids: '.json_encode($farmUuids).', livestockUuids: '.json_encode($livestockUuids));
 
         $vaccinations = Vaccination::whereIn('farmUuid', (array) $farmUuids)
             ->whereIn('livestockUuid', (array) $livestockUuids)
             ->get();
 
-        \Log::info("VaccinationController: Found " . $vaccinations->count() . " vaccination(s) in database");
+        \Log::info('VaccinationController: Found '.$vaccinations->count().' vaccination(s) in database');
 
         return $vaccinations->map(function (Vaccination $log) {
             return [
@@ -84,7 +85,7 @@ class VaccinationController extends Controller
         $syncedVaccinations = [];
 
         Log::info('========== PROCESSING VACCINATIONS START ==========');
-        Log::info('Total vaccinations to process: ' . count($vaccinations));
+        Log::info('Total vaccinations to process: '.count($vaccinations));
         Log::info("Livestock UUID: {$livestockUuid}");
 
         foreach ($vaccinations as $vaccinationData) {
@@ -92,8 +93,9 @@ class VaccinationController extends Controller
                 $syncAction = $vaccinationData['syncAction'] ?? 'create';
                 $uuid = $vaccinationData['uuid'] ?? null;
 
-                if (!$uuid) {
+                if (! $uuid) {
                     Log::warning('⚠️ Vaccination entry without UUID skipped', ['vaccination' => $vaccinationData]);
+
                     continue;
                 }
 
@@ -120,7 +122,7 @@ class VaccinationController extends Controller
                 $status = isset($vaccinationData['status'])
                     ? strtolower((string) $vaccinationData['status'])
                     : 'completed';
-                if (!in_array($status, ['pending', 'completed', 'failed'], true)) {
+                if (! in_array($status, ['pending', 'completed', 'failed'], true)) {
                     $status = 'completed';
                 }
 
@@ -142,7 +144,7 @@ class VaccinationController extends Controller
 
                 // If vaccineUuid is null, log it but allow the vaccination to be created
                 if ($vaccineUuid === null) {
-                    Log::info("ℹ️ Vaccination will be created without vaccineUuid (vaccine may not be synced yet)");
+                    Log::info('ℹ️ Vaccination will be created without vaccineUuid (vaccine may not be synced yet)');
                 }
 
                 // Handle diseaseId: negative values indicate locally created diseases not yet synced
@@ -263,7 +265,7 @@ class VaccinationController extends Controller
         }
 
         Log::info('========== PROCESSING VACCINATIONS END ==========');
-        Log::info('Total vaccinations synced: ' . count($syncedVaccinations));
+        Log::info('Total vaccinations synced: '.count($syncedVaccinations));
 
         return $syncedVaccinations;
     }
@@ -292,7 +294,7 @@ class VaccinationController extends Controller
             'vaccinationNo' => 'nullable|string|unique:vaccinations,vaccinationNo',
             'farmUuid' => 'required|string|exists:farms,uuid',
             'livestockUuid' => 'required|string|exists:livestocks,uuid',
-            'vaccineUuid' => 'nullable|string',
+            'vaccineUuid' => 'nullable|string|exists:vaccines,uuid',
             'vaccineId' => 'nullable|integer|exists:vaccines,id',
             'diseaseId' => 'nullable|integer|exists:diseases,id',
             'vetId' => 'nullable|string',
@@ -349,11 +351,11 @@ class VaccinationController extends Controller
     public function adminUpdate(Request $request, Vaccination $vaccination): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid' => 'sometimes|required|string|unique:vaccinations,uuid,' . $vaccination->id,
-            'vaccinationNo' => 'sometimes|nullable|string|unique:vaccinations,vaccinationNo,' . $vaccination->id,
+            'uuid' => 'sometimes|required|string|unique:vaccinations,uuid,'.$vaccination->id,
+            'vaccinationNo' => 'sometimes|nullable|string|unique:vaccinations,vaccinationNo,'.$vaccination->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
             'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
-            'vaccineUuid' => 'sometimes|nullable|string',
+            'vaccineUuid' => 'sometimes|nullable|string|exists:vaccines,uuid',
             'vaccineId' => 'sometimes|nullable|integer|exists:vaccines,id',
             'diseaseId' => 'sometimes|nullable|integer|exists:diseases,id',
             'vetId' => 'sometimes|nullable|string',
@@ -397,4 +399,3 @@ class VaccinationController extends Controller
         ], 200);
     }
 }
-

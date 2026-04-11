@@ -2,18 +2,19 @@
 
 namespace App\Http\Controllers\Logs\Deworming;
 
-use Carbon\Carbon;
+use App\Http\Controllers\Controller;
 use App\Models\Deworming;
 use App\Traits\ConvertsDateFormat;
-use Illuminate\Http\Request;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
-use App\Http\Controllers\Controller;
 
 class DewormingController extends Controller
 {
     use ConvertsDateFormat;
+
     /**
      * Display a listing of deworming logs.
      */
@@ -30,7 +31,7 @@ class DewormingController extends Controller
                 'data' => $dewormings,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error fetching deworming logs: ' . $e->getMessage());
+            Log::error('Error fetching deworming logs: '.$e->getMessage());
 
             return response()->json([
                 'status' => false,
@@ -81,7 +82,7 @@ class DewormingController extends Controller
         $syncedDewormings = [];
 
         Log::info('========== PROCESSING DEWORMINGS START ==========');
-        Log::info('Total dewormings to process: ' . count($dewormings));
+        Log::info('Total dewormings to process: '.count($dewormings));
         Log::info("Livestock UUID: {$livestockUuid}");
 
         foreach ($dewormings as $dewormingData) {
@@ -89,8 +90,9 @@ class DewormingController extends Controller
                 $syncAction = $dewormingData['syncAction'] ?? 'create';
                 $uuid = $dewormingData['uuid'] ?? null;
 
-                if (!$uuid) {
+                if (! $uuid) {
                     Log::warning('⚠️ Deworming entry without UUID skipped', ['deworming' => $dewormingData]);
+
                     continue;
                 }
 
@@ -236,7 +238,7 @@ class DewormingController extends Controller
         }
 
         Log::info('========== PROCESSING DEWORMINGS END ==========');
-        Log::info('Total dewormings synced: ' . count($syncedDewormings));
+        Log::info('Total dewormings synced: '.count($syncedDewormings));
 
         return $syncedDewormings;
     }
@@ -321,7 +323,7 @@ class DewormingController extends Controller
     public function adminUpdate(Request $request, Deworming $deworming): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid' => 'sometimes|required|string|unique:dewormings,uuid,' . $deworming->id,
+            'uuid' => 'sometimes|required|string|unique:dewormings,uuid,'.$deworming->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
             'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'administrationRouteId' => 'sometimes|nullable|integer|exists:administration_routes,id',
@@ -373,5 +375,3 @@ class DewormingController extends Controller
         ], 200);
     }
 }
-
-

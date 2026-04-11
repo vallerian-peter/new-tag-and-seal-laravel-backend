@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Validator;
 class InseminationController extends Controller
 {
     use ConvertsDateFormat;
+
     /**
      * Display a listing of insemination logs.
      */
@@ -36,7 +37,7 @@ class InseminationController extends Controller
                 'data' => $inseminations,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error fetching insemination logs: ' . $e->getMessage());
+            Log::error('Error fetching insemination logs: '.$e->getMessage());
 
             return response()->json([
                 'status' => false,
@@ -94,15 +95,16 @@ class InseminationController extends Controller
         $synced = [];
 
         Log::info('========== PROCESSING INSEMINATIONS START ==========');
-        Log::info('Total inseminations to process: ' . count($inseminations));
+        Log::info('Total inseminations to process: '.count($inseminations));
         Log::info("Livestock UUID: {$livestockUuid}");
 
         foreach ($inseminations as $payload) {
             $uuid = $payload['uuid'] ?? null;
             $syncAction = $payload['syncAction'] ?? 'create';
 
-            if (!$uuid) {
+            if (! $uuid) {
                 Log::warning('⚠️ Insemination entry without UUID skipped', ['payload' => $payload]);
+
                 continue;
             }
 
@@ -162,7 +164,7 @@ class InseminationController extends Controller
         }
 
         Log::info('========== PROCESSING INSEMINATIONS END ==========');
-        Log::info('Total inseminations synced: ' . count($synced));
+        Log::info('Total inseminations synced: '.count($synced));
 
         return $synced;
     }
@@ -187,7 +189,7 @@ class InseminationController extends Controller
     private function mapAttributes(array $payload, string $livestockUuid, array $timestamps): array
     {
         $sanitize = static function ($value) {
-            if (!isset($value)) {
+            if (! isset($value)) {
                 return null;
             }
 
@@ -313,7 +315,7 @@ class InseminationController extends Controller
     public function adminUpdate(Request $request, Insemination $insemination): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid' => 'sometimes|required|string|unique:inseminations,uuid,' . $insemination->id,
+            'uuid' => 'sometimes|required|string|unique:inseminations,uuid,'.$insemination->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
             'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'lastHeatDate' => 'sometimes|nullable|date',
@@ -378,4 +380,3 @@ class InseminationController extends Controller
         ], 200);
     }
 }
-

@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
             FeedingTypesTableSeeder::class,
             CattleStagesSeeder::class,
             PigStagesSeeder::class,
+            GoatStagesSeeder::class,
             BirthTypesSeeder::class,
             BirthProblemsSeeder::class,
         ]);

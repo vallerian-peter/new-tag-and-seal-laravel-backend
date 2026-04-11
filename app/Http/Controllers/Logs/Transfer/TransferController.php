@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Validator;
 class TransferController extends Controller
 {
     use ConvertsDateFormat;
+
     /**
      * Display a listing of transfer logs.
      */
@@ -30,7 +31,7 @@ class TransferController extends Controller
                 'data' => $transfers,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error fetching transfers: ' . $e->getMessage());
+            Log::error('Error fetching transfers: '.$e->getMessage());
 
             return response()->json([
                 'status' => false,
@@ -46,9 +47,8 @@ class TransferController extends Controller
      * Returns transfers where the farm (either from farm or to farm) matches the passed farm UUIDs.
      * Note: Livestock filtering is removed because transferred livestock may no longer be in the source farm.
      *
-     * @param array $farmUuids Farm UUIDs to filter by
-     * @param array $livestockUuids Ignored (kept for backward compatibility)
-     * @return array
+     * @param  array  $farmUuids  Farm UUIDs to filter by
+     * @param  array  $livestockUuids  Ignored (kept for backward compatibility)
      */
     public function fetchTransfersWithUuid(array $farmUuids, array $livestockUuids = []): array
     {
@@ -100,7 +100,7 @@ class TransferController extends Controller
         $syncedTransfers = [];
 
         Log::info('========== PROCESSING TRANSFERS START ==========');
-        Log::info('Total transfers to process: ' . count($transfers));
+        Log::info('Total transfers to process: '.count($transfers));
         Log::info("Livestock UUID: {$livestockUuid}");
 
         foreach ($transfers as $transferData) {
@@ -108,8 +108,9 @@ class TransferController extends Controller
             $uuid = $transferData['uuid'] ?? null;
 
             try {
-                if (!$uuid) {
+                if (! $uuid) {
                     Log::warning('⚠️ Transfer without UUID skipped', ['transfer' => $transferData]);
+
                     continue;
                 }
 
@@ -237,12 +238,13 @@ class TransferController extends Controller
                     'error' => $e->getMessage(),
                     'transferData' => $transferData,
                 ]);
+
                 continue;
             }
         }
 
         Log::info('========== PROCESSING TRANSFERS END ==========');
-        Log::info('Total transfers synced: ' . count($syncedTransfers));
+        Log::info('Total transfers synced: '.count($syncedTransfers));
 
         return $syncedTransfers;
     }
@@ -329,7 +331,7 @@ class TransferController extends Controller
     public function adminUpdate(Request $request, Transfer $transfer): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid' => 'sometimes|required|string|unique:transfers,uuid,' . $transfer->id,
+            'uuid' => 'sometimes|required|string|unique:transfers,uuid,'.$transfer->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
             'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'toFarmUuid' => 'sometimes|required|string|exists:farms,uuid',
@@ -381,4 +383,3 @@ class TransferController extends Controller
         ], 200);
     }
 }
-

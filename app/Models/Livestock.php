@@ -2,11 +2,6 @@
 
 namespace App\Models;
 
-use App\Models\Breed;
-use App\Models\Farm;
-use App\Models\LivestockObtainedMethod;
-use App\Models\LivestockType;
-use App\Models\Specie;
 use Illuminate\Database\Eloquent\Model;
 
 class Livestock extends Model
@@ -25,6 +20,9 @@ class Livestock extends Model
         'dateOfBirth',
         'motherUuid',  // Mother livestock UUID reference
         'fatherUuid',  // Father livestock UUID reference
+        'birthEventUuid',  // Litter / birth event grouping (analytics)
+        'stageId',  // Production stage (species-specific, FK to stages)
+        'isIdentified',  // false until tagged / official ID assigned
         'gender',
         'breedId',
         'speciesId',
@@ -41,6 +39,7 @@ class Livestock extends Model
     protected $casts = [
         'dateOfBirth' => 'date',
         'dateFirstEnteredToFarm' => 'date',
+        'isIdentified' => 'boolean',
     ];
 
     /**
@@ -94,6 +93,16 @@ class Livestock extends Model
         return $this->belongsTo(LivestockObtainedMethod::class, 'livestockObtainedMethodId');
     }
 
+    public function birthEventAsOffspring()
+    {
+        return $this->belongsTo(BirthEvent::class, 'birthEventUuid', 'uuid');
+    }
+
+    public function stage()
+    {
+        return $this->belongsTo(Stage::class, 'stageId');
+    }
+
     public function birthEvents()
     {
         return $this->hasMany(BirthEvent::class, 'livestockUuid', 'uuid');
@@ -107,6 +116,7 @@ class Livestock extends Model
         $lastBirth = $this->birthEvents()
             ->orderBy('startDate', 'desc')
             ->first();
+
         return $lastBirth ? $lastBirth->startDate : null;
     }
 }

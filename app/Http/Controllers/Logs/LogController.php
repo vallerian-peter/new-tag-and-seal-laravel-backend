@@ -3,35 +3,65 @@
 namespace App\Http\Controllers\Logs;
 
 use App\Http\Controllers\Controller;
-use App\Http\Controllers\Logs\Feeding\FeedingController;
-use App\Http\Controllers\Logs\WeightChange\WeightChangeController;
-use App\Http\Controllers\Logs\Deworming\DewormingController;
-use App\Http\Controllers\Logs\Treatment\TreatmentController;
-use App\Http\Controllers\Logs\Vaccination\VaccinationController;
-use App\Http\Controllers\Logs\Disposal\DisposalController;
-use App\Http\Controllers\Logs\Birth\BirthEventController;
 use App\Http\Controllers\Logs\AbortedPregnancy\AbortedPregnancyController;
+use App\Http\Controllers\Logs\Birth\BirthEventController;
+use App\Http\Controllers\Logs\Deworming\DewormingController;
+use App\Http\Controllers\Logs\Disposal\DisposalController;
+use App\Http\Controllers\Logs\Dryoff\DryoffController;
+use App\Http\Controllers\Logs\Feeding\FeedingController;
+use App\Http\Controllers\Logs\Insemination\InseminationController;
+use App\Http\Controllers\Logs\IronInjection\IronInjectionController;
+use App\Http\Controllers\Logs\LivestockMarking\LivestockMarkingController;
 use App\Http\Controllers\Logs\Milking\MilkingController;
 use App\Http\Controllers\Logs\Pregnancy\PregnancyController;
-use App\Http\Controllers\Logs\Insemination\InseminationController;
-use App\Http\Controllers\Logs\Dryoff\DryoffController;
+use App\Http\Controllers\Logs\PrepuceCondition\PrepuceConditionController;
+use App\Http\Controllers\Logs\StageChange\StageChangeController;
+use App\Http\Controllers\Logs\TailDocking\TailDockingController;
+use App\Http\Controllers\Logs\TeethClipping\TeethClippingController;
 use App\Http\Controllers\Logs\Transfer\TransferController;
+use App\Http\Controllers\Logs\Treatment\TreatmentController;
+use App\Http\Controllers\Logs\Vaccination\VaccinationController;
+use App\Http\Controllers\Logs\WeightChange\WeightChangeController;
 
 class LogController extends Controller
 {
     protected $feedingController;
+
     protected $weightChangeController;
+
     protected $dewormingController;
+
     protected $treatmentController;
+
     protected $vaccinationController;
+
     protected $disposalController;
+
     protected $birthEventController;
+
     protected $abortedPregnancyController;
+
     protected $milkingController;
+
     protected $pregnancyController;
+
     protected $inseminationController;
+
     protected $dryoffController;
+
     protected $transferController;
+
+    protected $teethClippingController;
+
+    protected $tailDockingController;
+
+    protected $ironInjectionController;
+
+    protected $livestockMarkingController;
+
+    protected $stageChangeController;
+
+    protected $prepuceConditionController;
 
     public function __construct(
         FeedingController $feedingController,
@@ -46,7 +76,13 @@ class LogController extends Controller
         PregnancyController $pregnancyController,
         InseminationController $inseminationController,
         DryoffController $dryoffController,
-        TransferController $transferController
+        TransferController $transferController,
+        TeethClippingController $teethClippingController,
+        TailDockingController $tailDockingController,
+        IronInjectionController $ironInjectionController,
+        LivestockMarkingController $livestockMarkingController,
+        StageChangeController $stageChangeController,
+        PrepuceConditionController $prepuceConditionController
     ) {
         $this->feedingController = $feedingController;
         $this->weightChangeController = $weightChangeController;
@@ -61,25 +97,27 @@ class LogController extends Controller
         $this->inseminationController = $inseminationController;
         $this->dryoffController = $dryoffController;
         $this->transferController = $transferController;
+        $this->teethClippingController = $teethClippingController;
+        $this->tailDockingController = $tailDockingController;
+        $this->ironInjectionController = $ironInjectionController;
+        $this->livestockMarkingController = $livestockMarkingController;
+        $this->stageChangeController = $stageChangeController;
+        $this->prepuceConditionController = $prepuceConditionController;
     }
 
     /**
      * Fetch logs scoped to the provided farm and livestock UUIDs.
-     * 
+     *
      * Note: Transfers are fetched by farms only (not livestock), since transferred livestock
      * may no longer be in the source farm. Transfers will be returned if either the source
      * farm (farmUuid) or destination farm (toFarmUuid) matches the provided farm UUIDs.
-     *
-     * @param array $farmUuids
-     * @param array $livestockUuids
-     * @return array
      */
     public function fetchLogsByFarmLivestockUuids(array $farmUuids, array $livestockUuids): array
     {
         // For most logs, we need both farms and livestock
         // But transfers only need farms (livestock may have been transferred away)
         $transfers = [];
-        if (!empty($farmUuids)) {
+        if (! empty($farmUuids)) {
             // Transfers are fetched by farms only - livestock filtering is not needed
             $transfers = $this->transferController->fetchTransfersWithUuid($farmUuids, $livestockUuids);
         }
@@ -100,6 +138,12 @@ class LogController extends Controller
                 'inseminations' => [],
                 'dryoffs' => [],
                 'transfers' => $transfers, // Return transfers even if livestockUuids is empty
+                'teethClippings' => [],
+                'tailDockings' => [],
+                'ironInjections' => [],
+                'livestockMarkings' => [],
+                'stageChanges' => [],
+                'prepuceConditions' => [],
             ];
         }
 
@@ -117,7 +161,12 @@ class LogController extends Controller
             'inseminations' => $this->inseminationController->fetchInseminationsWithUuid($farmUuids, $livestockUuids),
             'dryoffs' => $this->dryoffController->fetchDryoffsWithUuid($farmUuids, $livestockUuids),
             'transfers' => $transfers,
+            'teethClippings' => $this->teethClippingController->fetchTeethClippingsWithUuid($farmUuids, $livestockUuids),
+            'tailDockings' => $this->tailDockingController->fetchTailDockingsWithUuid($farmUuids, $livestockUuids),
+            'ironInjections' => $this->ironInjectionController->fetchIronInjectionsWithUuid($farmUuids, $livestockUuids),
+            'livestockMarkings' => $this->livestockMarkingController->fetchLivestockMarkingsWithUuid($farmUuids, $livestockUuids),
+            'stageChanges' => $this->stageChangeController->fetchStageChangesWithUuid($farmUuids, $livestockUuids),
+            'prepuceConditions' => $this->prepuceConditionController->fetchPrepuceConditionsWithUuid($farmUuids, $livestockUuids),
         ];
     }
 }
-

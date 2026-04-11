@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Bill;
 
 use App\Http\Controllers\Controller;
 use App\Models\Bill;
+use App\Models\FinanceExpense;
 use App\Services\SmsService;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
 class BillController extends Controller
@@ -81,10 +83,10 @@ class BillController extends Controller
                 }
 
                 $createdAt = isset($data['createdAt'])
-                    ? \Carbon\Carbon::parse($data['createdAt'])->format('Y-m-d H:i:s')
+                    ? Carbon::parse($data['createdAt'])->format('Y-m-d H:i:s')
                     : now()->format('Y-m-d H:i:s');
                 $updatedAt = isset($data['updatedAt'])
-                    ? \Carbon\Carbon::parse($data['updatedAt'])->format('Y-m-d H:i:s')
+                    ? Carbon::parse($data['updatedAt'])->format('Y-m-d H:i:s')
                     : now()->format('Y-m-d H:i:s');
 
                 switch ($syncAction) {
@@ -104,15 +106,17 @@ class BillController extends Controller
                         ];
                         if ($existing) {
                             // Upsert if local newer
-                            if (\Carbon\Carbon::parse($updatedAt)->greaterThan(\Carbon\Carbon::parse($existing->updated_at))) {
+                            if (Carbon::parse($updatedAt)->greaterThan(Carbon::parse($existing->updated_at))) {
                                 $existing->update($payload + ['updated_at' => $updatedAt]);
+                                $this->upsertFinanceExpenseFromBill($existing->fresh());
                             }
                         } else {
                             $bill = Bill::create(['uuid' => $uuid] + $payload + [
                                 'created_at' => $createdAt,
                                 'updated_at' => $updatedAt,
                             ]);
-                            
+                            $this->upsertFinanceExpenseFromBill($bill);
+
                             // Send SMS notification to farmer
                             $this->sendBillNotificationToFarmer($bill, $farm);
                         }
@@ -122,7 +126,7 @@ class BillController extends Controller
                     case 'update':
                         $existing = Bill::where('uuid', $uuid)->first();
                         if ($existing) {
-                            if (\Carbon\Carbon::parse($updatedAt)->greaterThan(\Carbon\Carbon::parse($existing->updated_at))) {
+                            if (Carbon::parse($updatedAt)->greaterThan(Carbon::parse($existing->updated_at))) {
                                 $existing->update([
                                     'billNo' => !empty($data['billNo']) ? $data['billNo'] : ($existing->billNo ?? $this->generateBillNoUnique()),
                                     'farmUuid' => $farmUuid,
@@ -136,6 +140,7 @@ class BillController extends Controller
                                     'notes' => $data['notes'] ?? $existing->notes,
                                     'updated_at' => $updatedAt,
                                 ]);
+                                $this->upsertFinanceExpenseFromBill($existing->fresh());
                             }
                             $synced[] = ['uuid' => $uuid];
                         }
@@ -144,6 +149,7 @@ class BillController extends Controller
                     case 'deleted':
                         $existing = Bill::where('uuid', $uuid)->first();
                         if ($existing) {
+                            $this->deleteFinanceExpenseByBillUuid($uuid);
                             $existing->delete();
                         }
                         $synced[] = ['uuid' => $uuid];
@@ -160,6 +166,39 @@ class BillController extends Controller
         }
 
         return $synced;
+    }
+
+    private function upsertFinanceExpenseFromBill(Bill $bill): void
+    {
+        $qty = max(1, (int) ($bill->quantity ?? 1));
+        $total = (float) ($bill->amount ?? 0);
+        $unit = $qty > 0 ? ($total / $qty) : $total;
+
+        FinanceExpense::updateOrCreate(
+            [
+                'sourceType' => 'bill',
+                'sourceUuid' => $bill->uuid,
+            ],
+            [
+                'farmUuid' => $bill->farmUuid,
+                'farmerId' => $bill->farmerId,
+                'billNo' => $bill->billNo,
+                'subjectType' => $bill->subjectType,
+                'quantity' => $qty,
+                'unitCost' => number_format($unit, 2, '.', ''),
+                'totalCost' => number_format($total, 2, '.', ''),
+                'status' => in_array($bill->status, ['pending', 'paid'], true) ? $bill->status : 'pending',
+                'notes' => $bill->notes,
+                'expenseDate' => $bill->created_at,
+            ]
+        );
+    }
+
+    private function deleteFinanceExpenseByBillUuid(string $billUuid): void
+    {
+        FinanceExpense::where('sourceType', 'bill')
+            ->where('sourceUuid', $billUuid)
+            ->delete();
     }
 
     /**

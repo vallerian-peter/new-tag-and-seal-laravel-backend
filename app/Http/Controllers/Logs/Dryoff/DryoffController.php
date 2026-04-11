@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Validator;
 class DryoffController extends Controller
 {
     use ConvertsDateFormat;
+
     /**
      * Display a listing of dryoff logs.
      */
@@ -30,7 +31,7 @@ class DryoffController extends Controller
                 'data' => $dryoffs,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error fetching dryoff logs: ' . $e->getMessage());
+            Log::error('Error fetching dryoff logs: '.$e->getMessage());
 
             return response()->json([
                 'status' => false,
@@ -78,15 +79,16 @@ class DryoffController extends Controller
         $synced = [];
 
         Log::info('========== PROCESSING DRYOFFS START ==========');
-        Log::info('Total dryoffs to process: ' . count($dryoffs));
+        Log::info('Total dryoffs to process: '.count($dryoffs));
         Log::info("Livestock UUID: {$livestockUuid}");
 
         foreach ($dryoffs as $payload) {
             $uuid = $payload['uuid'] ?? null;
             $syncAction = $payload['syncAction'] ?? 'create';
 
-            if (!$uuid) {
+            if (! $uuid) {
                 Log::warning('⚠️ Dryoff entry without UUID skipped', ['payload' => $payload]);
+
                 continue;
             }
 
@@ -146,7 +148,7 @@ class DryoffController extends Controller
         }
 
         Log::info('========== PROCESSING DRYOFFS END ==========');
-        Log::info('Total dryoffs synced: ' . count($synced));
+        Log::info('Total dryoffs synced: '.count($synced));
 
         return $synced;
     }
@@ -156,7 +158,7 @@ class DryoffController extends Controller
         $createdAt = isset($payload['createdAt'])
             ? Carbon::parse($payload['createdAt'])
             : now();
-        
+
         return [
             'createdAt' => $createdAt,
             'updatedAt' => isset($payload['updatedAt'])
@@ -171,7 +173,7 @@ class DryoffController extends Controller
     private function mapAttributes(array $payload, string $livestockUuid, array $timestamps): array
     {
         $sanitize = static function ($value) {
-            if (!isset($value)) {
+            if (! isset($value)) {
                 return null;
             }
 
@@ -269,7 +271,7 @@ class DryoffController extends Controller
     public function adminUpdate(Request $request, Dryoff $dryoff): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid' => 'sometimes|required|string|unique:dryoffs,uuid,' . $dryoff->id,
+            'uuid' => 'sometimes|required|string|unique:dryoffs,uuid,'.$dryoff->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
             'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'startDate' => 'sometimes|required|date',
@@ -321,4 +323,3 @@ class DryoffController extends Controller
         ], 200);
     }
 }
-

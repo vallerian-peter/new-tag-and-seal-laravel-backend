@@ -2,23 +2,21 @@
 
 namespace App\Http\Controllers\Logs\Feeding;
 
-use Carbon\Carbon;
+use App\Http\Controllers\Controller;
 use App\Models\Feeding;
 use App\Traits\ConvertsDateFormat;
-use Illuminate\Http\Request;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
 
 class FeedingController extends Controller
 {
     use ConvertsDateFormat;
+
     /**
      * Display a listing of feedings with optional search and pagination.
-     *
-     * @param Request $request
-     * @return JsonResponse
      */
     public function index(Request $request): JsonResponse
     {
@@ -30,14 +28,15 @@ class FeedingController extends Controller
             return response()->json([
                 'status' => true,
                 'message' => 'Feedings retrieved successfully',
-                'data' => $feedings
+                'data' => $feedings,
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error fetching feedings: ' . $e->getMessage());
+            Log::error('Error fetching feedings: '.$e->getMessage());
+
             return response()->json([
                 'status' => false,
                 'message' => 'Failed to retrieve feedings',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -69,16 +68,16 @@ class FeedingController extends Controller
      * Process multiple feeding records from mobile app
      * Handles create, update, and delete operations
      *
-     * @param array $feedings Array of feeding data from mobile app
-     * @param int $livestockId Livestock ID to associate with feedings
+     * @param  array  $feedings  Array of feeding data from mobile app
+     * @param  int  $livestockId  Livestock ID to associate with feedings
      * @return array Array of synced feeding UUIDs
      */
     public function processFeedings(array $feedings, string $livestockUuid): array
     {
         $syncedFeedings = [];
 
-        Log::info("========== PROCESSING FEEDINGS START ==========");
-        Log::info("Total feedings to process: " . count($feedings));
+        Log::info('========== PROCESSING FEEDINGS START ==========');
+        Log::info('Total feedings to process: '.count($feedings));
         Log::info("Livestock UUID: {$livestockUuid}");
 
         foreach ($feedings as $feedingData) {
@@ -88,8 +87,9 @@ class FeedingController extends Controller
 
                 Log::info("Processing feeding: UUID={$uuid}, Action={$syncAction}");
 
-                if (!$uuid) {
+                if (! $uuid) {
                     Log::warning('⚠️ Feeding without UUID skipped', ['feeding' => $feedingData]);
+
                     continue;
                 }
 
@@ -169,7 +169,6 @@ class FeedingController extends Controller
                         $syncedFeedings[] = ['uuid' => $uuid];
                         break;
 
-
                     case 'update':
                         $feeding = Feeding::where('uuid', $uuid)->first();
 
@@ -199,7 +198,6 @@ class FeedingController extends Controller
                         $syncedFeedings[] = ['uuid' => $uuid];
                         break;
 
-
                     case 'deleted':
                         $feeding = Feeding::where('uuid', $uuid)->first();
 
@@ -213,13 +211,12 @@ class FeedingController extends Controller
                         $syncedFeedings[] = ['uuid' => $uuid];
                         break;
 
-
                     default:
                         Log::warning("⚠️ Unknown sync action for feeding: {$syncAction}", ['uuid' => $uuid]);
                         break;
                 }
             } catch (\Exception $e) {
-                Log::error("❌ ERROR PROCESSING FEEDING", [
+                Log::error('❌ ERROR PROCESSING FEEDING', [
                     'uuid' => $uuid ?? 'unknown',
                     'syncAction' => $syncAction ?? 'unknown',
                     'error' => $e->getMessage(),
@@ -230,8 +227,9 @@ class FeedingController extends Controller
             }
         }
 
-        Log::info("========== PROCESSING FEEDINGS END ==========");
-        Log::info("Total feedings synced: " . count($syncedFeedings));
+        Log::info('========== PROCESSING FEEDINGS END ==========');
+        Log::info('Total feedings synced: '.count($syncedFeedings));
+
         return $syncedFeedings;
     }
 
@@ -314,7 +312,7 @@ class FeedingController extends Controller
     public function adminUpdate(Request $request, Feeding $feeding): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'uuid' => 'sometimes|required|string|unique:feedings,uuid,' . $feeding->id,
+            'uuid' => 'sometimes|required|string|unique:feedings,uuid,'.$feeding->id,
             'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
             'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
             'feedingTypeId' => 'sometimes|nullable|integer|exists:feeding_types,id',
