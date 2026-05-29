@@ -57,6 +57,7 @@ use App\Http\Controllers\Vaccine\VaccineTypeController;
 use App\Models\Farm;
 use App\Models\FarmUser;
 use App\Models\FinanceExpense;
+use App\Models\FinanceIncome;
 use App\Models\Stage;
 use App\Models\User;
 use App\Enums\UserRole;
@@ -526,6 +527,10 @@ class SyncController extends Controller
             ? $this->fetchFinanceExpensesManualForFarmUuids($farmUuids)
             : [];
 
+        $financeIncomes = ! empty($farmUuids)
+            ? $this->fetchFinanceIncomesForFarmUuids($farmUuids)
+            : [];
+
         // Get all farm users assigned to the farmer's farms
         $farmUsers = [];
         if (! empty($farmUuids)) {
@@ -543,6 +548,7 @@ class SyncController extends Controller
             'vaccines' => $vaccines,
             'bills' => $bills,
             'financeExpenses' => $financeExpenses,
+            'financeIncomes' => $financeIncomes,
             'farmUsers' => $farmUsers,
             'invitedExtensionOfficers' => $invitedExtensionOfficers,
             'farmsCount' => count($farms),
@@ -550,6 +556,7 @@ class SyncController extends Controller
             'vaccinesCount' => count($vaccines),
             'billsCount' => count($bills),
             'financeExpensesCount' => count($financeExpenses),
+            'financeIncomesCount' => count($financeIncomes),
             'farmUsersCount' => count($farmUsers),
             'invitedExtensionOfficersCount' => count($invitedExtensionOfficers),
         ];
@@ -663,6 +670,9 @@ class SyncController extends Controller
                     $financeExpenses = ! empty($farmUuids)
                         ? $this->fetchFinanceExpensesManualForFarmUuids($farmUuids)
                         : [];
+                    $financeIncomes = ! empty($farmUuids)
+                        ? $this->fetchFinanceIncomesForFarmUuids($farmUuids)
+                        : [];
 
                     return [
                         'type' => 'field_worker',
@@ -673,12 +683,14 @@ class SyncController extends Controller
                         'vaccines' => $vaccines,
                         'bills' => $bills,
                         'financeExpenses' => $financeExpenses,
+                        'financeIncomes' => $financeIncomes,
                         'farmsCount' => count($farms),
                         'livestockCount' => count($livestock),
                         'logsCount' => is_array($logs) ? count($logs) : 0,
                         'vaccinesCount' => count($vaccines),
                         'billsCount' => count($bills),
                         'financeExpensesCount' => count($financeExpenses),
+                        'financeIncomesCount' => count($financeIncomes),
                         'selectedInvite' => [
                             'inviteId' => $invite->id ?? null,
                             'farmerId' => $selectedFarmerId,
@@ -698,6 +710,8 @@ class SyncController extends Controller
                     'farmsCount' => 0,
                     'livestockCount' => 0,
                     'vaccinesCount' => 0,
+                    'financeExpensesCount' => 0,
+                    'financeIncomesCount' => 0,
                 ];
             }
 
@@ -815,6 +829,8 @@ class SyncController extends Controller
                     'farmsCount' => 0,
                     'livestockCount' => 0,
                     'vaccinesCount' => 0,
+                    'financeExpensesCount' => 0,
+                    'financeIncomesCount' => 0,
                 ];
             }
 
@@ -1070,6 +1086,7 @@ class SyncController extends Controller
                 'syncedVaccines' => [],
                 'syncedBills' => [],
                 'syncedFinanceExpenses' => [],
+                'syncedFinanceIncomes' => [],
                 'syncedFarmUsers' => [],
                 'syncedInvitedExtensionOfficers' => [],
                 'invitedExtensionOfficers' => [],
@@ -1262,6 +1279,10 @@ class SyncController extends Controller
                 ? $this->processFinanceExpenseSync($data['financeExpenses'], $user, $userId)
                 : [];
 
+            $syncedData['syncedFinanceIncomes'] = isset($data['financeIncomes']) && is_array($data['financeIncomes'])
+                ? $this->processFinanceIncomeSync($data['financeIncomes'], $user, $userId)
+                : [];
+
             // TODO: Process other collections (feeds, etc.)
             // Follow the same pattern:
             // 1. Check user role
@@ -1336,6 +1357,9 @@ class SyncController extends Controller
                     : 0,
                 'syncedInvitedExtensionOfficersCount' => isset($syncedData['syncedInvitedExtensionOfficers'])
                     ? count($syncedData['syncedInvitedExtensionOfficers'])
+                    : 0,
+                'syncedFinanceIncomesCount' => isset($syncedData['syncedFinanceIncomes'])
+                    ? count($syncedData['syncedFinanceIncomes'])
                     : 0,
             ]);
             \Log::info('========== POST SYNC END ==========');
@@ -1724,6 +1748,43 @@ class SyncController extends Controller
     }
 
     /**
+     * Pull finance income rows for the given farms.
+     *
+     * @param  array<int, string>  $farmUuids
+     * @return array<int, array<string, mixed>>
+     */
+    private function fetchFinanceIncomesForFarmUuids(array $farmUuids): array
+    {
+        if ($farmUuids === []) {
+            return [];
+        }
+
+        return FinanceIncome::query()
+            ->whereIn('farmUuid', $farmUuids)
+            ->orderByDesc('incomeDate')
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(static fn (FinanceIncome $row): array => [
+                'uuid' => $row->uuid,
+                'sourceType' => $row->sourceType,
+                'sourceUuid' => $row->sourceUuid,
+                'farmUuid' => $row->farmUuid,
+                'farmerId' => $row->farmerId,
+                'referenceNo' => $row->referenceNo,
+                'subjectType' => $row->subjectType,
+                'quantity' => $row->quantity,
+                'unitAmount' => (string) $row->unitAmount,
+                'totalAmount' => (string) $row->totalAmount,
+                'status' => $row->status,
+                'notes' => $row->notes,
+                'incomeDate' => $row->incomeDate?->toIso8601String(),
+                'createdAt' => $row->created_at?->toIso8601String(),
+                'updatedAt' => $row->updated_at?->toIso8601String(),
+            ])
+            ->all();
+    }
+
+    /**
      * @param  array<int, array<string, mixed>>  $expenses
      * @return array<int, array{uuid: string}>
      */
@@ -1827,6 +1888,112 @@ class SyncController extends Controller
                 }
             } catch (\Throwable $e) {
                 \Log::error('Finance expense sync error', ['uuid' => $uuid, 'error' => $e->getMessage()]);
+            }
+        }
+
+        return $synced;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $incomes
+     * @return array<int, array{uuid: string}>
+     */
+    private function processFinanceIncomeSync(array $incomes, User $user, int $userId): array
+    {
+        if ($incomes === []) {
+            return [];
+        }
+
+        if ($user->role !== UserRole::FARMER && ! $user->isFarmInvitedUser()) {
+            \Log::info("Skipping finance income sync for role {$user->role}", ['userId' => $userId]);
+
+            return [];
+        }
+
+        $synced = [];
+
+        foreach ($incomes as $data) {
+            if (! is_array($data)) {
+                continue;
+            }
+
+            $uuid = $data['uuid'] ?? null;
+            if (! $uuid) {
+                continue;
+            }
+
+            $syncAction = $data['syncAction'] ?? 'create';
+            $sourceType = isset($data['sourceType']) && $data['sourceType'] !== ''
+                ? (string) $data['sourceType']
+                : null;
+            $sourceUuid = isset($data['sourceUuid']) && $data['sourceUuid'] !== ''
+                ? (string) $data['sourceUuid']
+                : null;
+
+            $farmUuid = $data['farmUuid'] ?? null;
+            if (! $this->userCanWriteFinanceExpenseToFarm($user, $farmUuid)) {
+                \Log::warning('Rejected finance income: farm access denied', ['uuid' => $uuid, 'farmUuid' => $farmUuid]);
+                continue;
+            }
+
+            $farmerIdForRow = $this->resolveFarmerIdForFinanceExpenseFarm($farmUuid);
+            if ($farmerIdForRow === null) {
+                continue;
+            }
+
+            try {
+                switch ($syncAction) {
+                    case 'deleted':
+                        FinanceIncome::query()
+                            ->where('uuid', $uuid)
+                            ->delete();
+                        $synced[] = ['uuid' => $uuid];
+                        break;
+
+                    case 'create':
+                    case 'update':
+                        $qty = max(1, (int) ($data['quantity'] ?? 1));
+                        $total = (float) ($data['totalAmount'] ?? 0);
+                        if ($total <= 0) {
+                            \Log::warning('Finance income rejected: totalAmount', ['uuid' => $uuid]);
+                            break;
+                        }
+                        $unit = $qty > 0 ? $total / $qty : $total;
+                        $status = strtolower((string) ($data['status'] ?? 'received'));
+                        if (! in_array($status, ['pending', 'received'], true)) {
+                            $status = 'received';
+                        }
+                        $incomeDate = isset($data['incomeDate'])
+                            ? Carbon::parse($data['incomeDate'])
+                            : now();
+                        FinanceIncome::updateOrCreate(
+                            [
+                                'uuid' => $uuid,
+                            ],
+                            [
+                                'uuid' => $uuid,
+                                'sourceType' => $sourceType,
+                                'sourceUuid' => $sourceUuid,
+                                'farmUuid' => $farmUuid,
+                                'farmerId' => $farmerIdForRow,
+                                'referenceNo' => $data['referenceNo'] ?? null,
+                                'subjectType' => substr((string) ($data['subjectType'] ?? 'Other'), 0, 255),
+                                'quantity' => $qty,
+                                'unitAmount' => number_format($unit, 2, '.', ''),
+                                'totalAmount' => number_format($total, 2, '.', ''),
+                                'status' => $status,
+                                'notes' => $data['notes'] ?? null,
+                                'incomeDate' => $incomeDate,
+                            ]
+                        );
+                        $synced[] = ['uuid' => $uuid];
+                        break;
+
+                    default:
+                        \Log::warning('Unknown finance income syncAction', ['uuid' => $uuid, 'syncAction' => $syncAction]);
+                }
+            } catch (\Throwable $e) {
+                \Log::error('Finance income sync error', ['uuid' => $uuid, 'error' => $e->getMessage()]);
             }
         }
 
