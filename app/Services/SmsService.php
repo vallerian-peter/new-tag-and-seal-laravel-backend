@@ -9,7 +9,8 @@ class SmsService
 {
     private const SMS_API_URL = 'http://155.12.30.77:8085/api/v1/send-sms';
     private const SMS_USERNAME = 'ShambaBora';
-    private const SMS_PASSWORD = 'ShambaBora@2020';
+    // private const SMS_PASSWORD = 'ShambaBora@2020';
+    private const SMS_PASSWORD = '12345678'; // Updated password for testing
     private const SMS_SENDER_ID = 'SHAMBA BORA'; // SMS sender ID (registered sender ID)
 
     /**
@@ -150,14 +151,14 @@ class SmsService
         $message .= "Email: {$email}\n";
         $message .= "Password: {$password}\n\n";
         $message .= "For more details, contact the farm owner:\n";
-        
+
         if ($farmOwnerPhone) {
             $message .= "Phone: {$farmOwnerPhone}\n";
         }
         if ($farmOwnerEmail) {
             $message .= "Email: {$farmOwnerEmail}\n";
         }
-        
+
         if (!$farmOwnerPhone && !$farmOwnerEmail) {
             $message .= "Contact details not available\n";
         }

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Mail\FarmUserInvitationMail;
 use App\Models\User;
 use App\Models\Farmer;
 use App\Models\SystemUser;
@@ -14,11 +13,9 @@ use App\Models\OtpVerification;
 use App\Enums\UserRole;
 use App\Enums\UserStatus;
 use App\Services\SmsService;
-use App\Services\BrevoEmailService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
@@ -32,12 +29,10 @@ class AuthController extends Controller
     use ConvertsDateFormat;
 
     private SmsService $smsService;
-    private BrevoEmailService $brevoEmailService;
 
     public function __construct()
     {
         $this->smsService = new SmsService();
-        $this->brevoEmailService = new BrevoEmailService();
     }
 
     /**
@@ -694,7 +689,7 @@ class AuthController extends Controller
 
     /**
      * Send OTP for password reset via SMS.
-     * Accepts either email or phone.
+     * Accepts either email or phone, but always sends to the registered phone number.
      */
     public function sendOtp(Request $request): JsonResponse
     {
@@ -717,16 +712,14 @@ class AuthController extends Controller
 
             // Find user by email or phone across all role tables
             $userProfile = null;
-            $userRole = null;
-            $contactMethod = null;
+            $phoneNumber = null;
 
             if ($email) {
                 // Check Farmer
                 $farmer = Farmer::where('email', $email)->first();
                 if ($farmer) {
                     $userProfile = $farmer;
-                    $userRole = UserRole::FARMER;
-                    $contactMethod = $farmer->phone1;
+                    $phoneNumber = $farmer->phone1 ?? $farmer->phone2 ?? null;
                 }
 
                 // Check FarmUser
@@ -734,8 +727,7 @@ class AuthController extends Controller
                     $farmUser = FarmUser::where('email', $email)->first();
                     if ($farmUser) {
                         $userProfile = $farmUser;
-                        $userRole = UserRole::FARM_INVITED_USER;
-                        $contactMethod = $farmUser->phone;
+                        $phoneNumber = $farmUser->phone ?? null;
                     }
                 }
 
@@ -744,8 +736,16 @@ class AuthController extends Controller
                     $extensionOfficer = ExtensionOfficer::where('email', $email)->first();
                     if ($extensionOfficer) {
                         $userProfile = $extensionOfficer;
-                        $userRole = UserRole::EXTENSION_OFFICER;
-                        $contactMethod = $extensionOfficer->phone;
+                        $phoneNumber = $extensionOfficer->phone ?? null;
+                    }
+                }
+
+                // Check SystemUser (covers system users and vets in this codebase)
+                if (!$userProfile) {
+                    $systemUser = SystemUser::where('email', $email)->first();
+                    if ($systemUser) {
+                        $userProfile = $systemUser;
+                        $phoneNumber = $systemUser->phone ?? null;
                     }
                 }
             } elseif ($phone) {
@@ -753,8 +753,7 @@ class AuthController extends Controller
                 $farmer = Farmer::where('phone1', $phone)->orWhere('phone2', $phone)->first();
                 if ($farmer) {
                     $userProfile = $farmer;
-                    $userRole = UserRole::FARMER;
-                    $contactMethod = $phone;
+                    $phoneNumber = $phone;
                 }
 
                 // Check FarmUser by phone
@@ -762,8 +761,7 @@ class AuthController extends Controller
                     $farmUser = FarmUser::where('phone', $phone)->first();
                     if ($farmUser) {
                         $userProfile = $farmUser;
-                        $userRole = UserRole::FARM_INVITED_USER;
-                        $contactMethod = $phone;
+                        $phoneNumber = $phone;
                     }
                 }
 
@@ -772,8 +770,16 @@ class AuthController extends Controller
                     $extensionOfficer = ExtensionOfficer::where('phone', $phone)->first();
                     if ($extensionOfficer) {
                         $userProfile = $extensionOfficer;
-                        $userRole = UserRole::EXTENSION_OFFICER;
-                        $contactMethod = $phone;
+                        $phoneNumber = $phone;
+                    }
+                }
+
+                // Check SystemUser by phone
+                if (!$userProfile) {
+                    $systemUser = SystemUser::where('phone', $phone)->first();
+                    if ($systemUser) {
+                        $userProfile = $systemUser;
+                        $phoneNumber = $phone;
                     }
                 }
             }
@@ -782,6 +788,13 @@ class AuthController extends Controller
                 return response()->json([
                     'status' => false,
                     'message' => 'No account found with the provided email or phone number.'
+                ], 404);
+            }
+
+            if (empty($phoneNumber)) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'No registered phone number was found for the account associated with the provided email or phone number.'
                 ], 404);
             }
 
@@ -812,58 +825,17 @@ class AuthController extends Controller
                 );
             }
 
-            // Send OTP via Email or SMS
+            // Send OTP via SMS only
             $userName = $userProfile->firstName ?? 'User';
+            $message = "Hello {$userName}, your password reset OTP is: {$otp}. This code will expire in 10 minutes. Do not share this code with anyone.";
+            // Email delivery via Brevo is intentionally disabled here.
+            // The OTP is sent to the phone number registered on the account instead.
+            $smsSent = $this->smsService->sendSms($message, $phoneNumber);
 
-            if ($email) {
-                // Send OTP via Email using Brevo
-                $subject = 'Password Reset OTP - Tag & Seal';
-                $htmlContent = "
-                    <html>
-                    <body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333;'>
-                        <div style='max-width: 600px; margin: 0 auto; padding: 20px;'>
-                            <h2 style='color: #2c3e50;'>Password Reset Request</h2>
-                            <p>Hello <strong>{$userName}</strong>,</p>
-                            <p>You have requested to reset your password. Please use the following OTP code:</p>
-                            <div style='background-color: #f8f9fa; border-left: 4px solid #007bff; padding: 15px; margin: 20px 0;'>
-                                <h1 style='margin: 0; color: #007bff; font-size: 32px; letter-spacing: 5px;'>{$otp}</h1>
-                            </div>
-                            <p><strong>Important:</strong></p>
-                            <ul>
-                                <li>This code will expire in <strong>10 minutes</strong></li>
-                                <li>Do not share this code with anyone</li>
-                                <li>If you didn't request this, please ignore this email</li>
-                            </ul>
-                            <hr style='border: none; border-top: 1px solid #eee; margin: 30px 0;'>
-                            <p style='color: #666; font-size: 12px;'>This is an automated message from Tag & Seal Livestock Management System.</p>
-                        </div>
-                    </body>
-                    </html>
-                ";
-                $textContent = "Hello {$userName}, your password reset OTP is: {$otp}. This code will expire in 10 minutes. Do not share this code with anyone.";
-
-                $emailSent = $this->brevoEmailService->sendTransactionalEmail(
-                    $email,
-                    $userName,
-                    $subject,
-                    $htmlContent,
-                    $textContent
-                );
-
-                if (!$emailSent) {
-                    Log::warning("Failed to send OTP email to {$email}");
-                }
-            } elseif ($phone && $contactMethod) {
-                // Send OTP via SMS
-                $message = "Hello {$userName}, your password reset OTP is: {$otp}. This code will expire in 10 minutes. Do not share this code with anyone.";
-
-                $smsSent = $this->smsService->sendSms($message, [$contactMethod]);
-
-                if (!$smsSent) {
-                    Log::warning("Failed to send OTP SMS to {$contactMethod}");
-                } else {
-                    Log::info("OTP SMS sent successfully to {$contactMethod}");
-                }
+            if (is_string($smsSent)) {
+                Log::warning("Failed to send OTP SMS to {$phoneNumber}: {$smsSent}");
+            } else {
+                Log::info("OTP SMS sent successfully to {$phoneNumber}");
             }
 
             Log::info("OTP sent successfully for " . ($email ?? $phone));
