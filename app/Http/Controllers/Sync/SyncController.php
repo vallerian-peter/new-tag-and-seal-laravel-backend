@@ -45,11 +45,13 @@ use App\Http\Controllers\Logs\WeightChange\WeightChangeController;
 use App\Http\Controllers\Medicine\MedicineController;
 use App\Http\Controllers\MedicineType\MedicineTypeController;
 use App\Http\Controllers\MilkingMethod\MilkingMethodController;
+use App\Http\Controllers\LivestockMarkingType\LivestockMarkingTypeController;
 use App\Http\Controllers\PrepuceConditionLookup\PrepuceConditionLookupController;
 use App\Http\Controllers\ReproductiveProblem\ReproductiveProblemController;
 use App\Http\Controllers\SchoolLevel\SchoolLevelController;
 use App\Http\Controllers\SemenStrawType\SemenStrawTypeController;
 use App\Http\Controllers\Specie\SpecieController;
+use App\Http\Controllers\TailDockingMethod\TailDockingMethodController;
 use App\Http\Controllers\TeethClippingMethod\TeethClippingMethodController;
 use App\Http\Controllers\TestResult\TestResultController;
 use App\Http\Controllers\Vaccine\VaccineController;
@@ -154,6 +156,10 @@ class SyncController extends Controller
 
     protected $teethClippingMethodController;
 
+    protected $tailDockingMethodController;
+
+    protected $livestockMarkingTypeController;
+
     protected $extensionOfficerFarmInviteController;
 
     protected $teethClippingController;
@@ -213,6 +219,8 @@ class SyncController extends Controller
         TestResultController $testResultController,
         MilkingMethodController $milkingMethodController,
         TeethClippingMethodController $teethClippingMethodController,
+        TailDockingMethodController $tailDockingMethodController,
+        LivestockMarkingTypeController $livestockMarkingTypeController,
         ExtensionOfficerFarmInviteController $extensionOfficerFarmInviteController,
         BillController $billController,
         TeethClippingController $teethClippingController,
@@ -265,6 +273,8 @@ class SyncController extends Controller
         $this->testResultController = $testResultController;
         $this->milkingMethodController = $milkingMethodController;
         $this->teethClippingMethodController = $teethClippingMethodController;
+        $this->tailDockingMethodController = $tailDockingMethodController;
+        $this->livestockMarkingTypeController = $livestockMarkingTypeController;
         $this->extensionOfficerFarmInviteController = $extensionOfficerFarmInviteController;
         $this->billController = $billController;
         $this->teethClippingController = $teethClippingController;
@@ -378,6 +388,8 @@ class SyncController extends Controller
                     'testResults' => $this->testResultController->fetchAll(),
                     'milkingMethods' => $this->milkingMethodController->fetchAll(),
                     'teethClippingMethods' => $this->teethClippingMethodController->fetchAll(),
+                    'tailDockingMethods' => $this->tailDockingMethodController->fetchAll(),
+                    'livestockMarkingTypes' => $this->livestockMarkingTypeController->fetchAll(),
                 ], $this->prepuceConditionLookupController->referenceDataForSync()),
 
                 // 3. Livestock reference data (species, types, breeds, methods, vaccine types)

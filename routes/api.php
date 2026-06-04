@@ -41,6 +41,7 @@ use App\Http\Controllers\Logs\WeightChange\WeightChangeController;
 use App\Http\Controllers\Medicine\MedicineController;
 use App\Http\Controllers\MedicineType\MedicineTypeController;
 use App\Http\Controllers\MilkingMethod\MilkingMethodController;
+use App\Http\Controllers\LivestockMarkingType\LivestockMarkingTypeController;
 use App\Http\Controllers\PrepuceBreedingStatus\PrepuceBreedingStatusController;
 use App\Http\Controllers\PrepuceCauseRisk\PrepuceCauseRiskController;
 use App\Http\Controllers\PrepuceClinicalSign\PrepuceClinicalSignController;
@@ -54,6 +55,7 @@ use App\Http\Controllers\SemenStrawType\SemenStrawTypeController;
 use App\Http\Controllers\Specie\SpecieController;
 use App\Http\Controllers\Stage\StageController;
 use App\Http\Controllers\Sync\SyncController;
+use App\Http\Controllers\TailDockingMethod\TailDockingMethodController;
 use App\Http\Controllers\TeethClippingMethod\TeethClippingMethodController;
 use App\Http\Controllers\TestResult\TestResultController;
 use App\Http\Controllers\UserController;
@@ -354,6 +356,20 @@ Route::middleware('auth:sanctum')->group(function () {
                     Route::put('teeth-clipping-methods/{teethClippingMethod}', [TeethClippingMethodController::class, 'adminUpdate']);
                     Route::delete('teeth-clipping-methods/{teethClippingMethod}', [TeethClippingMethodController::class, 'adminDestroy']);
 
+                    // Tail Docking Methods
+                    Route::get('tail-docking-methods', [TailDockingMethodController::class, 'adminIndex']);
+                    Route::post('tail-docking-methods', [TailDockingMethodController::class, 'adminStore']);
+                    Route::get('tail-docking-methods/{tailDockingMethod}', [TailDockingMethodController::class, 'adminShow']);
+                    Route::put('tail-docking-methods/{tailDockingMethod}', [TailDockingMethodController::class, 'adminUpdate']);
+                    Route::delete('tail-docking-methods/{tailDockingMethod}', [TailDockingMethodController::class, 'adminDestroy']);
+
+                    // Livestock Marking Types
+                    Route::get('livestock-marking-types', [LivestockMarkingTypeController::class, 'adminIndex']);
+                    Route::post('livestock-marking-types', [LivestockMarkingTypeController::class, 'adminStore']);
+                    Route::get('livestock-marking-types/{livestockMarkingType}', [LivestockMarkingTypeController::class, 'adminShow']);
+                    Route::put('livestock-marking-types/{livestockMarkingType}', [LivestockMarkingTypeController::class, 'adminUpdate']);
+                    Route::delete('livestock-marking-types/{livestockMarkingType}', [LivestockMarkingTypeController::class, 'adminDestroy']);
+
                     // Reproductive Problems
                     Route::get('reproductive-problems', [ReproductiveProblemController::class, 'adminIndex']);
                     Route::post('reproductive-problems', [ReproductiveProblemController::class, 'adminStore']);
@@ -620,6 +636,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
             // Send unsynced data to server (farms, livestock, etc.)
             Route::post('/full-post-sync/{userId}', [SyncController::class, 'postSync']);
+        });
+
+        Route::prefix('reference')->group(function () {
+            Route::get('teeth-clipping-methods', [TeethClippingMethodController::class, 'fetchAll']);
+            Route::get('tail-docking-methods', [TailDockingMethodController::class, 'fetchAll']);
+            Route::get('livestock-marking-types', [LivestockMarkingTypeController::class, 'fetchAll']);
         });
 
         /*
