@@ -1243,15 +1243,25 @@ class AuthController extends Controller
      */
     private function generateFarmerNumber(): string
     {
-        $prefix = 'FMR';
-        $year = date('Y');
-        $lastFarmer = Farmer::whereYear('created_at', $year)
-            ->orderBy('id', 'desc')
-            ->first();
+        $alphabet = '2346789ABCDEFGHJKLMNPQRTUVWXYZ';
+        $alphabetLastIndex = strlen($alphabet) - 1;
 
-        $sequence = $lastFarmer ? intval(substr($lastFarmer->farmerNo, -6)) + 1 : 1;
+        do {
+            $randomPartFour = '';
+            $randomPartThree = '';
 
-        return $prefix . $year . str_pad($sequence, 6, '0', STR_PAD_LEFT);
+            for ($i = 0; $i < 4; $i++) {
+                $randomPartFour .= $alphabet[random_int(0, $alphabetLastIndex)];
+            }
+
+            for ($i = 0; $i < 3; $i++) {
+                $randomPartThree .= $alphabet[random_int(0, $alphabetLastIndex)];
+            }
+
+            $farmerNumber = "FMR-{$randomPartFour}-{$randomPartThree}";
+        } while (Farmer::where('farmerNo', $farmerNumber)->exists());
+
+        return $farmerNumber;
     }
 
     /**
