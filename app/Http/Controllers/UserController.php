@@ -257,4 +257,83 @@ class UserController extends Controller
             'data' => $stats
         ]);
     }
+
+    /**
+     * Admin: Backfill missing User accounts for all FarmUser records.
+     * POST /api/v1/admin/users/backfill-farm-users
+     */
+    public function backfillFarmUsers(Request $request): JsonResponse
+    {
+        $isDryRun = $request->boolean('dry_run', false);
+        $farmUsers = \App\Models\FarmUser::all();
+
+        /** @var \App\Http\Controllers\FarmUser\FarmUserController $farmUserController */
+        $farmUserController = app(\App\Http\Controllers\FarmUser\FarmUserController::class);
+
+        $created = 0;
+        $alreadyLinked = 0;
+        $errors = 0;
+        $details = [];
+
+        foreach ($farmUsers as $farmUser) {
+            try {
+                $existingUser = User::where('role', \App\Enums\UserRole::FARM_INVITED_USER)
+                    ->where('roleId', $farmUser->id)
+                    ->first();
+
+                if ($existingUser) {
+                    $alreadyLinked++;
+                    $details[] = [
+                        'farm_user_id' => $farmUser->id,
+                        'email' => $farmUser->email,
+                        'user_id' => $existingUser->id,
+                        'username' => $existingUser->username,
+                        'status' => 'already_linked'
+                    ];
+                    continue;
+                }
+
+                if ($isDryRun) {
+                    $created++;
+                    $details[] = [
+                        'farm_user_id' => $farmUser->id,
+                        'email' => $farmUser->email,
+                        'status' => 'would_create'
+                    ];
+                    continue;
+                }
+
+                $user = $farmUserController->ensureUserAccount($farmUser, Auth::id(), null, false);
+                $created++;
+                $details[] = [
+                    'farm_user_id' => $farmUser->id,
+                    'email' => $farmUser->email,
+                    'user_id' => $user->id,
+                    'username' => $user->username,
+                    'status' => 'created'
+                ];
+            } catch (\Exception $e) {
+                $errors++;
+                $details[] = [
+                    'farm_user_id' => $farmUser->id,
+                    'email' => $farmUser->email,
+                    'status' => 'error',
+                    'message' => $e->getMessage()
+                ];
+            }
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => "Farm user backfill completed. Total: {$farmUsers->count()}, Created/Linked: {$created}, Already Linked: {$alreadyLinked}, Errors: {$errors}",
+            'data' => [
+                'total_farm_users' => $farmUsers->count(),
+                'created' => $created,
+                'already_linked' => $alreadyLinked,
+                'errors' => $errors,
+                'dry_run' => $isDryRun,
+                'details' => $details,
+            ]
+        ]);
+    }
 }

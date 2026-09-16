@@ -254,6 +254,20 @@ class AuthController extends Controller
         // Find user by email or username
         $user = User::where($fieldType, $loginValue)->first();
 
+        // If not found in users table, check if this is an invited FarmUser whose User account was missing
+        if (!$user && $fieldType === 'email') {
+            $farmUser = FarmUser::where('email', $loginValue)->first();
+            if ($farmUser) {
+                $inputPassword = (string) $request->input('password');
+                // Check if input password matches default (email)
+                if ($inputPassword === $farmUser->email) {
+                    $farmUserController = app(\App\Http\Controllers\FarmUser\FarmUserController::class);
+                    $user = $farmUserController->ensureUserAccount($farmUser, null, $inputPassword, false);
+                    Log::info("🔐 Auto-created missing User record during login for FarmUser ID={$farmUser->id} ({$loginValue})");
+                }
+            }
+        }
+
         // Enhanced logging for debugging farm user login
         if ($fieldType === 'email') {
             Log::info("🔐 Login attempt with email: {$loginValue}");
@@ -800,7 +814,7 @@ class AuthController extends Controller
 
             // Generate OTP
             $otp = OtpVerification::generateOtp();
-            $expiresAt = Carbon::now()->addMinutes(10);
+            $expiresAt = Carbon::now()->addMinutes(5);
 
             // Update existing OTP or create new one
             if ($email) {
@@ -827,7 +841,7 @@ class AuthController extends Controller
 
             // Send OTP via SMS only
             $userName = $userProfile->firstName ?? 'User';
-            $message = "Hello {$userName}, your password reset OTP is: {$otp}. This code will expire in 10 minutes. Do not share this code with anyone.";
+            $message = "Hello {$userName}, your password reset OTP is: {$otp}. This code will expire in 5 minutes. Do not share this code with anyone.";
             // Email delivery via Brevo is intentionally disabled here.
             // The OTP is sent to the phone number registered on the account instead.
             $smsSent = $this->smsService->sendSms($message, $phoneNumber);
@@ -853,6 +867,71 @@ class AuthController extends Controller
             return response()->json([
                 'status' => false,
                 'message' => 'Failed to send OTP: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Verify OTP code without resetting password yet.
+     */
+    public function verifyOtp(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required_without:phone|email|nullable',
+            'phone' => 'required_without:email|string|nullable',
+            'otp' => 'required|string|size:6',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $email = $request->email;
+            $phone = $request->phone;
+            $otp = $request->otp;
+
+            $otpRecord = null;
+            if ($email) {
+                $otpRecord = OtpVerification::where('email', $email)
+                    ->where('otp', $otp)
+                    ->where('verified', false)
+                    ->first();
+            } elseif ($phone) {
+                $otpRecord = OtpVerification::where('phone', $phone)
+                    ->where('otp', $otp)
+                    ->where('verified', false)
+                    ->first();
+            }
+
+            if (!$otpRecord) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Invalid OTP code. Please enter the correct code or request a new one.'
+                ], 400);
+            }
+
+            if ($otpRecord->isExpired()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'OTP has expired. Please request a new one.'
+                ], 400);
+            }
+
+            return response()->json([
+                'status' => true,
+                'message' => 'OTP verified successfully.'
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Verify OTP error: ' . $e->getMessage());
+            return response()->json([
+                'status' => false,
+                'message' => 'Failed to verify OTP: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -992,6 +1071,11 @@ class AuthController extends Controller
                 $user->update([
                     'password' => Hash::make($newPassword)
                 ]);
+            } elseif ($userRole === UserRole::FARM_INVITED_USER && $userProfile instanceof FarmUser) {
+                // Auto-create missing User record with the new password
+                $farmUserController = app(\App\Http\Controllers\FarmUser\FarmUserController::class);
+                $user = $farmUserController->ensureUserAccount($userProfile, null, $newPassword, false);
+                Log::info("🔐 Auto-created missing User record during password reset for FarmUser ID={$userProfile->id}");
             }
 
             // Mark OTP as verified

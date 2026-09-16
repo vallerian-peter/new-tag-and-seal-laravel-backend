@@ -245,34 +245,17 @@ class FarmUserController extends Controller
                                 $existingFarmUser->email = $farmUserData['email'];
                                 $existingFarmUser->roleTitle = $farmUserData['roleTitle'];
                                 $existingFarmUser->gender = $farmUserData['gender'];
+                                $existingFarmUser->status = 'active';
                                 $existingFarmUser->updated_at = $updatedAt;
                                 $existingFarmUser->save();
                                 Log::info("✅ Farm user updated (local newer): {$existingFarmUser->email} (UUID: {$uuid})");
 
-                                // Also update linked User account email (and keep status active)
-                                $linkedUser = User::where('role', UserRole::FARM_INVITED_USER)
-                                    ->where('roleId', $existingFarmUser->id)
-                                    ->first();
-
-                                if ($linkedUser) {
-                                    $newEmail = $farmUserData['email'];
-                                    $linkedUser->email = $newEmail;
-                                    // Do not change password; keep same username
-                                    $linkedUser->status = UserStatus::ACTIVE;
-                                    $linkedUser->updatedBy = $createdByUserId;
-                                    $linkedUser->save();
-
-                                    Log::info("✅ Linked user updated for farm user: {$linkedUser->email} (User ID: {$linkedUser->id})");
-
-                                    // Send (or re-send) invitation SMS and Email with credentials
-                                    $plainPassword = $newEmail; // As per requirement: password = email
-                                    $this->sendFarmUserInvitationSms($existingFarmUser, $newEmail, $plainPassword);
-                                    $this->sendFarmUserInvitationEmail($existingFarmUser, $newEmail, $plainPassword);
-                                } else {
-                                    Log::info("⏭️ No linked user found to update for farm user ID {$existingFarmUser->id}");
-                                }
+                                // Ensure linked User exists and is up to date (resend credentials)
+                                $this->ensureUserAccount($existingFarmUser, $createdByUserId, null, true);
                             } else {
-                                Log::info("⏭️ Farm user skipped (server newer): {$existingFarmUser->email} (UUID: {$uuid})");
+                                Log::info("⏭️ Farm user skipped profile update (server newer): {$existingFarmUser->email} (UUID: {$uuid})");
+                                // Still ensure User account exists in users table even if profile was not updated
+                                $this->ensureUserAccount($existingFarmUser, $createdByUserId, null, false);
                             }
                         } else {
                             // Farm user doesn't exist - create new
@@ -288,58 +271,15 @@ class FarmUserController extends Controller
                             $farmUser->email = $farmUserData['email'];
                             $farmUser->roleTitle = $farmUserData['roleTitle'];
                             $farmUser->gender = $farmUserData['gender'];
+                            $farmUser->status = 'active';
                             $farmUser->created_at = $createdAt;
                             $farmUser->updated_at = $updatedAt;
                             $farmUser->save();
 
                             Log::info("✅ Farm user created successfully: {$farmUser->email} (ID: {$farmUser->id}, UUID: {$uuid})");
 
-                            // Create User account for this farm user
-                            $email = $farmUser->email;
-                            $plainPassword = $email; // Password = email (as per requirement)
-
-                            // Check if user already exists
-                            $existingUser = User::where('email', $email)->first();
-
-                            if (!$existingUser) {
-                                // Username priority: lastname -> email prefix -> email
-                                $username = '';
-
-                                if (!empty($farmUser->lastName)) {
-                                    $username = $farmUser->lastName;
-                                } elseif (!empty($email) && str_contains($email, '@')) {
-                                    $username = strstr($email, '@', true);
-                                } else {
-                                    $username = $email;
-                                }
-
-                                // Ensure username is unique
-                                $baseUsername = $username;
-                                $counter = 1;
-                                while (User::where('username', $username)->exists()) {
-                                    $username = $baseUsername . $counter;
-                                    $counter++;
-                                }
-
-                                $user = User::create([
-                                    'username' => $username,
-                                    'email' => $email,
-                                    'password' => Hash::make($plainPassword),
-                                    'role' => UserRole::FARM_INVITED_USER,
-                                    'roleId' => $farmUser->id,
-                                    'status' => UserStatus::ACTIVE,
-                                    'createdBy' => $createdByUserId, // Use User ID, not Farmer profile ID
-                                    'updatedBy' => $createdByUserId, // Use User ID, not Farmer profile ID
-                                ]);
-
-                                Log::info("✅ User account created for farm user: {$user->email} (User ID: {$user->id})");
-
-                                // Send invitation SMS and Email with credentials
-                                $this->sendFarmUserInvitationSms($farmUser, $email, $plainPassword);
-                                $this->sendFarmUserInvitationEmail($farmUser, $email, $plainPassword);
-                            } else {
-                                Log::info("⏭️ User account already exists for email: {$email}");
-                            }
+                            // Create User account for this farm user and send invitation
+                            $this->ensureUserAccount($farmUser, $createdByUserId, $farmUser->email, true);
                         }
 
                         $syncedFarmUsers[] = ['uuid' => $uuid];
@@ -364,36 +304,20 @@ class FarmUserController extends Controller
                                 $farmUser->email = $farmUserData['email'];
                                 $farmUser->roleTitle = $farmUserData['roleTitle'];
                                 $farmUser->gender = $farmUserData['gender'];
+                                $farmUser->status = 'active';
                                 $farmUser->updated_at = $updatedAt;
                                 $farmUser->save();
                                 Log::info("✅ Farm user updated: {$farmUser->email} (UUID: {$uuid})");
 
-                                // Also update linked User account and (re)send invitation email
-                                $linkedUser = User::where('role', UserRole::FARM_INVITED_USER)
-                                    ->where('roleId', $farmUser->id)
-                                    ->first();
-
-                                if ($linkedUser) {
-                                    $newEmail = $farmUserData['email'];
-                                    $linkedUser->email = $newEmail;
-                                    $linkedUser->status = UserStatus::ACTIVE;
-                                    $linkedUser->updatedBy = $createdByUserId;
-                                    $linkedUser->save();
-
-                                    Log::info("✅ Linked user updated (update action) for farm user: {$linkedUser->email} (User ID: {$linkedUser->id})");
-
-                                    // Send (or re-send) invitation SMS and Email with credentials
-                                    $plainPassword = $newEmail; // As per requirement: password = email
-                                    $this->sendFarmUserInvitationSms($farmUser, $newEmail, $plainPassword);
-                                    $this->sendFarmUserInvitationEmail($farmUser, $newEmail, $plainPassword);
-                                } else {
-                                    Log::info("⏭️ No linked user found to update for farm user (update action) ID {$farmUser->id}");
-                                }
-
-                                $syncedFarmUsers[] = ['uuid' => $uuid];
+                                // Ensure linked User exists and is up to date (resend credentials)
+                                $this->ensureUserAccount($farmUser, $createdByUserId, null, true);
                             } else {
-                                Log::info("⏭️ Farm user skipped (server newer): {$farmUser->email} (UUID: {$uuid})");
+                                Log::info("⏭️ Farm user skipped profile update (server newer): {$farmUser->email} (UUID: {$uuid})");
+                                // Ensure User account exists even if profile wasn't updated
+                                $this->ensureUserAccount($farmUser, $createdByUserId, null, false);
                             }
+
+                            $syncedFarmUsers[] = ['uuid' => $uuid];
                         } else {
                             Log::warning("⚠️ Farm user not found for update: UUID={$uuid}");
                         }
@@ -448,6 +372,125 @@ class FarmUserController extends Controller
 
         return $syncedFarmUsers;
     }
+
+    /**
+     * Ensure a corresponding User record exists in `users` table for this FarmUser.
+     * If missing, creates the User account with role=farmInvitedUser, roleId=farmUser->id,
+     * status=active, and password=email (default per requirement).
+     * If exists, ensures role, roleId, status, and email are aligned.
+     *
+     * @param FarmUser $farmUser
+     * @param int|null $createdByUserId
+     * @param string|null $overridePassword
+     * @param bool $sendInvitationIfCreated
+     * @return User
+     */
+    public function ensureUserAccount(
+        FarmUser $farmUser,
+        ?int $createdByUserId = null,
+        ?string $overridePassword = null,
+        bool $sendInvitationIfCreated = true
+    ): User {
+        // Ensure farmUser profile itself has active status
+        if (empty($farmUser->status)) {
+            $farmUser->status = 'active';
+            $farmUser->save();
+        }
+
+        $email = $farmUser->email;
+        $plainPassword = $overridePassword ?? $email;
+
+        // 1. Try finding linked User by role and roleId
+        $user = User::where('role', UserRole::FARM_INVITED_USER)
+            ->where('roleId', $farmUser->id)
+            ->first();
+
+        // 2. If not found by roleId, check by email
+        if (!$user && !empty($email)) {
+            $user = User::where('email', $email)->first();
+            if ($user) {
+                // Link this existing user record to the farmUser
+                $user->role = UserRole::FARM_INVITED_USER;
+                $user->roleId = $farmUser->id;
+                $user->status = UserStatus::ACTIVE;
+                if ($createdByUserId) {
+                    $user->updatedBy = $createdByUserId;
+                }
+                if ($overridePassword) {
+                    $user->password = Hash::make($overridePassword);
+                }
+                $user->save();
+                Log::info("🔗 Linked existing user (ID={$user->id}, email={$email}) to FarmUser ID={$farmUser->id}");
+                return $user;
+            }
+        }
+
+        if ($user) {
+            // Already exists and linked: keep email and status up to date
+            $needsSave = false;
+            if ($user->email !== $email) {
+                $user->email = $email;
+                $needsSave = true;
+            }
+            if ($user->status !== UserStatus::ACTIVE) {
+                $user->status = UserStatus::ACTIVE;
+                $needsSave = true;
+            }
+            if ($overridePassword) {
+                $user->password = Hash::make($overridePassword);
+                $needsSave = true;
+            }
+            if ($needsSave) {
+                if ($createdByUserId) {
+                    $user->updatedBy = $createdByUserId;
+                }
+                $user->save();
+                Log::info("✅ Updated linked user (ID={$user->id}) for FarmUser ID={$farmUser->id}");
+            }
+            return $user;
+        }
+
+        // 3. User does not exist at all -> create new
+        $username = '';
+        if (!empty($farmUser->lastName)) {
+            $username = preg_replace('/[^a-zA-Z0-9_]/', '', strtolower($farmUser->lastName));
+        }
+        if (empty($username) && !empty($email) && str_contains($email, '@')) {
+            $username = preg_replace('/[^a-zA-Z0-9_]/', '', strtolower(strstr($email, '@', true)));
+        }
+        if (empty($username)) {
+            $username = 'farmuser' . $farmUser->id;
+        }
+
+        // Ensure username is unique
+        $baseUsername = $username;
+        $counter = 1;
+        while (User::where('username', $username)->exists()) {
+            $username = $baseUsername . $counter;
+            $counter++;
+        }
+
+        $user = User::create([
+            'username' => $username,
+            'email' => $email,
+            'password' => Hash::make($plainPassword),
+            'role' => UserRole::FARM_INVITED_USER,
+            'roleId' => $farmUser->id,
+            'status' => UserStatus::ACTIVE,
+            'createdBy' => $createdByUserId,
+            'updatedBy' => $createdByUserId,
+        ]);
+
+        Log::info("✅ Created new User (ID={$user->id}, username={$username}) for FarmUser ID={$farmUser->id} ({$email})");
+
+        if ($sendInvitationIfCreated) {
+            $this->sendFarmUserInvitationSms($farmUser, $email, $plainPassword);
+            $this->sendFarmUserInvitationEmail($farmUser, $email, $plainPassword);
+        }
+
+        return $user;
+    }
 }
+
 
 

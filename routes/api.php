@@ -93,6 +93,7 @@ Route::prefix('auth')->group(function () {
 
     // Forgot Password Routes
     Route::post('/forgot-password/send-otp', [AuthController::class, 'sendOtp']);
+    Route::post('/forgot-password/verify-otp', [AuthController::class, 'verifyOtp']);
     Route::post('/forgot-password/reset-password', [AuthController::class, 'resetPassword']);
 });
 
@@ -184,6 +185,7 @@ Route::middleware('auth:sanctum')->group(function () {
                 Route::prefix('users')->group(function () {
                     Route::get('/', [UserController::class, 'index']);
                     Route::post('/', [UserController::class, 'store']);
+                    Route::post('/backfill-farm-users', [UserController::class, 'backfillFarmUsers']);
                     Route::get('/statistics', [UserController::class, 'statistics']);
                     Route::get('/{user}', [UserController::class, 'show']);
                     Route::put('/{user}', [UserController::class, 'update']);
