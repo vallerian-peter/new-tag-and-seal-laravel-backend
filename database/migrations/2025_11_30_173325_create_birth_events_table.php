@@ -2,8 +2,8 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -29,8 +29,8 @@ return new class extends Migration
             $table->string('startDate');
             $table->string('endDate')->nullable();
 
-            $table->foreignId('calvingTypeId')->constrained('calving_types')->cascadeOnDelete();
-            $table->foreignId('calvingProblemsId')->nullable()->constrained('calving_problems')->cascadeOnDelete();
+            $table->foreignId('birthTypeId')->constrained('calving_types')->cascadeOnDelete();
+            $table->foreignId('birthProblemsId')->nullable()->constrained('calving_problems')->cascadeOnDelete();
             $table->foreignId('reproductiveProblemId')->nullable()->constrained('reproductive_problems')->cascadeOnDelete();
 
             $table->string('remarks')->nullable();
@@ -119,4 +119,3 @@ return new class extends Migration
         Schema::dropIfExists('birth_events');
     }
 };
-

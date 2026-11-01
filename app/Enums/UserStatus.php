@@ -21,8 +21,6 @@ class UserStatus
 
     /**
      * Get all available statuses
-     *
-     * @return array
      */
     public static function all(): array
     {
@@ -34,9 +32,6 @@ class UserStatus
 
     /**
      * Check if status is valid
-     *
-     * @param string $status
-     * @return bool
      */
     public static function isValid(string $status): bool
     {
@@ -45,9 +40,6 @@ class UserStatus
 
     /**
      * Get status display name
-     *
-     * @param string $status
-     * @return string
      */
     public static function getDisplayName(string $status): string
     {
@@ -58,4 +50,3 @@ class UserStatus
         };
     }
 }
-

@@ -4,13 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-use App\Models\Farm;
-use App\Models\Livestock;
-use App\Models\AdministrationRoute;
-use App\Models\Medicines;
-use App\Models\Vet;
-use App\Models\ExtensionOfficer;
-
 class Deworming extends Model
 {
     protected $table = 'dewormings';

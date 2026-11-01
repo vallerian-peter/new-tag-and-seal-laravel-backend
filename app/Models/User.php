@@ -4,12 +4,12 @@ namespace App\Models;
 
 use App\Enums\UserRole;
 use App\Enums\UserStatus;
-use App\Models\Farmer;
-use App\Models\SystemUser;
-use App\Models\FarmUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
@@ -31,6 +31,15 @@ class User extends Authenticatable
         'createdBy',
         'updatedBy',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $user): void {
+            if (empty($user->uuid)) {
+                $user->uuid = (string) Str::uuid();
+            }
+        });
+    }
 
     /**
      * The attributes that should be hidden for serialization.
@@ -101,6 +110,36 @@ class User extends Authenticatable
         return $this->role === UserRole::FARM_INVITED_USER;
     }
 
+    /** Check if user is a transporter. */
+    public function isTransporter(): bool
+    {
+        return $this->role === UserRole::TRANSPORTER;
+    }
+
+    /** Check if user is a driver. */
+    public function isDriver(): bool
+    {
+        return $this->role === UserRole::DRIVER;
+    }
+
+    /** Check if user is a factory operator. */
+    public function isFactoryOperator(): bool
+    {
+        return $this->role === UserRole::FACTORY_OPERATOR;
+    }
+
+    /** Check if user is an MCC operator. */
+    public function isMccOperator(): bool
+    {
+        return $this->role === UserRole::MCC_OPERATOR;
+    }
+
+    /** Check if user is a buyer. */
+    public function isBuyer(): bool
+    {
+        return $this->role === UserRole::BUYER;
+    }
+
     /**
      * Check if user is active.
      */
@@ -115,6 +154,7 @@ class User extends Authenticatable
     public function hasRole(string|array $roles): bool
     {
         $roles = is_array($roles) ? $roles : [$roles];
+
         return in_array($this->role, $roles);
     }
 
@@ -140,6 +180,30 @@ class User extends Authenticatable
     public function canManageLivestock(): bool
     {
         return $this->hasRole(UserRole::livestockManagers());
+    }
+
+    public function hasPlatformPermission(string $permission): bool
+    {
+        if (! Schema::hasTable('platform_permissions') || empty($this->uuid)) {
+            return false;
+        }
+
+        return DB::table('user_platform_permissions')
+            ->join('platform_permissions', 'platform_permissions.id', '=', 'user_platform_permissions.permission_id')
+            ->where('user_platform_permissions.user_uuid', $this->uuid)
+            ->where('platform_permissions.code', $permission)
+            ->exists();
+    }
+
+    public function hasAnyPlatformPermission(array $permissions): bool
+    {
+        foreach ($permissions as $permission) {
+            if ($this->hasPlatformPermission($permission)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

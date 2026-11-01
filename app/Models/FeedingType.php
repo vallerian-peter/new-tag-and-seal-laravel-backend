@@ -7,6 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 class FeedingType extends Model
 {
     protected $fillable = [
-        'name'
+        'name',
     ];
 }

@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Model;
 
 class OtpVerification extends Model
 {
@@ -41,7 +41,7 @@ class OtpVerification extends Model
      */
     public function isValid(): bool
     {
-        return !$this->verified && !$this->isExpired();
+        return ! $this->verified && ! $this->isExpired();
     }
 
     /**

@@ -11,6 +11,18 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (! Schema::hasTable('extension_officers')) {
+            return;
+        }
+
+        if (
+            Schema::hasColumn('extension_officers', 'firstName')
+            && Schema::hasColumn('extension_officers', 'licenseNumber')
+            && Schema::hasColumn('extension_officers', 'isVerified')
+        ) {
+            return;
+        }
+
         // Drop foreign keys first
         Schema::table('extension_officers', function (Blueprint $table) {
             $table->dropForeign(['identityCardTypeId']);
@@ -52,6 +64,14 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (! Schema::hasTable('extension_officers')) {
+            return;
+        }
+
+        if (! Schema::hasColumn('extension_officers', 'firstName')) {
+            return;
+        }
+
         // Drop new columns
         Schema::table('extension_officers', function (Blueprint $table) {
             $table->dropForeign(['wardId']);

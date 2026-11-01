@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Sync;
 
+use App\Enums\UserRole;
 use App\Http\Controllers\AdministrationRoute\AdministrationRouteController;
 use App\Http\Controllers\Bill\BillController;
 use App\Http\Controllers\BirthProblem\BirthProblemController;
@@ -19,6 +20,7 @@ use App\Http\Controllers\IdentityCardType\IdentityCardTypeController;
 use App\Http\Controllers\InseminationService\InseminationServiceController;
 use App\Http\Controllers\LegalStatus\LegalStatusController;
 use App\Http\Controllers\Livestock\LivestockController;
+use App\Http\Controllers\LivestockMarkingType\LivestockMarkingTypeController;
 use App\Http\Controllers\LivestockObtainedMethod\LivestockObtainedMethodController;
 use App\Http\Controllers\LivestockType\LivestockTypeController;
 use App\Http\Controllers\Location\LocationController;
@@ -45,7 +47,6 @@ use App\Http\Controllers\Logs\WeightChange\WeightChangeController;
 use App\Http\Controllers\Medicine\MedicineController;
 use App\Http\Controllers\MedicineType\MedicineTypeController;
 use App\Http\Controllers\MilkingMethod\MilkingMethodController;
-use App\Http\Controllers\LivestockMarkingType\LivestockMarkingTypeController;
 use App\Http\Controllers\PrepuceConditionLookup\PrepuceConditionLookupController;
 use App\Http\Controllers\ReproductiveProblem\ReproductiveProblemController;
 use App\Http\Controllers\SchoolLevel\SchoolLevelController;
@@ -56,17 +57,20 @@ use App\Http\Controllers\TeethClippingMethod\TeethClippingMethodController;
 use App\Http\Controllers\TestResult\TestResultController;
 use App\Http\Controllers\Vaccine\VaccineController;
 use App\Http\Controllers\Vaccine\VaccineTypeController;
+use App\Models\ExtensionOfficer;
+use App\Models\ExtensionOfficerFarmInvite;
 use App\Models\Farm;
 use App\Models\FarmUser;
 use App\Models\FinanceExpense;
 use App\Models\FinanceIncome;
+use App\Models\Livestock;
 use App\Models\Stage;
+use App\Models\SyncTombstone;
 use App\Models\User;
-use App\Enums\UserRole;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class SyncController extends Controller
 {
@@ -338,6 +342,13 @@ class SyncController extends Controller
             // Get authenticated user from request
             $authenticatedUser = $request->user();
 
+            if (! $authenticatedUser) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Unauthenticated',
+                ], 401);
+            }
+
             // Validate that the authenticated user matches the requested userId
             if ($authenticatedUser->id !== $userId) {
                 return response()->json([
@@ -457,18 +468,6 @@ class SyncController extends Controller
                 ];
             }
 
-            // #region agent log
-            $logKeys = [];
-            $usd = $data['userSpecificData'] ?? [];
-            if (is_array($usd) && isset($usd['logs']) && is_array($usd['logs'])) {
-                $logKeys = array_keys($usd['logs']);
-            }
-            $this->appendDebugSessionLog('SyncController.php:splashSync', 'splash success', [
-                'userId' => $userId,
-                'logTypeKeys' => $logKeys,
-            ], 'H3', 'post-fix');
-            // #endregion
-
             return response()->json([
                 'status' => true,
                 'message' => 'Splash sync completed successfully',
@@ -477,13 +476,10 @@ class SyncController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
-            print_r($e->getMessage());
-
-            // #region agent log
-            $this->appendDebugSessionLog('SyncController.php:splashSync', 'splash exception', [
-                'error' => $e->getMessage(),
-            ], 'H4', 'post-fix');
-            // #endregion
+            \Log::error('Splash sync error: '.$e->getMessage(), [
+                'userId' => $userId,
+                'trace' => $e->getTraceAsString(),
+            ]);
 
             return response()->json([
                 'status' => false,
@@ -556,6 +552,7 @@ class SyncController extends Controller
             'type' => 'farmer',
             'farms' => $farms,
             'livestock' => $livestock,
+            'tombstones' => $this->livestockTombstonesForFarmUuids($farmUuids),
             'logs' => $logs,
             'vaccines' => $vaccines,
             'bills' => $bills,
@@ -565,6 +562,7 @@ class SyncController extends Controller
             'invitedExtensionOfficers' => $invitedExtensionOfficers,
             'farmsCount' => count($farms),
             'livestockCount' => count($livestock),
+            'tombstonesCount' => count($this->livestockTombstonesForFarmUuids($farmUuids)),
             'vaccinesCount' => count($vaccines),
             'billsCount' => count($bills),
             'financeExpensesCount' => count($financeExpenses),
@@ -593,7 +591,7 @@ class SyncController extends Controller
             if (in_array($roleNormalized, ['extensionofficer'])) {
                 \Log::info("Routing field worker sync via ExtensionOfficer branch for roleId={$farmUserId}");
 
-                $extensionOfficer = \App\Models\ExtensionOfficer::find($farmUserId);
+                $extensionOfficer = ExtensionOfficer::find($farmUserId);
 
                 if ($extensionOfficer) {
                     \Log::info("Handling field worker sync as ExtensionOfficer ID: {$extensionOfficer->id}");
@@ -613,7 +611,7 @@ class SyncController extends Controller
                     if ($farmerIdParam) {
                         $selectedFarmerId = (int) $farmerIdParam;
 
-                        $inviteQuery = \App\Models\ExtensionOfficerFarmInvite::where('extensionOfficerId', $extensionOfficer->id)
+                        $inviteQuery = ExtensionOfficerFarmInvite::where('extensionOfficerId', $extensionOfficer->id)
                             ->where('farmerId', $selectedFarmerId);
                         if ($inviteIdParam) {
                             $inviteQuery->where('id', (int) $inviteIdParam);
@@ -624,7 +622,7 @@ class SyncController extends Controller
                         $invite = $inviteQuery->orderByDesc('updated_at')->first();
                     } else {
                         // No explicit farmerId - resolve via invite selection hints
-                        $inviteQueryAll = \App\Models\ExtensionOfficerFarmInvite::where('extensionOfficerId', $extensionOfficer->id);
+                        $inviteQueryAll = ExtensionOfficerFarmInvite::where('extensionOfficerId', $extensionOfficer->id);
                         if ($inviteIdParam) {
                             $inviteQueryAll->where('id', (int) $inviteIdParam);
                         }
@@ -691,6 +689,7 @@ class SyncController extends Controller
                         'farmUser' => null,
                         'farms' => $farms,
                         'livestock' => $livestock,
+                        'tombstones' => $this->livestockTombstonesForFarmUuids($farmUuids),
                         'logs' => $logs,
                         'vaccines' => $vaccines,
                         'bills' => $bills,
@@ -698,6 +697,7 @@ class SyncController extends Controller
                         'financeIncomes' => $financeIncomes,
                         'farmsCount' => count($farms),
                         'livestockCount' => count($livestock),
+                        'tombstonesCount' => count($this->livestockTombstonesForFarmUuids($farmUuids)),
                         'logsCount' => is_array($logs) ? count($logs) : 0,
                         'vaccinesCount' => count($vaccines),
                         'billsCount' => count($bills),
@@ -728,13 +728,13 @@ class SyncController extends Controller
             }
 
             // Step 1: Get FarmUser record (for farm invited users)
-            $farmUser = \App\Models\FarmUser::find($farmUserId);
+            $farmUser = FarmUser::find($farmUserId);
 
             if (! $farmUser) {
                 \Log::warning("FarmUser not found for roleId: {$farmUserId}");
 
                 // Attempt Extension Officer path when User.roleId points to extension_officers.id
-                $extensionOfficer = \App\Models\ExtensionOfficer::find($farmUserId);
+                $extensionOfficer = ExtensionOfficer::find($farmUserId);
 
                 if ($extensionOfficer) {
                     \Log::info("Handling field worker sync as ExtensionOfficer ID: {$extensionOfficer->id}");
@@ -751,7 +751,7 @@ class SyncController extends Controller
                     if ($farmerIdParam) {
                         $selectedFarmerId = (int) $farmerIdParam;
 
-                        $inviteQuery = \App\Models\ExtensionOfficerFarmInvite::where('extensionOfficerId', $extensionOfficer->id)
+                        $inviteQuery = ExtensionOfficerFarmInvite::where('extensionOfficerId', $extensionOfficer->id)
                             ->where('farmerId', $selectedFarmerId);
                         if ($inviteIdParam) {
                             $inviteQuery->where('id', (int) $inviteIdParam);
@@ -761,7 +761,7 @@ class SyncController extends Controller
                         }
                         $invite = $inviteQuery->orderByDesc('updated_at')->first();
                     } else {
-                        $inviteQueryAll = \App\Models\ExtensionOfficerFarmInvite::where('extensionOfficerId', $extensionOfficer->id);
+                        $inviteQueryAll = ExtensionOfficerFarmInvite::where('extensionOfficerId', $extensionOfficer->id);
                         if ($inviteIdParam) {
                             $inviteQueryAll->where('id', (int) $inviteIdParam);
                         }
@@ -816,10 +816,12 @@ class SyncController extends Controller
                         'farmUser' => null,
                         'farms' => $farms,
                         'livestock' => $livestock,
+                        'tombstones' => $this->livestockTombstonesForFarmUuids($farmUuids),
                         'logs' => $logs,
                         'vaccines' => $vaccines,
                         'farmsCount' => count($farms),
                         'livestockCount' => count($livestock),
+                        'tombstonesCount' => count($this->livestockTombstonesForFarmUuids($farmUuids)),
                         'logsCount' => is_array($logs) ? count($logs) : 0,
                         'vaccinesCount' => count($vaccines),
                         'selectedInvite' => [
@@ -928,10 +930,12 @@ class SyncController extends Controller
                 ],
                 'farms' => $farms,
                 'livestock' => $livestock,
+                'tombstones' => $this->livestockTombstonesForFarmUuids($farmUuids),
                 'logs' => $logs,
                 'vaccines' => $vaccines,
                 'farmsCount' => count($farms),
                 'livestockCount' => count($livestock),
+                'tombstonesCount' => count($this->livestockTombstonesForFarmUuids($farmUuids)),
                 'logsCount' => is_array($logs) ? count($logs) : 0,
                 'vaccinesCount' => count($vaccines),
             ];
@@ -953,6 +957,35 @@ class SyncController extends Controller
                 'error' => $e->getMessage(),
             ];
         }
+    }
+
+    /**
+     * Return only active deletion markers for livestock in farms visible to the user.
+     * Restored records supersede their tombstone and return through the normal upsert list.
+     */
+    private function livestockTombstonesForFarmUuids(array $farmUuids): array
+    {
+        if ($farmUuids === []) {
+            return [];
+        }
+
+        return SyncTombstone::query()
+            ->where('entity_type', 'livestock')
+            ->where('operation', 'deleted')
+            ->whereNull('superseded_at')
+            ->whereIn('farm_uuid', $farmUuids)
+            ->orderBy('id')
+            ->get()
+            ->map(static fn (SyncTombstone $tombstone): array => [
+                'uuid' => $tombstone->uuid,
+                'entityType' => $tombstone->entity_type,
+                'entityUuid' => $tombstone->entity_uuid,
+                'farmUuid' => $tombstone->farm_uuid,
+                'revision' => $tombstone->entity_revision,
+                'operation' => $tombstone->operation,
+                'occurredAt' => $tombstone->occurred_at?->toIso8601String(),
+            ])
+            ->all();
     }
 
     /**
@@ -1034,6 +1067,13 @@ class SyncController extends Controller
             // Get authenticated user from request
             $authenticatedUser = $request->user();
 
+            if (! $authenticatedUser) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Unauthenticated',
+                ], 401);
+            }
+
             \Log::info("Authenticated User ID: {$authenticatedUser->id}");
             \Log::info("Authenticated User Role: {$authenticatedUser->role}");
             \Log::info("Authenticated User Role ID: {$authenticatedUser->roleId}");
@@ -1065,10 +1105,29 @@ class SyncController extends Controller
             // Get the payload
             $data = $request->all();
 
+            // PDF V2 modules use separate admin APIs. Reject legacy Flutter payloads
+            // so core sync never writes marketplace or dairy V2 records.
+            foreach (['dairyMcc', 'dairyLogistics', 'marketplace'] as $section) {
+                if (! array_key_exists($section, $data)) {
+                    continue;
+                }
+                if (! is_array($data[$section])) {
+                    return response()->json(['status' => false, 'message' => 'V2 synchronization is disabled.'], 422);
+                }
+                foreach ($data[$section] as $records) {
+                    if (! is_array($records) || $records !== []) {
+                        return response()->json(['status' => false, 'message' => 'V2 synchronization is disabled.'], 422);
+                    }
+                }
+            }
+
             \Log::info('Payload received', [
                 'farmsCount' => isset($data['farms']) ? count($data['farms']) : 0,
                 'livestockCount' => isset($data['livestock']) ? count($data['livestock']) : 0,
             ]);
+
+            // Track conflicts detected and resolved across all steps
+            $conflictsResolved = [];
 
             // Initialize response data
             $syncedData = [
@@ -1391,17 +1450,23 @@ class SyncController extends Controller
                 $syncedData['invitedExtensionOfficersCount'] = 0;
             }
 
-            // #region agent log
-            $this->appendDebugSessionLog('SyncController.php:postSync', 'postSync success', [
-                'userId' => $userId,
-                'syncedLogsKeys' => array_keys($syncedData['syncedLogs'] ?? []),
-            ], 'H1', 'post-fix');
-            // #endregion
-
             return response()->json([
                 'status' => true,
-                'message' => 'Post sync completed successfully',
+                'message' => 'Post sync completed successfully with step-by-step conflict resolution',
+                'step_by_step_execution' => [
+                    'step_1_farms',
+                    'step_2_livestock',
+                    'step_3_vaccines',
+                    'step_4_logs',
+                    'step_5_bills',
+                    'step_6_finance_expenses',
+                    'step_7_finance_incomes',
+                    'step_8_farm_users',
+                    'step_9_invited_extension_officers',
+                ],
                 'data' => $syncedData,
+                'conflicts_count' => count($conflictsResolved),
+                'conflicts_resolved' => $conflictsResolved,
                 'timestamp' => now()->toIso8601String(),
             ], 200);
 
@@ -1409,12 +1474,6 @@ class SyncController extends Controller
             \Log::error('========== POST SYNC ERROR ==========');
             \Log::error('Error: '.$e->getMessage());
             \Log::error('Trace: '.$e->getTraceAsString());
-
-            // #region agent log
-            $this->appendDebugSessionLog('SyncController.php:postSync', 'postSync exception', [
-                'error' => $e->getMessage(),
-            ], 'H2', 'post-fix');
-            // #endregion
 
             return response()->json([
                 'status' => false,
@@ -1462,7 +1521,7 @@ class SyncController extends Controller
             $farmerId = $user->roleId;
             \Log::info("Processing livestock for Farmer ID: {$farmerId}, User ID: {$userId}");
 
-            $syncedLivestock = $this->livestockController->processLivestock($livestock, $farmerId);
+            $syncedLivestock = $this->livestockController->processLivestock($livestock, $farmerId, $user);
             \Log::info("Livestock sync complete for user {$userId}", ['count' => count($syncedLivestock)]);
 
             return $syncedLivestock;
@@ -1503,7 +1562,7 @@ class SyncController extends Controller
 
         \Log::info("Processing livestock for User ID: {$userId}, Farmer ID: {$farmerId}, Role: {$user->role}");
 
-        $syncedLivestock = $this->livestockController->processLivestock($livestock, $farmerId);
+        $syncedLivestock = $this->livestockController->processLivestock($livestock, $farmerId, $user);
         \Log::info("Livestock sync complete for user {$userId}", ['count' => count($syncedLivestock)]);
 
         return $syncedLivestock;
@@ -1619,7 +1678,7 @@ class SyncController extends Controller
                 $farmUuid = $firstVaccine['farmUuid'] ?? null;
 
                 if ($farmUuid) {
-                    $farm = \App\Models\Farm::where('uuid', $farmUuid)->first();
+                    $farm = Farm::where('uuid', $farmUuid)->first();
                     if ($farm) {
                         $farmerId = $farm->farmerId;
                     }
@@ -1945,6 +2004,7 @@ class SyncController extends Controller
             $farmUuid = $data['farmUuid'] ?? null;
             if (! $this->userCanWriteFinanceExpenseToFarm($user, $farmUuid)) {
                 \Log::warning('Rejected finance income: farm access denied', ['uuid' => $uuid, 'farmUuid' => $farmUuid]);
+
                 continue;
             }
 
@@ -2064,7 +2124,7 @@ class SyncController extends Controller
 
         // Extension officers get farms from extension_officer_farm_invites
         if ($normalizedRole === 'extensionofficer') {
-            $extensionOfficer = \App\Models\ExtensionOfficer::find($user->roleId);
+            $extensionOfficer = ExtensionOfficer::find($user->roleId);
 
             if (! $extensionOfficer) {
                 \Log::warning("ExtensionOfficer not found for roleId: {$user->roleId}");
@@ -2073,7 +2133,7 @@ class SyncController extends Controller
             }
 
             // Get farmer IDs from invites (no status column in table)
-            $farmerIds = \App\Models\ExtensionOfficerFarmInvite::where('extensionOfficerId', $extensionOfficer->id)
+            $farmerIds = ExtensionOfficerFarmInvite::where('extensionOfficerId', $extensionOfficer->id)
                 ->pluck('farmerId')
                 ->toArray();
 
@@ -2084,7 +2144,7 @@ class SyncController extends Controller
             }
 
             // Get farm UUIDs from those farmers
-            $farmUuids = \App\Models\Farm::whereIn('farmerId', $farmerIds)
+            $farmUuids = Farm::whereIn('farmerId', $farmerIds)
                 ->pluck('uuid')
                 ->toArray();
 
@@ -2095,7 +2155,7 @@ class SyncController extends Controller
 
         // For farm invited users and vets
         if (in_array($normalizedRole, ['farminviteduser', 'vet'])) {
-            $farmUser = \App\Models\FarmUser::find($user->roleId);
+            $farmUser = FarmUser::find($user->roleId);
 
             if (! $farmUser) {
                 \Log::warning("FarmUser not found for roleId: {$user->roleId}");
@@ -2155,7 +2215,7 @@ class SyncController extends Controller
             return false;
         }
 
-        $livestock = \App\Models\Livestock::where('uuid', $livestockUuid)->first();
+        $livestock = Livestock::where('uuid', $livestockUuid)->first();
 
         if (! $livestock) {
             \Log::warning("Livestock not found: {$livestockUuid}");
@@ -2189,7 +2249,7 @@ class SyncController extends Controller
             $farmUuid = $firstLivestock['farmUuid'] ?? null;
 
             if ($farmUuid) {
-                $farm = \App\Models\Farm::where('uuid', $farmUuid)->first();
+                $farm = Farm::where('uuid', $farmUuid)->first();
                 if ($farm) {
                     return $farm->farmerId;
                 }
@@ -2233,28 +2293,4 @@ class SyncController extends Controller
         return $filtered;
     }
 
-    // #region agent log
-    private function appendDebugSessionLog(string $location, string $message, array $data, string $hypothesisId = 'H', string $runId = 'post-fix'): void
-    {
-        try {
-            $debugPath = dirname(base_path()).'/.cursor/debug-4b9e2d.log';
-            $dir = dirname($debugPath);
-            if (! is_dir($dir)) {
-                @mkdir($dir, 0775, true);
-            }
-            $line = json_encode([
-                'sessionId' => '4b9e2d',
-                'location' => $location,
-                'message' => $message,
-                'hypothesisId' => $hypothesisId,
-                'runId' => $runId,
-                'data' => $data,
-                'timestamp' => (int) round(microtime(true) * 1000),
-            ], JSON_UNESCAPED_SLASHES)."\n";
-            @file_put_contents($debugPath, $line, FILE_APPEND | LOCK_EX);
-        } catch (\Throwable $ignored) {
-        }
-    }
-
-    // #endregion
 }

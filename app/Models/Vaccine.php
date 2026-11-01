@@ -11,9 +11,9 @@ class Vaccine extends Model
         'farmUuid',
         'name',
         'lot',
-        'formulationType', //enum('live-attenuated', 'inactivated')
+        'formulationType', // enum('live-attenuated', 'inactivated')
         'dose',
-        'status', //enum('active', 'inactive', 'expired')
+        'status', // enum('active', 'inactive', 'expired')
         'vaccineTypeId',
         'vaccineSchedule',
     ];
@@ -22,13 +22,14 @@ class Vaccine extends Model
     {
         return $this->belongsTo(VaccineType::class, 'vaccineTypeId');
     }
+
     public function vaccineSchedule()
     {
         return $this->belongsTo(VaccineSchedule::class, 'vaccineSchedule');
     }
+
     public function farm()
     {
         return $this->belongsTo(Farm::class, 'farmUuid', 'uuid');
     }
 }
-

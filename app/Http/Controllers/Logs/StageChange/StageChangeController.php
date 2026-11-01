@@ -72,7 +72,7 @@ class StageChangeController extends Controller
                 }
                 $toId = (int) $to;
                 if ($toId > 0) {
-                    Livestock::where('uuid', $livestockUuid)->update(['stageId' => $toId]);
+                    Livestock::where('uuid', $livestockUuid)->first()?->update(['stageId' => $toId]);
                 }
             }
         );

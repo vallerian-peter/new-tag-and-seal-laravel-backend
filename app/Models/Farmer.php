@@ -20,6 +20,7 @@ class Farmer extends Model
         'gender',
         'identityCardTypeId',
         'identityNumber',
+        'street',
         'streetId',
         'schoolLevelId',
         'villageId',

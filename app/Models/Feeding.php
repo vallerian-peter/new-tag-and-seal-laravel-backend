@@ -31,5 +31,4 @@ class Feeding extends Model
     {
         return $this->belongsTo(Livestock::class, 'livestockUuid', 'uuid');
     }
-
 }

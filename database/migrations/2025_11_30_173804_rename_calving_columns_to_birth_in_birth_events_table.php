@@ -2,8 +2,8 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -12,21 +12,37 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (! Schema::hasTable('birth_events')) {
+            return;
+        }
+
+        if (Schema::hasColumn('birth_events', 'birthTypeId')) {
+            return;
+        }
+
         // Check if columns need to be renamed
-        $columns = DB::select("SHOW COLUMNS FROM birth_events");
+        $columns = DB::select('SHOW COLUMNS FROM birth_events');
         $hasCalvingTypeId = false;
         $hasBirthTypeId = false;
         $hasCalvingProblemsId = false;
         $hasBirthProblemsId = false;
 
         foreach ($columns as $col) {
-            if ($col->Field === 'calvingTypeId') $hasCalvingTypeId = true;
-            if ($col->Field === 'birthTypeId') $hasBirthTypeId = true;
-            if ($col->Field === 'calvingProblemsId') $hasCalvingProblemsId = true;
-            if ($col->Field === 'birthProblemsId') $hasBirthProblemsId = true;
+            if ($col->Field === 'calvingTypeId') {
+                $hasCalvingTypeId = true;
+            }
+            if ($col->Field === 'birthTypeId') {
+                $hasBirthTypeId = true;
+            }
+            if ($col->Field === 'calvingProblemsId') {
+                $hasCalvingProblemsId = true;
+            }
+            if ($col->Field === 'birthProblemsId') {
+                $hasBirthProblemsId = true;
+            }
         }
 
-        if ($hasCalvingTypeId && !$hasBirthTypeId) {
+        if ($hasCalvingTypeId && ! $hasBirthTypeId) {
             // Columns still have old names, rename them
             // Step 1: Get and drop old foreign keys by constraint name
             $fkNames = DB::select("
@@ -66,17 +82,29 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (! Schema::hasTable('birth_events')) {
+            return;
+        }
+
+        if (Schema::hasColumn('birth_events', 'calvingTypeId')) {
+            return;
+        }
+
         // Check if columns need to be reverted
-        $columns = DB::select("SHOW COLUMNS FROM birth_events");
+        $columns = DB::select('SHOW COLUMNS FROM birth_events');
         $hasBirthTypeId = false;
         $hasCalvingTypeId = false;
 
         foreach ($columns as $col) {
-            if ($col->Field === 'birthTypeId') $hasBirthTypeId = true;
-            if ($col->Field === 'calvingTypeId') $hasCalvingTypeId = true;
+            if ($col->Field === 'birthTypeId') {
+                $hasBirthTypeId = true;
+            }
+            if ($col->Field === 'calvingTypeId') {
+                $hasCalvingTypeId = true;
+            }
         }
 
-        if ($hasBirthTypeId && !$hasCalvingTypeId) {
+        if ($hasBirthTypeId && ! $hasCalvingTypeId) {
             // Step 1: Drop foreign keys
             $fkNames = DB::select("
                 SELECT CONSTRAINT_NAME

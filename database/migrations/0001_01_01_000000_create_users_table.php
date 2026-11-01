@@ -19,8 +19,8 @@ return new class extends Migration
             $table->string('role');
             $table->integer('roleId');
             $table->enum('status', ['active', 'notActive'])->default('active');
-            $table->foreignId('createdBy')->references('id')->on('users')->onDelete('cascade');
-            $table->foreignId('updatedBy')->references('id')->on('users')->onDelete('cascade')->nullable();
+            $table->foreignId('createdBy')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('updatedBy')->nullable()->constrained('users')->nullOnDelete();
             $table->string('remember_token', 200)->nullable();
             $table->timestamps();
         });

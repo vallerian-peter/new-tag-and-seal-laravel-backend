@@ -8,7 +8,6 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
 
 class WeightChangeController extends Controller
 {
@@ -208,119 +207,5 @@ class WeightChangeController extends Controller
         Log::info('Total logs synced: '.count($syncedWeights));
 
         return $syncedWeights;
-    }
-
-    // ============================================================================
-    // Admin CRUD Methods (SystemUser-only)
-    // ============================================================================
-
-    public function adminIndex(): JsonResponse
-    {
-        $weightChanges = WeightChange::with(['livestock', 'farm'])
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Weight changes retrieved successfully',
-            'data' => $weightChanges,
-        ], 200);
-    }
-
-    public function adminStore(Request $request): JsonResponse
-    {
-        $validator = Validator::make($request->all(), [
-            'uuid' => 'required|string|unique:weight_changes,uuid',
-            'farmUuid' => 'required|string|exists:farms,uuid',
-            'livestockUuid' => 'required|string|exists:livestocks,uuid',
-            'oldWeight' => 'nullable|string|max:255',
-            'newWeight' => 'nullable|string|max:255',
-            'remarks' => 'nullable|string',
-            'eventDate' => 'nullable|date',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        $data = $request->all();
-        if ($request->has('eventDate')) {
-            $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
-        } else {
-            // Default to now if not provided
-            $data['eventDate'] = now()->format('Y-m-d H:i:s');
-        }
-
-        $weightChange = WeightChange::create($data);
-
-        $weightChange->load(['livestock', 'farm']);
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Weight change created successfully',
-            'data' => $weightChange,
-        ], 201);
-    }
-
-    public function adminShow(WeightChange $weightChange): JsonResponse
-    {
-        $weightChange->load(['livestock', 'farm']);
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Weight change retrieved successfully',
-            'data' => $weightChange,
-        ], 200);
-    }
-
-    public function adminUpdate(Request $request, WeightChange $weightChange): JsonResponse
-    {
-        $validator = Validator::make($request->all(), [
-            'uuid' => 'sometimes|required|string|unique:weight_changes,uuid,'.$weightChange->id,
-            'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
-            'livestockUuid' => 'sometimes|required|string|exists:livestocks,uuid',
-            'oldWeight' => 'sometimes|nullable|string|max:255',
-            'newWeight' => 'sometimes|nullable|string|max:255',
-            'remarks' => 'sometimes|nullable|string',
-            'eventDate' => 'sometimes|nullable|date',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        $data = $request->except(['eventDate']);
-        if ($request->has('eventDate')) {
-            $data['eventDate'] = Carbon::parse($request->eventDate)->format('Y-m-d H:i:s');
-        }
-
-        $weightChange->fill($data);
-        $weightChange->save();
-
-        $weightChange->load(['livestock', 'farm']);
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Weight change updated successfully',
-            'data' => $weightChange,
-        ], 200);
-    }
-
-    public function adminDestroy(WeightChange $weightChange): JsonResponse
-    {
-        $weightChange->delete();
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Weight change deleted successfully',
-        ], 200);
     }
 }

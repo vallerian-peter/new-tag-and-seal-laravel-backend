@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Bill extends Model
 {
-
     protected $fillable = [
         'uuid',
         'billNo',
@@ -49,6 +48,7 @@ class Bill extends Model
                 return $code;
             }
         }
+
         return substr(strtoupper(bin2hex(random_bytes(8))), 0, 7);
     }
 

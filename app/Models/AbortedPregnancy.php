@@ -37,4 +37,3 @@ class AbortedPregnancy extends Model
         return $this->belongsTo(ReproductiveProblem::class, 'reproductiveProblemId');
     }
 }
-

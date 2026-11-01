@@ -2,19 +2,27 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     /**
      * Run the migrations.
-     * 
+     *
      * Updates farmUuid column to TEXT to support JSON array of multiple farm UUIDs.
      * Converts existing single UUID values to JSON array format.
      */
     public function up(): void
     {
+        // This migration predates the migration that creates farm_users.
+        // Existing installations originally ran it after the table was present,
+        // but a fresh database processes files by timestamp. The correctly
+        // ordered compatibility migration performs this work for fresh installs.
+        if (! Schema::hasTable('farm_users') || ! Schema::hasColumn('farm_users', 'farmUuid')) {
+            return;
+        }
+
         // Change column type to TEXT to support JSON arrays
         Schema::table('farm_users', function (Blueprint $table) {
             // Drop the index first
@@ -27,19 +35,19 @@ return new class extends Migration
         // Convert existing single UUID values to JSON array format
         $farmUsers = DB::table('farm_users')->get();
         foreach ($farmUsers as $farmUser) {
-            if (!empty($farmUser->farmUuid)) {
+            if (! empty($farmUser->farmUuid)) {
                 // Check if already JSON array
                 $decoded = json_decode($farmUser->farmUuid, true);
                 if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
                     // Already JSON, skip
                     continue;
                 }
-                
+
                 // Convert single UUID to JSON array
                 DB::table('farm_users')
                     ->where('id', $farmUser->id)
                     ->update([
-                        'farmUuid' => json_encode([$farmUser->farmUuid])
+                        'farmUuid' => json_encode([$farmUser->farmUuid]),
                     ]);
             }
         }
@@ -50,23 +58,27 @@ return new class extends Migration
 
     /**
      * Reverse the migrations.
-     * 
+     *
      * Reverts farmUuid back to string (single UUID).
      * Takes the first UUID from JSON array if multiple exist.
      */
     public function down(): void
     {
+        if (! Schema::hasTable('farm_users') || ! Schema::hasColumn('farm_users', 'farmUuid')) {
+            return;
+        }
+
         // Convert JSON arrays back to single UUID (take first one)
         $farmUsers = DB::table('farm_users')->get();
         foreach ($farmUsers as $farmUser) {
-            if (!empty($farmUser->farmUuid)) {
+            if (! empty($farmUser->farmUuid)) {
                 $decoded = json_decode($farmUser->farmUuid, true);
-                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded) && !empty($decoded)) {
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded) && ! empty($decoded)) {
                     // Extract first UUID from array
                     DB::table('farm_users')
                         ->where('id', $farmUser->id)
                         ->update([
-                            'farmUuid' => $decoded[0]
+                            'farmUuid' => $decoded[0],
                         ]);
                 }
             }
@@ -79,4 +91,3 @@ return new class extends Migration
         });
     }
 };
-

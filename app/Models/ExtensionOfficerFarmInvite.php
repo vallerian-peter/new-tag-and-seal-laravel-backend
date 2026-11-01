@@ -44,11 +44,11 @@ class ExtensionOfficerFarmInvite extends Model
         $secondPartLength = $split[1];
 
         // Generate random numbers for first part
-        $maxFirst = (int)str_repeat('9', $firstPartLength);
+        $maxFirst = (int) str_repeat('9', $firstPartLength);
         $randomNumbers = str_pad(rand(0, $maxFirst), $firstPartLength, '0', STR_PAD_LEFT);
 
         // Generate random numbers for second part
-        $maxSecond = (int)str_repeat('9', $secondPartLength);
+        $maxSecond = (int) str_repeat('9', $secondPartLength);
         $randomEndNumbers = str_pad(rand(0, $maxSecond), $secondPartLength, '0', STR_PAD_LEFT);
 
         return "ACODE-{$randomNumbers}{$randomChars}-{$randomEndNumbers}";
@@ -70,7 +70,7 @@ class ExtensionOfficerFarmInvite extends Model
 
         if ($exists) {
             // Fallback: add timestamp to ensure uniqueness
-            $code = self::generateAccessCode() . '-' . time();
+            $code = self::generateAccessCode().'-'.time();
         }
 
         return $code;

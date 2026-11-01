@@ -210,6 +210,21 @@ return new class extends Migration
                 }
             });
 
+            $legacyColumns = ['code', 'label_en', 'label_sw'];
+            foreach (Schema::getIndexes($tableName) as $index) {
+                if ($index['name'] === 'primary') {
+                    continue;
+                }
+
+                if (array_intersect($legacyColumns, $index['columns']) === []) {
+                    continue;
+                }
+
+                Schema::table($tableName, function (Blueprint $table) use ($index) {
+                    $table->dropIndex($index['name']);
+                });
+            }
+
             Schema::table($tableName, function (Blueprint $table) {
                 $table->dropColumn(['code', 'label_en', 'label_sw']);
             });

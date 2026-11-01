@@ -35,9 +35,37 @@ class UserRole
     public const FARM_INVITED_USER = 'farmInvitedUser';
 
     /**
+     * Transporter Organization Admin
+     */
+    public const TRANSPORTER = 'transporter';
+
+    /**
+     * Logistics / Tanker Driver
+     */
+    public const DRIVER = 'driver';
+
+    /**
+     * Dairy Factory Intake Operator
+     */
+    public const FACTORY_OPERATOR = 'factoryOperator';
+
+    /**
+     * Warehouse / Factory Operations Manager (Boss)
+     */
+    public const WAREHOUSE_MANAGER = 'warehouseManager';
+
+    /**
+     * Milk Collection Centre Operator / Clerk
+     */
+    public const MCC_OPERATOR = 'mccOperator';
+
+    /**
+     * Livestock & Dairy Buyer
+     */
+    public const BUYER = 'buyer';
+
+    /**
      * Get all available roles
-     *
-     * @return array
      */
     public static function all(): array
     {
@@ -47,13 +75,17 @@ class UserRole
             self::EXTENSION_OFFICER,
             self::VET,
             self::FARM_INVITED_USER,
+            self::TRANSPORTER,
+            self::DRIVER,
+            self::FACTORY_OPERATOR,
+            self::WAREHOUSE_MANAGER,
+            self::MCC_OPERATOR,
+            self::BUYER,
         ];
     }
 
     /**
      * Get roles that manage livestock directly
-     *
-     * @return array
      */
     public static function livestockManagers(): array
     {
@@ -66,8 +98,6 @@ class UserRole
 
     /**
      * Get administrative roles
-     *
-     * @return array
      */
     public static function admins(): array
     {
@@ -78,8 +108,6 @@ class UserRole
 
     /**
      * Get field worker roles
-     *
-     * @return array
      */
     public static function fieldWorkers(): array
     {
@@ -91,8 +119,6 @@ class UserRole
 
     /**
      * Get roles that use SystemUser profile
-     *
-     * @return array
      */
     public static function systemUserProfiles(): array
     {
@@ -106,9 +132,6 @@ class UserRole
 
     /**
      * Check if role is valid
-     *
-     * @param string $role
-     * @return bool
      */
     public static function isValid(string $role): bool
     {
@@ -117,9 +140,6 @@ class UserRole
 
     /**
      * Get role display name
-     *
-     * @param string $role
-     * @return string
      */
     public static function getDisplayName(string $role): string
     {
@@ -129,15 +149,18 @@ class UserRole
             self::EXTENSION_OFFICER => 'Extension Officer',
             self::VET => 'Veterinarian',
             self::FARM_INVITED_USER => 'Farm Invited User',
+            self::TRANSPORTER => 'Transporter Company',
+            self::DRIVER => 'Logistics Driver',
+            self::FACTORY_OPERATOR => 'Factory Intake Operator',
+            self::WAREHOUSE_MANAGER => 'Warehouse / Factory Manager',
+            self::MCC_OPERATOR => 'MCC Collection Clerk',
+            self::BUYER => 'Livestock / Dairy Buyer',
             default => 'Unknown',
         };
     }
 
     /**
      * Get role description
-     *
-     * @param string $role
-     * @return string
      */
     public static function getDescription(string $role): string
     {
@@ -147,9 +170,13 @@ class UserRole
             self::EXTENSION_OFFICER => 'Agricultural extension services provider',
             self::VET => 'Veterinary professional providing animal health services',
             self::FARM_INVITED_USER => 'Guest user with limited access to specific farms',
-
+            self::TRANSPORTER => 'Logistics organization managing milk transport tankers and drivers',
+            self::DRIVER => 'Authorized driver operating milk collection tankers and executing trips',
+            self::FACTORY_OPERATOR => 'Dairy processing plant officer receiving milk and operating storage tanks',
+            self::WAREHOUSE_MANAGER => 'Executive manager overseeing dairy factories, warehouses, silos, and plant operators',
+            self::MCC_OPERATOR => 'Milk collection centre operator performing farmer intake and chilling',
+            self::BUYER => 'Commercial buyer purchasing livestock or bulk dairy products',
             default => 'No description available',
         };
     }
 }
-

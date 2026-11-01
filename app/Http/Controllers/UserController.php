@@ -10,34 +10,29 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 
 /**
- * UserController - Admin User Management
+ * UserController - Backend system-user management
  * 
  * IMPORTANT: Frontend user registration is handled by AuthController::register()
- * This controller is ONLY for admin operations via /api/v1/admin/users endpoints
+ * Backend user-management endpoints under /api/v1/users.
  * 
  * Frontend Flow (DO NOT TOUCH):
  * - User registration: AuthController::register() -> Creates User + Profile (Farmer/SystemUser/etc)
  * - User login: AuthController::login()
  * - User sync: SyncController::splashSync() and postSync()
  * 
- * Admin Flow (This Controller):
- * - List users: GET /api/v1/admin/users
- * - Create user: POST /api/v1/admin/users (admin portal only)
- * - View user: GET /api/v1/admin/users/{id}
- * - Update user: PUT /api/v1/admin/users/{id}
- * - Delete user: DELETE /api/v1/admin/users/{id}
- * - Statistics: GET /api/v1/admin/users/statistics
+ * The separate Filament Portal writes to the shared database directly and
+ * does not call this controller.
  */
 class UserController extends Controller
 {
     // ========================================================================
-    // ADMIN METHODS - Used by Admin Portal (/api/v1/admin/users)
+    // Backend system-user API methods. These are not used by the Portal.
     // These methods require 'systemUser' role and don't interfere with frontend
     // ========================================================================
 
     /**
      * Admin: Display a listing of users.
-     * GET /api/v1/admin/users
+     * GET /api/v1/users
      */
     public function index(Request $request): JsonResponse
     {
@@ -68,11 +63,11 @@ class UserController extends Controller
     }
 
     /**
-     * Admin: Create a new user (Admin Portal Only).
-     * POST /api/v1/admin/users
+     * Create a user through the backend system-user API.
+     * POST /api/v1/users
      * 
      * Note: Frontend uses AuthController::register() instead.
-     * This method is for admin portal to create users manually.
+     * The Portal uses its own Filament resource instead.
      */
     public function store(Request $request): JsonResponse
     {
@@ -116,53 +111,8 @@ class UserController extends Controller
     }
 
     /**
-     * Admin: Display the specified user.
-     * GET /api/v1/admin/users/{id}
-     */
-    public function adminStore(Request $request): JsonResponse
-    {
-        $validator = Validator::make($request->all(), [
-            'username' => 'required|string|max:255|unique:users',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8',
-            'role' => 'required|string',
-            'roleId' => 'nullable|integer',
-            'status' => 'nullable|string|in:active,notActive',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        $data = $request->all();
-
-        // Auto-create SystemUser profile if needed
-        if (in_array($data['role'], [\App\Enums\UserRole::SYSTEM_USER, \App\Enums\UserRole::EXTENSION_OFFICER, \App\Enums\UserRole::VET]) && empty($data['roleId'])) {
-            $systemUser = \App\Models\SystemUser::create([
-                'firstName' => $data['username'],
-                'lastName' => $data['username'],
-                'status' => 'active',
-            ]);
-            $data['roleId'] = $systemUser->id;
-        }
-
-        $user = User::create($data);
-        $user->load('profile');
-
-        return response()->json([
-            'status' => true,
-            'message' => 'User created successfully',
-            'data' => $user,
-        ], 201);
-    }
-
-    /**
      * Admin: Update the specified user.
-     * PUT /api/v1/admin/users/{id}
+     * PUT /api/v1/users/{id}
      */
     public function show(User $user): JsonResponse
     {
@@ -174,8 +124,8 @@ class UserController extends Controller
     }
 
     /**
-     * Admin: Update the specified user.
-     * PUT /api/v1/admin/users/{id}
+     * Update the specified user.
+     * PUT /api/v1/users/{id}
      */
     public function update(Request $request, User $user): JsonResponse
     {
@@ -215,7 +165,7 @@ class UserController extends Controller
 
     /**
      * Admin: Remove the specified user.
-     * DELETE /api/v1/admin/users/{id}
+     * DELETE /api/v1/users/{id}
      */
     public function destroy(User $user): JsonResponse
     {
@@ -237,7 +187,7 @@ class UserController extends Controller
 
     /**
      * Admin: Get user statistics.
-     * GET /api/v1/admin/users/statistics
+     * GET /api/v1/users/statistics
      */
     public function statistics(): JsonResponse
     {
@@ -258,82 +208,4 @@ class UserController extends Controller
         ]);
     }
 
-    /**
-     * Admin: Backfill missing User accounts for all FarmUser records.
-     * POST /api/v1/admin/users/backfill-farm-users
-     */
-    public function backfillFarmUsers(Request $request): JsonResponse
-    {
-        $isDryRun = $request->boolean('dry_run', false);
-        $farmUsers = \App\Models\FarmUser::all();
-
-        /** @var \App\Http\Controllers\FarmUser\FarmUserController $farmUserController */
-        $farmUserController = app(\App\Http\Controllers\FarmUser\FarmUserController::class);
-
-        $created = 0;
-        $alreadyLinked = 0;
-        $errors = 0;
-        $details = [];
-
-        foreach ($farmUsers as $farmUser) {
-            try {
-                $existingUser = User::where('role', \App\Enums\UserRole::FARM_INVITED_USER)
-                    ->where('roleId', $farmUser->id)
-                    ->first();
-
-                if ($existingUser) {
-                    $alreadyLinked++;
-                    $details[] = [
-                        'farm_user_id' => $farmUser->id,
-                        'email' => $farmUser->email,
-                        'user_id' => $existingUser->id,
-                        'username' => $existingUser->username,
-                        'status' => 'already_linked'
-                    ];
-                    continue;
-                }
-
-                if ($isDryRun) {
-                    $created++;
-                    $details[] = [
-                        'farm_user_id' => $farmUser->id,
-                        'email' => $farmUser->email,
-                        'status' => 'would_create'
-                    ];
-                    continue;
-                }
-
-                $user = $farmUserController->ensureUserAccount($farmUser, Auth::id(), null, false);
-                $created++;
-                $details[] = [
-                    'farm_user_id' => $farmUser->id,
-                    'email' => $farmUser->email,
-                    'user_id' => $user->id,
-                    'username' => $user->username,
-                    'status' => 'created'
-                ];
-            } catch (\Exception $e) {
-                $errors++;
-                $details[] = [
-                    'farm_user_id' => $farmUser->id,
-                    'email' => $farmUser->email,
-                    'status' => 'error',
-                    'message' => $e->getMessage()
-                ];
-            }
-        }
-
-        return response()->json([
-            'status' => true,
-            'message' => "Farm user backfill completed. Total: {$farmUsers->count()}, Created/Linked: {$created}, Already Linked: {$alreadyLinked}, Errors: {$errors}",
-            'data' => [
-                'total_farm_users' => $farmUsers->count(),
-                'created' => $created,
-                'already_linked' => $alreadyLinked,
-                'errors' => $errors,
-                'dry_run' => $isDryRun,
-                'details' => $details,
-            ]
-        ]);
-    }
 }

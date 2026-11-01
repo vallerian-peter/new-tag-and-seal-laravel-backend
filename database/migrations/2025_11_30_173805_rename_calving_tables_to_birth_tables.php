@@ -2,8 +2,8 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -12,8 +12,20 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            if (Schema::hasTable('calving_types') && ! Schema::hasTable('birth_types')) {
+                Schema::rename('calving_types', 'birth_types');
+            }
+
+            if (Schema::hasTable('calving_problems') && ! Schema::hasTable('birth_problems')) {
+                Schema::rename('calving_problems', 'birth_problems');
+            }
+
+            return;
+        }
+
         // Check if tables need to be renamed
-        if (Schema::hasTable('calving_types') && !Schema::hasTable('birth_types')) {
+        if (Schema::hasTable('calving_types') && ! Schema::hasTable('birth_types')) {
             // Step 1: Get actual foreign key constraint names for birth_events
             $fkNames = DB::select("
                 SELECT CONSTRAINT_NAME, COLUMN_NAME
@@ -23,7 +35,7 @@ return new class extends Migration
                 AND (COLUMN_NAME = 'calvingTypeId' OR COLUMN_NAME = 'calvingProblemsId' OR COLUMN_NAME = 'birthTypeId' OR COLUMN_NAME = 'birthProblemsId')
                 AND REFERENCED_TABLE_NAME IS NOT NULL
             ");
-            
+
             // Step 2: Drop old foreign keys by constraint name
             foreach ($fkNames as $fk) {
                 try {
@@ -32,23 +44,27 @@ return new class extends Migration
                     // Ignore if doesn't exist
                 }
             }
-            
+
             // Step 3: Rename calving_types to birth_types
             Schema::rename('calving_types', 'birth_types');
-            
+
             // Step 4: Rename calving_problems to birth_problems
             Schema::rename('calving_problems', 'birth_problems');
-            
+
             // Step 5: Re-add foreign keys pointing to renamed tables
             // Check which column names exist
-            $columns = DB::select("SHOW COLUMNS FROM birth_events");
+            $columns = DB::select('SHOW COLUMNS FROM birth_events');
             $hasCalvingTypeId = false;
             $hasBirthTypeId = false;
             foreach ($columns as $col) {
-                if ($col->Field === 'calvingTypeId') $hasCalvingTypeId = true;
-                if ($col->Field === 'birthTypeId') $hasBirthTypeId = true;
+                if ($col->Field === 'calvingTypeId') {
+                    $hasCalvingTypeId = true;
+                }
+                if ($col->Field === 'birthTypeId') {
+                    $hasBirthTypeId = true;
+                }
             }
-            
+
             Schema::table('birth_events', function (Blueprint $table) use ($hasCalvingTypeId, $hasBirthTypeId) {
                 if ($hasCalvingTypeId) {
                     $table->foreign('calvingTypeId')->references('id')->on('birth_types')->onDelete('cascade');
@@ -70,7 +86,7 @@ return new class extends Migration
                 AND (COLUMN_NAME = 'birthTypeId' OR COLUMN_NAME = 'birthProblemsId')
                 AND REFERENCED_TABLE_NAME IS NOT NULL
             ");
-            
+
             // Check if any foreign keys point to wrong tables
             $needsUpdate = false;
             foreach ($fkNames as $fk) {
@@ -79,7 +95,7 @@ return new class extends Migration
                     break;
                 }
             }
-            
+
             if ($needsUpdate) {
                 // Drop and recreate foreign keys
                 foreach ($fkNames as $fk) {
@@ -89,7 +105,7 @@ return new class extends Migration
                         // Ignore
                     }
                 }
-                
+
                 Schema::table('birth_events', function (Blueprint $table) {
                     $table->foreign('birthTypeId')->references('id')->on('birth_types')->onDelete('cascade');
                     $table->foreign('birthProblemsId')->references('id')->on('birth_problems')->onDelete('cascade');
@@ -103,6 +119,18 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            if (Schema::hasTable('birth_types') && ! Schema::hasTable('calving_types')) {
+                Schema::rename('birth_types', 'calving_types');
+            }
+
+            if (Schema::hasTable('birth_problems') && ! Schema::hasTable('calving_problems')) {
+                Schema::rename('birth_problems', 'calving_problems');
+            }
+
+            return;
+        }
+
         if (Schema::hasTable('birth_types') && Schema::hasTable('birth_problems')) {
             // Step 1: Drop foreign keys
             $fkNames = DB::select("
@@ -113,7 +141,7 @@ return new class extends Migration
                 AND (COLUMN_NAME = 'birthTypeId' OR COLUMN_NAME = 'birthProblemsId')
                 AND REFERENCED_TABLE_NAME IS NOT NULL
             ");
-            
+
             foreach ($fkNames as $fk) {
                 try {
                     DB::statement("ALTER TABLE birth_events DROP FOREIGN KEY `{$fk->CONSTRAINT_NAME}`");
@@ -121,11 +149,11 @@ return new class extends Migration
                     // Ignore
                 }
             }
-            
+
             // Step 2: Rename tables back
             Schema::rename('birth_types', 'calving_types');
             Schema::rename('birth_problems', 'calving_problems');
-            
+
             // Step 3: Re-add foreign keys pointing back to original tables
             Schema::table('birth_events', function (Blueprint $table) {
                 $table->foreign('birthTypeId')->references('id')->on('calving_types')->onDelete('cascade');

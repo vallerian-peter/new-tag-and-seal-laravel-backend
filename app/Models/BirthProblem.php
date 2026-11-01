@@ -19,4 +19,3 @@ class BirthProblem extends Model
         return $this->belongsTo(LivestockType::class, 'livestockTypeId');
     }
 }
-

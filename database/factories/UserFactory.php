@@ -2,9 +2,11 @@
 
 namespace Database\Factories;
 
+use App\Enums\UserRole;
+use App\Enums\UserStatus;
+use App\Models\SystemUser;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 /**
  * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User>
@@ -24,21 +26,35 @@ class UserFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->name(),
+            'username' => fake()->unique()->userName(),
             'email' => fake()->unique()->safeEmail(),
-            'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
-            'remember_token' => Str::random(10),
+            'role' => UserRole::SYSTEM_USER,
+            'roleId' => 0,
+            'status' => UserStatus::ACTIVE,
+            'createdBy' => null,
+            'updatedBy' => null,
         ];
     }
 
-    /**
-     * Indicate that the model's email address should be unverified.
-     */
-    public function unverified(): static
+    public function configure(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'email_verified_at' => null,
-        ]);
+        return $this->afterCreating(function ($user): void {
+            if ($user->role !== UserRole::SYSTEM_USER || $user->roleId !== 0) {
+                return;
+            }
+
+            $profile = SystemUser::create([
+                'firstName' => fake()->firstName(),
+                'middleName' => null,
+                'lastName' => fake()->lastName(),
+                'phone' => fake()->unique()->numerify('+2557########'),
+                'address' => fake()->address(),
+                'status' => UserStatus::ACTIVE,
+                'createdBy' => $user->id,
+            ]);
+
+            $user->forceFill(['roleId' => $profile->id])->save();
+        });
     }
 }

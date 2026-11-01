@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Livestock;
 
 use App\Http\Controllers\Controller;
 use App\Models\Livestock;
+use App\Models\User;
+use App\Services\LivestockLifecycleService;
 use App\Traits\ConvertsDateFormat;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,6 +15,10 @@ use Illuminate\Support\Facades\Validator;
 class LivestockController extends Controller
 {
     use ConvertsDateFormat;
+
+    public function __construct(
+        private readonly LivestockLifecycleService $lifecycleService,
+    ) {}
 
     /**
      * Display a listing of all livestock.
@@ -157,7 +163,7 @@ class LivestockController extends Controller
      * @param  int  $farmerId  The authenticated farmer's ID
      * @return array Array of synced livestock UUIDs
      */
-    public function processLivestock(array $livestock, int $farmerId): array
+    public function processLivestock(array $livestock, int $farmerId, ?User $actor = null): array
     {
         $syncedLivestock = [];
 
@@ -333,9 +339,14 @@ class LivestockController extends Controller
                         $livestock = Livestock::where('uuid', $uuid)->first();
 
                         if ($livestock) {
-                            $livestock->delete();
+                            $this->lifecycleService->archive(
+                                $livestock,
+                                $actor,
+                                'Deleted through mobile synchronization.',
+                                $this->requestAuditContext(request()),
+                            );
                             $syncedLivestock[] = ['uuid' => $uuid];
-                            Log::info("✅ Livestock deleted: {$livestock->name} (UUID: {$uuid})");
+                            Log::info("✅ Livestock archived: {$livestock->name} (UUID: {$uuid})");
                         } else {
                             // Livestock already deleted on server
                             $syncedLivestock[] = ['uuid' => $uuid];
@@ -370,173 +381,12 @@ class LivestockController extends Controller
         return $syncedLivestock;
     }
 
-    // ============================================================================
-    // Admin CRUD Methods (SystemUser-only)
-    // ============================================================================
-
-    public function adminIndex(): JsonResponse
+    private function requestAuditContext(Request $request): array
     {
-        $livestock = Livestock::with([
-            'farm',
-            'livestockType',
-            'breed',
-            'species',
-            'livestockObtainedMethod',
-            'mother',
-            'father',
-        ])
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Livestock retrieved successfully',
-            'data' => $livestock,
-        ], 200);
-    }
-
-    public function adminStore(Request $request): JsonResponse
-    {
-        $validator = Validator::make($request->all(), [
-            'farmUuid' => 'required|string|exists:farms,uuid',
-            'uuid' => 'nullable|string|unique:livestocks,uuid',
-            'identificationNumber' => 'nullable|string|max:255',
-            'dummyTagId' => 'nullable|string|max:255',
-            'barcodeTagId' => 'nullable|string|max:255',
-            'rfidTagId' => 'nullable|string|max:255',
-            'livestockTypeId' => 'nullable|integer|exists:livestock_types,id',
-            'name' => 'nullable|string|max:255',
-            'dateOfBirth' => 'nullable|date',
-            'motherUuid' => 'nullable|string|exists:livestocks,uuid',
-            'fatherUuid' => 'nullable|string|exists:livestocks,uuid',
-            'birthEventUuid' => 'nullable|string|exists:birth_events,uuid',
-            'stageId' => 'nullable|integer|exists:stages,id',
-            'isIdentified' => 'nullable|boolean',
-            'gender' => 'nullable|string|max:50',
-            'breedId' => 'nullable|integer|exists:breeds,id',
-            'speciesId' => 'nullable|integer|exists:species,id',
-            'status' => 'nullable|string|in:Alive,Active,Dead,Sold,Transferred,Slaughtered',
-            'livestockObtainedMethodId' => 'nullable|integer|exists:livestock_obtained_methods,id',
-            'dateFirstEnteredToFarm' => 'nullable|date',
-            'weightAsOnRegistration' => 'nullable|numeric',
-            'primaryColor' => 'nullable|string|max:255',
-            'secondaryColor' => 'nullable|string|max:255',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        $data = $request->only((new Livestock)->getFillable());
-        if (empty($data['uuid'])) {
-            $data['uuid'] = (string) \Illuminate\Support\Str::uuid();
-        }
-
-        $livestock = Livestock::create($data);
-
-        $livestock->load([
-            'farm',
-            'livestockType',
-            'breed',
-            'species',
-            'livestockObtainedMethod',
-            'mother',
-            'father',
-        ]);
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Livestock created successfully',
-            'data' => $livestock,
-        ], 201);
-    }
-
-    public function adminShow(Livestock $livestock): JsonResponse
-    {
-        $livestock->load([
-            'farm',
-            'livestockType',
-            'breed',
-            'species',
-            'livestockObtainedMethod',
-            'mother',
-            'father',
-        ]);
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Livestock retrieved successfully',
-            'data' => $livestock,
-        ], 200);
-    }
-
-    public function adminUpdate(Request $request, Livestock $livestock): JsonResponse
-    {
-        $validator = Validator::make($request->all(), [
-            'farmUuid' => 'sometimes|required|string|exists:farms,uuid',
-            'uuid' => 'sometimes|required|string|unique:livestocks,uuid,'.$livestock->id,
-            'identificationNumber' => 'sometimes|nullable|string|max:255',
-            'dummyTagId' => 'sometimes|nullable|string|max:255',
-            'barcodeTagId' => 'sometimes|nullable|string|max:255',
-            'rfidTagId' => 'sometimes|nullable|string|max:255',
-            'livestockTypeId' => 'sometimes|nullable|integer|exists:livestock_types,id',
-            'name' => 'sometimes|nullable|string|max:255',
-            'dateOfBirth' => 'sometimes|nullable|date',
-            'motherUuid' => 'sometimes|nullable|string|exists:livestocks,uuid',
-            'fatherUuid' => 'sometimes|nullable|string|exists:livestocks,uuid',
-            'birthEventUuid' => 'sometimes|nullable|string|exists:birth_events,uuid',
-            'stageId' => 'sometimes|nullable|integer|exists:stages,id',
-            'isIdentified' => 'sometimes|nullable|boolean',
-            'gender' => 'sometimes|nullable|string|max:50',
-            'breedId' => 'sometimes|nullable|integer|exists:breeds,id',
-            'speciesId' => 'sometimes|nullable|integer|exists:species,id',
-            'status' => 'sometimes|nullable|string|in:Alive,Active,Dead,Sold,Transferred,Slaughtered',
-            'livestockObtainedMethodId' => 'sometimes|nullable|integer|exists:livestock_obtained_methods,id',
-            'dateFirstEnteredToFarm' => 'sometimes|nullable|date',
-            'weightAsOnRegistration' => 'sometimes|nullable|numeric',
-            'primaryColor' => 'sometimes|nullable|string|max:255',
-            'secondaryColor' => 'sometimes|nullable|string|max:255',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        $livestock->fill($request->only((new Livestock)->getFillable()));
-        $livestock->save();
-
-        $livestock->load([
-            'farm',
-            'livestockType',
-            'breed',
-            'species',
-            'livestockObtainedMethod',
-            'mother',
-            'father',
-        ]);
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Livestock updated successfully',
-            'data' => $livestock,
-        ], 200);
-    }
-
-    public function adminDestroy(Livestock $livestock): JsonResponse
-    {
-        $livestock->delete();
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Livestock deleted successfully',
-        ], 200);
+        return [
+            'request_uuid' => $request->header('X-Request-ID'),
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ];
     }
 }

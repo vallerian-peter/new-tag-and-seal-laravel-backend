@@ -1327,22 +1327,13 @@ class AuthController extends Controller
      */
     private function generateFarmerNumber(): string
     {
-        $alphabet = '2346789ABCDEFGHJKLMNPQRTUVWXYZ';
-        $alphabetLastIndex = strlen($alphabet) - 1;
+        $date = now()->format('Ymd');
 
         do {
-            $randomPartFour = '';
-            $randomPartThree = '';
+            $randomPartFour = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+            $randomPartThree = str_pad((string) random_int(0, 999), 3, '0', STR_PAD_LEFT);
 
-            for ($i = 0; $i < 4; $i++) {
-                $randomPartFour .= $alphabet[random_int(0, $alphabetLastIndex)];
-            }
-
-            for ($i = 0; $i < 3; $i++) {
-                $randomPartThree .= $alphabet[random_int(0, $alphabetLastIndex)];
-            }
-
-            $farmerNumber = "FMR-{$randomPartFour}-{$randomPartThree}";
+            $farmerNumber = "FMR-{$date}-{$randomPartFour}-{$randomPartThree}";
         } while (Farmer::where('farmerNo', $farmerNumber)->exists());
 
         return $farmerNumber;

@@ -2,9 +2,9 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -13,8 +13,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (!Schema::hasTable('vaccinations')) {
+        if (! Schema::hasTable('vaccinations')) {
             Log::warning('⚠️ Table vaccinations does not exist, skipping migration...');
+
             return;
         }
 
@@ -24,7 +25,7 @@ return new class extends Migration
 
         if ($hasVaccineId) {
             // Step 1: Migrate data from vaccineId to vaccineUuid
-            if (!$hasVaccineUuid) {
+            if (! $hasVaccineUuid) {
                 // Add vaccineUuid column first
                 Schema::table('vaccinations', function (Blueprint $table) {
                     $table->string('vaccineUuid', 100)->nullable()->after('livestockUuid');
@@ -98,17 +99,14 @@ return new class extends Migration
             Log::info('✅ Dropped vaccineId column from vaccinations table');
         }
 
-        // Step 5: Add index on vaccineUuid if it doesn't exist
-        if ($hasVaccineUuid || !$hasVaccineId) {
-            $indexes = DB::select("
-                SELECT INDEX_NAME
-                FROM information_schema.STATISTICS
-                WHERE TABLE_SCHEMA = DATABASE()
-                AND TABLE_NAME = 'vaccinations'
-                AND COLUMN_NAME = 'vaccineUuid'
-            ");
+        // Step 5: Add index on vaccineUuid if it doesn't exist.
+        // Use Laravel schema inspection so fresh SQLite test databases and
+        // MySQL production databases follow the same migration path.
+        if (Schema::hasColumn('vaccinations', 'vaccineUuid')) {
+            $hasVaccineUuidIndex = collect(Schema::getIndexes('vaccinations'))
+                ->contains(fn (array $index): bool => in_array('vaccineUuid', $index['columns'], true));
 
-            if (empty($indexes)) {
+            if (! $hasVaccineUuidIndex) {
                 Schema::table('vaccinations', function (Blueprint $table) {
                     $table->index('vaccineUuid');
                 });
@@ -124,14 +122,14 @@ return new class extends Migration
      */
     public function down(): void
     {
-        if (!Schema::hasTable('vaccinations')) {
+        if (! Schema::hasTable('vaccinations')) {
             return;
         }
 
         $hasVaccineUuid = Schema::hasColumn('vaccinations', 'vaccineUuid');
         $hasVaccineId = Schema::hasColumn('vaccinations', 'vaccineId');
 
-        if ($hasVaccineUuid && !$hasVaccineId) {
+        if ($hasVaccineUuid && ! $hasVaccineId) {
             // Drop index on vaccineUuid
             try {
                 $indexes = DB::select("

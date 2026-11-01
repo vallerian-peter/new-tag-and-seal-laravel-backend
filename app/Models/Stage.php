@@ -17,4 +17,3 @@ class Stage extends Model
         return $this->belongsTo(LivestockType::class, 'livestockTypeId');
     }
 }
-

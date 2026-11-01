@@ -11,7 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('birth_problems', function (Blueprint $table) {
+        $tableName = Schema::hasTable('birth_problems') ? 'birth_problems' : 'calving_problems';
+
+        if (! Schema::hasTable($tableName) || Schema::hasColumn($tableName, 'livestockTypeId')) {
+            return;
+        }
+
+        Schema::table($tableName, function (Blueprint $table) {
             $table->foreignId('livestockTypeId')->nullable()->after('name')->constrained('livestock_types')->onDelete('set null');
         });
     }
@@ -21,10 +27,15 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('birth_problems', function (Blueprint $table) {
+        $tableName = Schema::hasTable('birth_problems') ? 'birth_problems' : 'calving_problems';
+
+        if (! Schema::hasTable($tableName) || ! Schema::hasColumn($tableName, 'livestockTypeId')) {
+            return;
+        }
+
+        Schema::table($tableName, function (Blueprint $table) {
             $table->dropForeign(['livestockTypeId']);
             $table->dropColumn('livestockTypeId');
         });
     }
 };
-

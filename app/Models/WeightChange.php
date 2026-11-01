@@ -13,14 +13,16 @@ class WeightChange extends Model
         'livestockUuid',
         'oldWeight',
         'newWeight',
-        'remarks'
+        'remarks',
     ];
 
-    public function farm() {
+    public function farm()
+    {
         return $this->belongsTo(Farm::class, 'farmUuid', 'uuid');
     }
 
-    public function livestock() {
+    public function livestock()
+    {
         return $this->belongsTo(Livestock::class, 'livestockUuid', 'uuid');
     }
 }

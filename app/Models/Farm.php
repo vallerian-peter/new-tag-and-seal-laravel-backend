@@ -11,8 +11,7 @@ class Farm extends Model
      *
      * @var array<int, string>
      */
-
-    protected $table = "farms";
+    protected $table = 'farms';
 
     protected $fillable = [
         'farmerId',

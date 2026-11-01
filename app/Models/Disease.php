@@ -8,6 +8,6 @@ class Disease extends Model
 {
     protected $fillable = [
         'name',
-        'status',//spreadable, non-spreadable
+        'status', // spreadable, non-spreadable
     ];
 }

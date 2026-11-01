@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Livestock extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'livestocks';
 
     protected $fillable = [
@@ -40,6 +43,9 @@ class Livestock extends Model
         'dateOfBirth' => 'date',
         'dateFirstEnteredToFarm' => 'date',
         'isIdentified' => 'boolean',
+        'deleted_at' => 'datetime',
+        'restored_at' => 'datetime',
+        'revision' => 'integer',
     ];
 
     /**

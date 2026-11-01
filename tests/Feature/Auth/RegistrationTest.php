@@ -11,14 +11,35 @@ class RegistrationTest extends TestCase
 
     public function test_new_users_can_register(): void
     {
-        $response = $this->post('/register', [
-            'name' => 'Test User',
+        $response = $this->postJson('/api/auth/register', [
+            'username' => 'test.admin',
             'email' => 'test@example.com',
             'password' => 'password',
-            'password_confirmation' => 'password',
+            'role' => 'systemUser',
+            'firstName' => 'Test',
+            'lastName' => 'Administrator',
+            'phone' => '+255700000001',
         ]);
 
-        $this->assertAuthenticated();
-        $response->assertNoContent();
+        $response
+            ->assertCreated()
+            ->assertJsonPath('status', true)
+            ->assertJsonPath('data.user.username', 'test.admin')
+            ->assertJsonPath('data.user.role', 'systemUser')
+            ->assertJsonStructure(['data' => ['accessToken']]);
+
+        $this->assertDatabaseHas('users', [
+            'username' => 'test.admin',
+            'email' => 'test@example.com',
+            'role' => 'systemUser',
+            'status' => 'active',
+        ]);
+
+        $this->assertDatabaseHas('system_users', [
+            'firstName' => 'Test',
+            'lastName' => 'Administrator',
+            'phone' => '+255700000001',
+            'status' => 'active',
+        ]);
     }
 }

@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class FarmUser extends Model
 {
-    protected $table = "farm_users";
+    protected $table = 'farm_users';
 
     protected $fillable = [
         'uuid',
@@ -34,6 +34,7 @@ class FarmUser extends Model
         if (empty($farmUuids)) {
             return null;
         }
+
         return $this->belongsTo(Farm::class, 'uuid', 'uuid')
             ->where('uuid', $farmUuids[0]);
     }
@@ -47,6 +48,7 @@ class FarmUser extends Model
         if (empty($farmUuids)) {
             return Farm::whereRaw('1 = 0'); // Return empty query
         }
+
         return Farm::whereIn('uuid', $farmUuids);
     }
 
@@ -57,7 +59,7 @@ class FarmUser extends Model
     public function getFarmUuidsArray(): array
     {
         $farmUuid = $this->attributes['farmUuid'] ?? null;
-        
+
         if (empty($farmUuid)) {
             return [];
         }
@@ -69,6 +71,7 @@ class FarmUser extends Model
             if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
                 return array_filter($decoded); // Remove empty values
             }
+
             // If not JSON array, treat as single UUID string
             return [$farmUuid];
         }
@@ -88,6 +91,7 @@ class FarmUser extends Model
     {
         if (empty($farmUuids)) {
             $this->attributes['farmUuid'] = null;
+
             return;
         }
 
@@ -112,7 +116,7 @@ class FarmUser extends Model
     public function addFarmUuid(string $farmUuid): void
     {
         $farmUuids = $this->getFarmUuidsArray();
-        if (!in_array($farmUuid, $farmUuids)) {
+        if (! in_array($farmUuid, $farmUuids)) {
             $farmUuids[] = $farmUuid;
             $this->setFarmUuids($farmUuids);
         }
@@ -124,7 +128,7 @@ class FarmUser extends Model
     public function removeFarmUuid(string $farmUuid): void
     {
         $farmUuids = $this->getFarmUuidsArray();
-        $farmUuids = array_filter($farmUuids, fn($uuid) => $uuid !== $farmUuid);
+        $farmUuids = array_filter($farmUuids, fn ($uuid) => $uuid !== $farmUuid);
         $this->setFarmUuids(array_values($farmUuids));
     }
 }
