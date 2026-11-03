@@ -176,4 +176,9 @@ php artisan auction:centre "Pugu Livestock Market" --code=PUGU --member=juma@exa
 php artisan auction:centre --list
 php artisan auction:officer --list
 php artisan auction:officer juma@example.com --approve --centre=PUGU
+# Plan a session from the shell until the portal screen exists
+php artisan auction:plan --centre=PUGU --officer=juma@example.com \
+    --title="Pugu market day" --at="2026-11-05 09:00" \
+    --lot=55262622:500000:10000 --lot=43562789:300000:5000:400000:90
+# each --lot is TAG:startingPrice:minIncrement[:reservePrice[:durationSeconds]]
 ```
