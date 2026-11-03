@@ -193,8 +193,9 @@ class User extends Authenticatable
             case UserRole::SYSTEM_USER:
                 return $this->belongsTo(SystemUser::class, 'roleId');
             case UserRole::EXTENSION_OFFICER:
-            case UserRole::VET:
                 return $this->belongsTo(SystemUser::class, 'roleId');
+            case UserRole::VET:
+                return $this->belongsTo(Vet::class, 'roleId');
             case UserRole::FARM_INVITED_USER:
                 return $this->belongsTo(FarmUser::class, 'roleId');
             default:
@@ -205,6 +206,40 @@ class User extends Authenticatable
     /**
      * Get role display name.
      */
+    /**
+     * Veterinarian profile attached to this account (any role may hold one).
+     */
+    public function vet()
+    {
+        return $this->hasOne(Vet::class, 'userId');
+    }
+
+    /**
+     * Minimal farmer-side contact card used by vet service requests.
+     */
+    public function farmerCard(): array
+    {
+        $profile = null;
+        try {
+            $profile = $this->profile()?->first();
+        } catch (\Throwable) {
+            $profile = null;
+        }
+
+        $name = trim(implode(' ', array_filter([
+            $profile->firstName ?? null,
+            $profile->surname ?? $profile->lastName ?? null,
+        ])));
+
+        return [
+            'userId' => $this->id,
+            'name' => $name !== '' ? $name : $this->username,
+            'phone' => $profile->phone1 ?? $profile->phone ?? $profile->phoneNumber ?? null,
+            'email' => $this->email,
+            'role' => $this->role,
+        ];
+    }
+
     public function getRoleDisplayName(): string
     {
         return UserRole::getDisplayName($this->role);

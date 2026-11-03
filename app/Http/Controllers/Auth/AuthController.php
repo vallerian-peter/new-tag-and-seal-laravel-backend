@@ -86,6 +86,18 @@ class AuthController extends Controller
             'phone'     => 'required_if:role,systemUser,extensionOfficer,vet,farmInvitedUser|string',
             'address'   => 'nullable|string',
 
+            // Vet-specific fields (verification happens later in the admin portal)
+            'medicalLicenseNo' => 'required_if:role,vet|nullable|string|max:100',
+            'licenseAuthority' => 'nullable|string|max:255',
+            'licenseExpiryDate' => 'nullable|date',
+            'specializations' => 'nullable|array',
+            'specializations.*' => 'string|max:50',
+            'yearsOfExperience' => 'nullable|integer|min:0|max:60',
+            'clinicName' => 'nullable|string|max:255',
+            'serviceRadiusKm' => 'nullable|integer|min:5|max:150',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
+
             // FarmUser-specific fields (for farmInvitedUser)
             'farmUuid'  => 'required_if:role,farmInvitedUser|string',
             'roleTitle' => [
@@ -167,6 +179,11 @@ class AuthController extends Controller
                 'createdBy' => $request->createdBy ?? null,
                 'updatedBy' => $request->updatedBy ?? null,
             ]);
+
+            // Link the veterinarian profile back to its account
+            if ($request->role === UserRole::VET && $profileRecord instanceof \App\Models\Vet) {
+                $profileRecord->update(['userId' => $user->id]);
+            }
 
             // If this is a farm invited user, send invitation SMS with credentials
             if ($request->role === UserRole::FARM_INVITED_USER && $profileRecord instanceof FarmUser) {
@@ -346,6 +363,14 @@ class AuthController extends Controller
                     'message' => 'Your farm user account has been deactivated. Please contact support.'
                 ], 403);
             }
+        } elseif ($user->role === UserRole::VET && $profileData instanceof \App\Models\Vet) {
+            if ($profileData->status !== 'active') {
+                Log::warning("❌ Vet profile is not active for user ID: {$user->id}, Vet ID: {$profileData->id}");
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Your veterinarian account has been deactivated. Please contact support.'
+                ], 403);
+            }
         } elseif (in_array($user->role, [UserRole::SYSTEM_USER, UserRole::EXTENSION_OFFICER, UserRole::VET]) && $profileData instanceof SystemUser) {
             if ($profileData->status !== 'active') {
                 Log::warning("❌ SystemUser profile is not active for user ID: {$user->id}, SystemUser ID: {$profileData->id}, Status: {$profileData->status}");
@@ -371,6 +396,9 @@ class AuthController extends Controller
             $surname = $profileData->lastName ?? '';
             // FarmUser uses phone instead of phone1
             $phone1 = $profileData->phone ?? '';
+        } elseif ($user->role === UserRole::VET && $profileData instanceof \App\Models\Vet) {
+            $surname = $profileData->lastName ?? '';
+            $phone1 = $profileData->phoneNumber ?? '';
         } elseif (in_array($user->role, [UserRole::SYSTEM_USER, UserRole::EXTENSION_OFFICER, UserRole::VET]) && $profileData instanceof SystemUser) {
             // SystemUser uses lastName instead of surname
             $surname = $profileData->lastName ?? '';
@@ -1268,9 +1296,36 @@ class AuthController extends Controller
                     'status' => 'active',
                 ]);
 
+            case UserRole::VET:
+                return \App\Models\Vet::create([
+                    'uuid' => (string) Str::uuid(),
+                    'referenceNo' => 'VET-' . strtoupper(Str::random(6)),
+                    'fullName' => trim(implode(' ', array_filter([$request->firstName, $request->middleName, $request->lastName]))),
+                    'phoneNumber' => $request->phone,
+                    'email' => $request->email,
+                    'address' => $request->address,
+                    'medicalLicenseNo' => $request->medicalLicenseNo,
+                    'licenseAuthority' => $request->licenseAuthority,
+                    'licenseExpiryDate' => $request->licenseExpiryDate,
+                    'specializations' => $request->specializations ?: null,
+                    'yearsOfExperience' => $request->yearsOfExperience,
+                    'clinicName' => $request->clinicName,
+                    'countryId' => $request->countryId,
+                    'regionId' => $request->regionId,
+                    'districtId' => $request->districtId,
+                    'gender' => $request->gender,
+                    'dateOfBirth' => $request->dateOfBirth,
+                    'serviceRadiusKm' => $request->serviceRadiusKm ?? 30,
+                    'latitude' => $request->latitude,
+                    'longitude' => $request->longitude,
+                    'locationUpdatedAt' => $request->filled('latitude') ? now() : null,
+                    'isAvailable' => false,
+                    'verificationStatus' => \App\Enums\VetVerificationStatus::PENDING,
+                    'status' => 'active',
+                ]);
+
             case UserRole::SYSTEM_USER:
             case UserRole::EXTENSION_OFFICER:
-            case UserRole::VET:
                 return SystemUser::create([
                     'firstName' => $request->firstName,
                     'middleName' => $request->middleName,
@@ -1309,9 +1364,11 @@ class AuthController extends Controller
             case UserRole::FARMER:
                 return Farmer::find($user->roleId);
 
+            case UserRole::VET:
+                return \App\Models\Vet::find($user->roleId);
+
             case UserRole::SYSTEM_USER:
             case UserRole::EXTENSION_OFFICER:
-            case UserRole::VET:
                 return SystemUser::find($user->roleId);
 
             case UserRole::FARM_INVITED_USER:

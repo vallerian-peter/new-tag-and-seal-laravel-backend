@@ -20,6 +20,10 @@ class Treatment extends Model
         'medicationDate',
         'nextMedicationDate',
         'remarks',
+        'vetId',
+        'serviceRequestUuid',
+        'created_at',
+        'updated_at',
     ];
 
     public function farm()
@@ -40,5 +44,10 @@ class Treatment extends Model
     public function medicine()
     {
         return $this->belongsTo(Medicines::class, 'medicineId', 'id');
+    }
+
+    public function vet()
+    {
+        return $this->belongsTo(Vet::class, 'vetId', 'id');
     }
 }

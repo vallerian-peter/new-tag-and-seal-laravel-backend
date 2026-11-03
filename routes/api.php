@@ -2,6 +2,8 @@
 
 use App\Enums\UserRole;
 use App\Http\Controllers\AdministrationRoute\AdministrationRouteController;
+use App\Http\Controllers\Auction\AuctionLotController;
+use App\Http\Controllers\Auction\AuctionSessionController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\BirthProblem\BirthProblemController;
 use App\Http\Controllers\BirthType\BirthTypeController;
@@ -59,10 +61,14 @@ use App\Http\Controllers\TailDockingMethod\TailDockingMethodController;
 use App\Http\Controllers\TeethClippingMethod\TeethClippingMethodController;
 use App\Http\Controllers\TestResult\TestResultController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\VetServices\VetProfileController;
+use App\Http\Controllers\VetServices\VetServiceMessageController;
+use App\Http\Controllers\VetServices\VetServiceRequestController;
 use App\Http\Controllers\Vaccine\VaccineController;
 use App\Http\Controllers\Vaccine\VaccineTypeController;
 use App\Http\Controllers\Vet\VetController;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -120,6 +126,9 @@ Route::prefix('v1')->group(function () {
 |--------------------------------------------------------------------------
 */
 Route::middleware('auth:sanctum')->group(function () {
+    // Reverb / Pusher-protocol channel authorisation (presence channels)
+    Broadcast::routes();
+
 
     /*
     |--------------------------------------------------------------------------
@@ -507,6 +516,9 @@ Route::middleware('auth:sanctum')->group(function () {
                     Route::post('vets', [VetController::class, 'adminStore']);
                     Route::get('vets/{vet}', [VetController::class, 'adminShow']);
                     Route::put('vets/{vet}', [VetController::class, 'adminUpdate']);
+                    Route::post('vets/{vet}/verify', [VetController::class, 'adminVerify']);
+                    Route::get('vets/{vet}/license-document', [VetController::class, 'adminLicenseDocument']);
+                    Route::get('vet-service-requests', [VetController::class, 'adminRequests']);
                     Route::delete('vets/{vet}', [VetController::class, 'adminDestroy']);
 
                     // Vaccines
@@ -666,8 +678,89 @@ Route::middleware('auth:sanctum')->group(function () {
         });
 
         // Veterinarian Routes
-        Route::prefix('vets')->middleware('check.role:'.UserRole::VET.','.UserRole::SYSTEM_USER)->group(function () {
-            // Vet-specific routes can be added here
+        /*
+        |--------------------------------------------------------------------------
+        | Live Livestock Auctions ("Mnada wa Mifugo Mubashara")
+        |--------------------------------------------------------------------------
+        | Media runs on LiveKit; bids, lots, chat and presence are broadcast over
+        | Reverb (presence channel auction.{uuid}). Sessions are hosted by farmers
+        | or system users; any signed-in account can watch and bid.
+        */
+        Route::prefix('auctions')->group(function () {
+            Route::get('realtime-config', [AuctionSessionController::class, 'realtimeConfig']);
+            Route::get('holds', [AuctionLotController::class, 'holds']);
+            Route::get('my-bids', [AuctionLotController::class, 'myBids']);
+            Route::get('purchases', [AuctionSessionController::class, 'purchases']);
+            Route::get('sales', [AuctionSessionController::class, 'sales']);
+            Route::post('sales/{uuid}/mark-paid', [AuctionSessionController::class, 'markPaid']);
+
+            Route::get('sessions', [AuctionSessionController::class, 'index']);
+            Route::post('sessions', [AuctionSessionController::class, 'store'])->middleware('throttle:10,1');
+            Route::get('sessions/{uuid}', [AuctionSessionController::class, 'show']);
+            Route::put('sessions/{uuid}', [AuctionSessionController::class, 'update']);
+            Route::post('sessions/{uuid}/cancel', [AuctionSessionController::class, 'cancel']);
+            Route::post('sessions/{uuid}/start', [AuctionSessionController::class, 'start']);
+            Route::post('sessions/{uuid}/join', [AuctionSessionController::class, 'join']);
+            Route::post('sessions/{uuid}/heartbeat', [AuctionSessionController::class, 'heartbeat']);
+            Route::post('sessions/{uuid}/leave', [AuctionSessionController::class, 'leave']);
+            Route::post('sessions/{uuid}/end', [AuctionSessionController::class, 'end']);
+            Route::get('sessions/{uuid}/state', [AuctionSessionController::class, 'state']);
+            Route::post('sessions/{uuid}/chat', [AuctionSessionController::class, 'chat'])->middleware('throttle:60,1');
+            Route::get('sessions/{uuid}/events', [AuctionSessionController::class, 'events']);
+            Route::post('sessions/{uuid}/lots', [AuctionLotController::class, 'store']);
+
+            Route::put('lots/{uuid}', [AuctionLotController::class, 'update']);
+            Route::delete('lots/{uuid}', [AuctionLotController::class, 'destroy']);
+            Route::post('lots/{uuid}/open', [AuctionLotController::class, 'open']);
+            Route::post('lots/{uuid}/close', [AuctionLotController::class, 'close']);
+            Route::post('lots/{uuid}/bid', [AuctionLotController::class, 'bid'])->middleware('throttle:120,1');
+            Route::get('lots/{uuid}/bids', [AuctionLotController::class, 'bids']);
+        });
+
+        /*
+        |--------------------------------------------------------------------------
+        | On-demand Veterinary Services ("Bolt ya Madaktari wa Mifugo")
+        |--------------------------------------------------------------------------
+        | Open to every authenticated role: farmers/farm users raise requests, any
+        | account may apply to become a vet, vets act on requests. Fine-grained
+        | authorisation lives in VetServiceRequestService.
+        */
+        Route::prefix('vet-services')->group(function () {
+            // Vet profile (self-service)
+            Route::post('vets/apply', [VetProfileController::class, 'apply']);
+            Route::get('vets/me', [VetProfileController::class, 'me']);
+            Route::put('vets/me', [VetProfileController::class, 'update']);
+            Route::post('vets/me/availability', [VetProfileController::class, 'setAvailability']);
+            Route::post('vets/me/location', [VetProfileController::class, 'updateLocation']);
+            Route::post('vets/me/license-document', [VetProfileController::class, 'uploadLicenseDocument']);
+            Route::get('vets/me/inbox', [VetServiceRequestController::class, 'inbox']);
+            Route::get('vets/me/jobs', [VetServiceRequestController::class, 'jobs']);
+
+            // Farmer-facing vet discovery
+            Route::get('vets/nearby', [VetProfileController::class, 'nearby']);
+            Route::get('vets/{uuid}', [VetProfileController::class, 'show']);
+
+            // Requests
+            Route::get('requests', [VetServiceRequestController::class, 'index']);
+            Route::post('requests', [VetServiceRequestController::class, 'store']);
+            Route::get('requests/feed', [VetServiceRequestController::class, 'feed']);
+            Route::get('requests/{uuid}', [VetServiceRequestController::class, 'show']);
+            Route::get('requests/{uuid}/events', [VetServiceRequestController::class, 'events']);
+            Route::post('requests/{uuid}/cancel', [VetServiceRequestController::class, 'cancel']);
+            Route::post('requests/{uuid}/retry-dispatch', [VetServiceRequestController::class, 'retryDispatch']);
+            Route::post('requests/{uuid}/rate', [VetServiceRequestController::class, 'rate']);
+
+            // Vet actions on a request
+            Route::post('requests/{uuid}/accept', [VetServiceRequestController::class, 'accept']);
+            Route::post('requests/{uuid}/decline', [VetServiceRequestController::class, 'decline']);
+            Route::post('requests/{uuid}/withdraw', [VetServiceRequestController::class, 'withdraw']);
+            Route::post('requests/{uuid}/advance', [VetServiceRequestController::class, 'advance']);
+            Route::post('requests/{uuid}/treatment', [VetServiceRequestController::class, 'recordTreatment']);
+
+            // Messaging
+            Route::get('requests/{uuid}/messages', [VetServiceMessageController::class, 'index']);
+            Route::post('requests/{uuid}/messages', [VetServiceMessageController::class, 'store']);
+            Route::post('requests/{uuid}/messages/read', [VetServiceMessageController::class, 'markRead']);
         });
 
         /*
