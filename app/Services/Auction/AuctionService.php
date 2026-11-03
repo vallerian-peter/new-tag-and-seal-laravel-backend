@@ -131,6 +131,7 @@ class AuctionService
                 'hostUserId' => $host->id,
                 'centreId' => $centre?->id,
                 'createdBy' => $actor->id !== $host->id ? $actor->id : null,
+                'mode' => in_array($data['mode'] ?? 'live', ['live', 'physical'], true) ? ($data['mode'] ?? 'live') : 'live',
                 'title' => $data['title'],
                 'description' => $data['description'] ?? null,
                 'status' => Session::SCHEDULED,
@@ -170,6 +171,7 @@ class AuctionService
             'scheduledAt' => $data['scheduledAt'] ?? null,
             'paymentInstructions' => $data['paymentInstructions'] ?? null,
             'currency' => $data['currency'] ?? null,
+            'mode' => in_array($data['mode'] ?? null, ['live', 'physical'], true) ? $data['mode'] : null,
         ], fn ($v) => $v !== null));
         if (isset($data['settings'])) {
             $session->settings = array_merge($session->config(), $data['settings']);
@@ -213,7 +215,7 @@ class AuctionService
         if ($session->lots()->count() === 0) {
             throw new AuctionException('Add at least one animal before going live.', 422, 'NO_LOTS');
         }
-        if (! $this->livekit->configured()) {
+        if (! $session->isPhysical() && ! $this->livekit->configured()) {
             throw new AuctionException('Live video is not configured on the server yet.', 503, 'LIVE_NOT_CONFIGURED');
         }
 
@@ -230,7 +232,7 @@ class AuctionService
         $this->upsertParticipant($session, $host, 'host');
 
         if (! $wasLive) {
-            if ($this->livekit->egress('ListEgress', ['room_name' => $session->uuid]) !== null) {
+            if (! $session->isPhysical() && $this->livekit->egress('ListEgress', ['room_name' => $session->uuid]) !== null) {
                 $egressId = $this->livekit->startRoomRecording($session->uuid, "auction-{$session->uuid}.mp4");
                 if ($egressId) {
                     $session->update(['egressId' => $egressId, 'recordingStatus' => 'recording']);
@@ -437,7 +439,7 @@ class AuctionService
             $locked->update([
                 'status' => Lot::LIVE,
                 'openedAt' => now(),
-                'closesAt' => now()->addSeconds($locked->durationSeconds),
+                'closesAt' => $session->isPhysical() ? null : now()->addSeconds($locked->durationSeconds),
                 'currentPrice' => 0,
                 'bidCount' => 0,
                 'version' => $locked->version + 1,
@@ -476,6 +478,9 @@ class AuctionService
         $session = $lot->session;
         if ($session->isHost($bidder->id)) {
             throw new AuctionException('The auctioneer cannot bid on their own animals.', 403, 'HOST_CANNOT_BID');
+        }
+        if ($session->isPhysical()) {
+            throw new AuctionException('This is an in-person auction. The auctioneer records the sale at the ring.', 409, 'PHYSICAL_SESSION');
         }
         $participant = AuctionParticipant::where('sessionId', $session->id)->where('userId', $bidder->id)->first();
         if (! $participant) {
@@ -772,18 +777,287 @@ class AuctionService
         });
     }
 
+    // ------------------------------------------------------------------
+    // Weighing & in-person sales (ported from Shamba Bora instant auctions)
+    // ------------------------------------------------------------------
+
+    /**
+     * A transient reading from the auctioneer's scale. Nothing is stored; it
+     * is broadcast so every viewer watches the needle settle in real time.
+     */
+    public function recordWeightReading(User $host, AuctionLot $lot, float $kg, bool $stable, string $unit = 'kg', ?string $deviceName = null): void
+    {
+        $session = $lot->session;
+        $this->assertHost($host, $session);
+        if (! $session->isLive()) {
+            throw new AuctionException('Start the session before weighing.', 409, 'SESSION_NOT_LIVE');
+        }
+        if (! in_array($lot->status, [Lot::QUEUED, Lot::LIVE], true)) {
+            throw new AuctionException('This lot has already closed.', 409, 'LOT_CLOSED');
+        }
+        $this->emit(new AuctionRoomEvent($session->uuid, 'lot_weight_reading', [
+            'lotUuid' => $lot->uuid,
+            'kg' => round($kg, 2),
+            'unit' => $unit,
+            'stable' => $stable,
+            'deviceName' => $deviceName,
+        ]));
+    }
+
+    /** Locks the captured weight on the lot and tells the room. */
+    public function lockWeight(User $host, AuctionLot $lot, array $data): AuctionLot
+    {
+        $session = $lot->session;
+        $this->assertHost($host, $session);
+        if (in_array($lot->status, [Lot::SOLD, Lot::CANCELLED], true)) {
+            throw new AuctionException('This lot has already closed.', 409, 'LOT_CLOSED');
+        }
+        $kg = round((float) ($data['kg'] ?? 0), 2);
+        if ($kg <= 0) {
+            throw new AuctionException('Weight must be greater than zero.', 422, 'WEIGHT_REQUIRED');
+        }
+        $lot->update($this->weightAttributes($host, $kg, $data, $lot->version));
+        $lot->refresh();
+        $this->event($session, 'lot_weighed', $host->id, $lot->id, [
+            'kg' => $kg,
+            'stable' => (bool) $lot->weightStable,
+            'source' => $lot->weightSource,
+            'deviceName' => $lot->weightDeviceName,
+        ]);
+        $this->emit(new AuctionRoomEvent($session->uuid, 'lot_weight', [
+            'lotUuid' => $lot->uuid,
+            'weight' => $lot->weightWire(),
+            'pricePerKg' => $lot->pricePerKg(),
+            'version' => $lot->version,
+        ]));
+
+        return $lot;
+    }
+
+    private function weightAttributes(User $by, float $kg, array $data, int $currentVersion = 0): array
+    {
+        return [
+            'weightKg' => $kg,
+            'weightUnit' => $data['unit'] ?? 'kg',
+            'weightStable' => (bool) ($data['stable'] ?? false),
+            'weightSource' => ($data['source'] ?? 'scale') === 'manual' ? 'manual' : 'scale',
+            'weightDeviceName' => $data['deviceName'] ?? null,
+            'weighedAt' => now(),
+            'weighedBy' => $by->id,
+            'version' => $currentVersion + 1,
+        ];
+    }
+
+    /**
+     * Market-day sale recorded at the ring by the auctioneer: the buyer may
+     * be a walk-in with no account. Produces the receipt and the SMS to both
+     * the farmer and the buyer.
+     *
+     * @return array{lot: AuctionLot, sale: AuctionSale}
+     */
+    public function recordPhysicalSale(User $host, AuctionLot $lot, array $data): array
+    {
+        $session = $lot->session;
+        $this->assertHost($host, $session);
+        if (! $session->isPhysical()) {
+            throw new AuctionException('This auction sells through live bidding.', 409, 'NOT_PHYSICAL');
+        }
+        if (! $session->isLive()) {
+            throw new AuctionException('Begin the market day before recording sales.', 409, 'SESSION_NOT_LIVE');
+        }
+        $amount = round((float) ($data['amount'] ?? 0), 2);
+        if ($amount <= 0) {
+            throw new AuctionException('Enter the price the animal sold for.', 422, 'AMOUNT_REQUIRED');
+        }
+        $buyerUser = ! empty($data['buyerUserId']) ? User::find((int) $data['buyerUserId']) : null;
+        $paid = (bool) ($data['paid'] ?? true);
+        $cfg = $session->config();
+
+        $result = DB::transaction(function () use ($session, $lot, $host, $data, $amount, $buyerUser, $paid, $cfg) {
+            $locked = AuctionLot::whereKey($lot->id)->lockForUpdate()->first();
+            if (! in_array($locked->status, [Lot::QUEUED, Lot::LIVE], true)) {
+                throw new AuctionException('This lot has already closed.', 409, 'LOT_CLOSED');
+            }
+            $attrs = [
+                'status' => Lot::SOLD,
+                'closedAt' => now(),
+                'currentPrice' => $amount,
+                'winnerUserId' => $buyerUser?->id,
+                'version' => $locked->version + 1,
+            ];
+            if (! empty($data['weightKg']) && (float) $data['weightKg'] > 0) {
+                $attrs = array_merge($attrs, $this->weightAttributes($host, round((float) $data['weightKg'], 2), [
+                    'unit' => $data['weightUnit'] ?? 'kg',
+                    'stable' => $data['weightStable'] ?? false,
+                    'source' => $data['weightSource'] ?? 'scale',
+                    'deviceName' => $data['weightDeviceName'] ?? null,
+                ], $locked->version));
+            }
+            $locked->update($attrs);
+            $locked->refresh();
+
+            $sale = AuctionSale::create([
+                'uuid' => (string) Str::uuid(),
+                'receiptNo' => self::receiptNo(),
+                'lotId' => $locked->id,
+                'sessionId' => $session->id,
+                'buyerUserId' => $buyerUser?->id,
+                'buyerName' => trim((string) ($data['buyerName'] ?? '')) ?: ($buyerUser?->farmerCard()['name'] ?? null),
+                'buyerPhone' => $data['buyerPhone'] ?? ($buyerUser?->farmerCard()['phone'] ?? null),
+                'sellerUserId' => $locked->sellerUserId ?: $session->hostUserId,
+                'livestockUuid' => $locked->livestockUuid,
+                'amount' => $amount,
+                'weightKg' => $locked->weightKg,
+                'pricePerKg' => $locked->pricePerKg($amount),
+                'currency' => $session->currency,
+                'status' => $paid ? 'paid' : 'awaiting_payment',
+                'channel' => 'physical',
+                'paymentInstructions' => $session->paymentInstructions,
+                'paymentDeadlineAt' => $paid ? null : now()->addHours((int) $cfg['paymentWindowHours']),
+                'paidAt' => $paid ? now() : null,
+                'confirmedByUserId' => $paid ? $host->id : null,
+                'recordedByUserId' => $host->id,
+            ]);
+            $this->holds->consume(LivestockSaleHold::CHANNEL_AUCTION, $locked->uuid);
+            AuctionSession::whereKey($session->id)->update([
+                'soldCount' => DB::raw('soldCount + 1'),
+                'grossSales' => DB::raw('grossSales + '.$amount),
+            ]);
+            $this->event($session, 'lot_sold', $host->id, $locked->id, [
+                'reason' => 'physical',
+                'amount' => $amount,
+                'buyerName' => $sale->buyerName,
+                'weightKg' => $locked->weightKg,
+                'receiptNo' => $sale->receiptNo,
+            ]);
+
+            DB::afterCommit(function () use ($session, $locked, $sale, $amount, $buyerUser) {
+                $this->emit(new AuctionRoomEvent($session->uuid, 'lot_closed', [
+                    'lotUuid' => $locked->uuid,
+                    'status' => Lot::SOLD,
+                    'sold' => true,
+                    'reason' => 'physical',
+                    'amount' => $amount,
+                    'bidderNumber' => null,
+                    'winnerUserId' => $buyerUser?->id,
+                    'saleUuid' => $sale->uuid,
+                    'weight' => $locked->weightWire(),
+                    'version' => $locked->version,
+                ]));
+                $this->notifySeller($session, $locked, $sale);
+                $this->notifyPhysicalBuyer($session, $locked, $sale);
+            });
+
+            return ['lot' => $locked, 'sale' => $sale];
+        });
+
+        return $result;
+    }
+
+    /** The animal did not sell at the ring: release it for another day. */
+    public function passLot(User $host, AuctionLot $lot, ?string $reason = null): AuctionLot
+    {
+        $session = $lot->session;
+        $this->assertHost($host, $session);
+        if (! in_array($lot->status, [Lot::QUEUED, Lot::LIVE], true)) {
+            throw new AuctionException('This lot has already closed.', 409, 'LOT_CLOSED');
+        }
+
+        return DB::transaction(function () use ($session, $lot, $host, $reason) {
+            $locked = AuctionLot::whereKey($lot->id)->lockForUpdate()->first();
+            if (! in_array($locked->status, [Lot::QUEUED, Lot::LIVE], true)) {
+                throw new AuctionException('This lot has already closed.', 409, 'LOT_CLOSED');
+            }
+            $locked->update(['status' => Lot::UNSOLD, 'closedAt' => now(), 'version' => $locked->version + 1]);
+            $this->holds->release(LivestockSaleHold::CHANNEL_AUCTION, $locked->uuid);
+            $this->event($session, 'lot_unsold', $host->id, $locked->id, ['reason' => $reason ?: 'passed']);
+            DB::afterCommit(fn () => $this->emit(new AuctionRoomEvent($session->uuid, 'lot_closed', [
+                'lotUuid' => $locked->uuid,
+                'status' => Lot::UNSOLD,
+                'sold' => false,
+                'reason' => $reason ?: 'passed',
+                'amount' => null,
+                'bidderNumber' => null,
+                'winnerUserId' => null,
+                'saleUuid' => null,
+                'version' => $locked->version,
+            ])));
+
+            return $locked->refresh();
+        });
+    }
+
+    /** Everything printed on a receipt. Buyer, seller, auctioneer and admins may read it. */
+    public function receipt(User $viewer, AuctionSale $sale): array
+    {
+        $sale->load(['lot', 'session.centre', 'session.host', 'buyer', 'seller']);
+        $session = $sale->session;
+        $allowed = $viewer->role === UserRole::SYSTEM_USER
+            || ($sale->buyerUserId !== null && (int) $sale->buyerUserId === (int) $viewer->id)
+            || (int) $sale->sellerUserId === (int) $viewer->id
+            || (int) ($sale->recordedByUserId ?? 0) === (int) $viewer->id
+            || ($session !== null && $session->isHost($viewer->id));
+        if (! $allowed) {
+            throw new AuctionException('You cannot view this receipt.', 403, 'FORBIDDEN');
+        }
+        $lot = $sale->lot;
+
+        return array_merge($sale->toWire($viewer->id, true), [
+            'buyerName' => $sale->buyerName ?: ($sale->buyer?->farmerCard()['name'] ?? null),
+            'buyerPhone' => $sale->buyerPhone ?: ($sale->buyer?->farmerCard()['phone'] ?? null),
+            'sellerName' => $lot?->sellerCard['name'] ?? $sale->seller?->farmerCard()['name'] ?? null,
+            'sellerFarm' => $lot?->sellerCard['farmName'] ?? null,
+            'sellerPhone' => $lot?->sellerCard['phone'] ?? $sale->seller?->farmerCard()['phone'] ?? null,
+            'weight' => $lot?->weightWire(),
+            'centre' => $session?->centre?->summary(),
+            'officer' => $session?->host?->farmerCard()['name'] ?? null,
+            'session' => $session ? [
+                'uuid' => $session->uuid,
+                'title' => $session->title,
+                'mode' => $session->mode ?? 'live',
+                'scheduledAt' => $session->scheduledAt?->toIso8601String(),
+            ] : null,
+        ]);
+    }
+
+    public static function receiptNo(): string
+    {
+        do {
+            $no = 'TS-'.now()->format('Ymd').'-'.strtoupper(Str::random(5));
+        } while (AuctionSale::where('receiptNo', $no)->exists());
+
+        return $no;
+    }
+
+    private function notifyPhysicalBuyer(AuctionSession $session, AuctionLot $lot, AuctionSale $sale): void
+    {
+        $phone = $sale->buyerPhone;
+        if (! $phone) {
+            return;
+        }
+        $animal = $lot->livestockSnapshot['name'] ?? $lot->livestockSnapshot['identificationNumber'] ?? $lot->title;
+        $amount = number_format((float) $sale->amount, 0).' '.$sale->currency;
+        $weight = $lot->weightKg ? ' '.number_format((float) $lot->weightKg, 1).' kg' : '';
+        $venue = $session->centre?->name ?? $session->title;
+        $msg = "Tag & Seal receipt {$sale->receiptNo}: {$animal} (Lot {$lot->lotNumber}){$weight} for {$amount} at {$venue}. "
+            .($sale->status === 'paid' ? 'Paid. ' : 'Payment pending. ')
+            .'Asante.';
+        SendVetServiceSms::dispatchAfterResponse([$phone], $msg);
+    }
+
     private function joinPayload(AuctionSession $session, User $user, bool $isHost): array
     {
         $name = $isHost ? ($user->farmerCard()['name'] ?? $user->username) : 'Bidder';
-        $token = $this->livekit->configured()
+        $mediaOn = ! $session->isPhysical() && $this->livekit->configured();
+        $token = $mediaOn
             ? $this->livekit->token($session->uuid, 'user-'.$user->id, $name, $isHost)
             : null;
 
         return array_merge($this->state($user, $session), [
             'livekit' => [
-                'url' => $this->livekit->url(),
+                'url' => $mediaOn ? $this->livekit->url() : null,
                 'token' => $token,
-                'configured' => $this->livekit->configured(),
+                'configured' => $mediaOn,
                 'iceServers' => $this->livekit->iceServers(),
             ],
         ]);

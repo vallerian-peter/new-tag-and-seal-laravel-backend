@@ -156,6 +156,27 @@ Common error codes: `CENTRE_NOT_FOUND`, `OFFICER_REQUIRED`, `OFFICER_NOT_ELIGIBL
 (animal is locked by another auction or marketplace listing), `DUPLICATE_LOT`,
 `NOT_EDITABLE` (session no longer scheduled), `LOT_NOT_EDITABLE`.
 
+## Physical auctions (market day) and weighing
+
+A session has a `mode`: `live` (video + online bidding) or `physical` (in-person
+market day, ported from the Shamba Bora instant-auction app). Pass `mode` when
+planning. A physical session needs no media server: the officer presses Begin,
+weighs each animal on the Bluetooth scale, records the buyer and price, and the
+app prints the receipt. Online bidding is refused on physical sessions.
+
+Lot objects carry `weight` (`{ kg, unit, stable, source: scale|manual, deviceName, at }`)
+and `pricePerKg` once weighed. Sales carry `receiptNo` (`TS-YYYYMMDD-XXXXX`),
+`channel`, `buyerName`, `buyerPhone`, `weightKg` and `pricePerKg`.
+
+App-side endpoints under `/api/v1/auctions` (auctioneer only):
+
+- `POST lots/{uuid}/weight-reading` `{kg, stable?}` — live needle, broadcast to viewers, not stored
+- `POST lots/{uuid}/weight` `{kg, stable?, source?, deviceName?}` — locks the weight
+- `POST lots/{uuid}/physical-sale` `{amount, buyerName, buyerPhone?, paid?, weightKg?}` — records the sale, returns the receipt
+- `POST lots/{uuid}/pass` — unsold at the ring
+- `GET sales/{uuidOrReceiptNo}/receipt` — receipt data (buyer, seller, officer, centre)
+- `GET records?range=week|month|year&centreUuid=&q=` — sales with a period graph of weight and money
+
 ## App-side endpoints (for reference)
 
 Under `/api/v1/auctions`, any signed-in account:

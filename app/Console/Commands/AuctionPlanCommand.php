@@ -28,6 +28,7 @@ class AuctionPlanCommand extends Command
         {--officer= : Officer email, username or officer number to assign}
         {--title= : Session title}
         {--at= : Scheduled date/time, e.g. "2026-11-05 09:00" (default: now)}
+        {--mode=live : live (video + online bidding) or physical (market day: weigh, sell, receipt)}
         {--payment= : Payment instructions shown to winners}
         {--lot=* : TAG:startingPrice:minIncrement[:reservePrice[:durationSeconds]]}';
 
@@ -95,6 +96,7 @@ class AuctionPlanCommand extends Command
                 'centreUuid' => $centre->uuid,
                 'hostUserId' => $officer->userId,
                 'title' => $this->option('title') ?: "{$centre->name} auction",
+                'mode' => $this->option('mode') === 'physical' ? 'physical' : 'live',
                 'scheduledAt' => $this->option('at') ? Carbon::parse($this->option('at')) : now(),
                 'paymentInstructions' => $this->option('payment'),
                 'lots' => $lots,

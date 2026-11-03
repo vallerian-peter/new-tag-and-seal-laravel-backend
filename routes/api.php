@@ -734,6 +734,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('my-bids', [AuctionLotController::class, 'myBids']);
             Route::get('purchases', [AuctionSessionController::class, 'purchases']);
             Route::get('sales', [AuctionSessionController::class, 'sales']);
+            Route::get('sales/{uuid}/receipt', [AuctionSessionController::class, 'receipt']);
+            Route::get('records', [AuctionSessionController::class, 'records']);
             Route::post('sales/{uuid}/mark-paid', [AuctionSessionController::class, 'markPaid']);
 
             Route::get('sessions', [AuctionSessionController::class, 'index']);
@@ -756,6 +758,10 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('lots/{uuid}/open', [AuctionLotController::class, 'open']);
             Route::post('lots/{uuid}/close', [AuctionLotController::class, 'close']);
             Route::post('lots/{uuid}/bid', [AuctionLotController::class, 'bid'])->middleware('throttle:120,1');
+            Route::post('lots/{uuid}/weight-reading', [AuctionLotController::class, 'weightReading'])->middleware('throttle:600,1');
+            Route::post('lots/{uuid}/weight', [AuctionLotController::class, 'lockWeight']);
+            Route::post('lots/{uuid}/physical-sale', [AuctionLotController::class, 'physicalSale']);
+            Route::post('lots/{uuid}/pass', [AuctionLotController::class, 'pass']);
             Route::get('lots/{uuid}/bids', [AuctionLotController::class, 'bids']);
         });
 

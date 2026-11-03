@@ -121,6 +121,96 @@ class AuctionLotController extends Controller
         });
     }
 
+    /** POST auctions/lots/{uuid}/weight-reading {kg, stable?, unit?, deviceName?} — live needle, not stored. */
+    public function weightReading(Request $request, string $uuid): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'kg' => 'required|numeric|min:0|max:10000',
+            'stable' => 'nullable|boolean',
+            'unit' => 'nullable|string|max:8',
+            'deviceName' => 'nullable|string|max:100',
+        ]);
+        if ($validator->fails()) {
+            return $this->fail('Validation failed', 422, 'VALIDATION', $validator->errors());
+        }
+
+        return $this->guard(function () use ($request, $uuid) {
+            $this->service->recordWeightReading(
+                $request->user(),
+                $this->find($uuid),
+                (float) $request->input('kg'),
+                (bool) $request->boolean('stable'),
+                (string) $request->input('unit', 'kg'),
+                $request->input('deviceName'),
+            );
+
+            return $this->ok('Reading shared');
+        });
+    }
+
+    /** POST auctions/lots/{uuid}/weight {kg, unit?, stable?, source?, deviceName?} — locks the weight. */
+    public function lockWeight(Request $request, string $uuid): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'kg' => 'required|numeric|gt:0|max:10000',
+            'unit' => 'nullable|string|max:8',
+            'stable' => 'nullable|boolean',
+            'source' => 'nullable|in:scale,manual',
+            'deviceName' => 'nullable|string|max:100',
+        ]);
+        if ($validator->fails()) {
+            return $this->fail('Validation failed', 422, 'VALIDATION', $validator->errors());
+        }
+
+        return $this->guard(function () use ($request, $uuid, $validator) {
+            $lot = $this->service->lockWeight($request->user(), $this->find($uuid), $validator->validated());
+
+            return $this->ok('Weight recorded', $lot->toWire($request->user()->id, true));
+        });
+    }
+
+    /**
+     * POST auctions/lots/{uuid}/physical-sale
+     * {amount, buyerName, buyerPhone?, buyerUserId?, paid?, weightKg?, weightUnit?, weightStable?, weightSource?, weightDeviceName?}
+     */
+    public function physicalSale(Request $request, string $uuid): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'amount' => 'required|numeric|gt:0',
+            'buyerName' => 'required|string|max:150',
+            'buyerPhone' => 'nullable|string|max:30',
+            'buyerUserId' => 'nullable|integer',
+            'paid' => 'nullable|boolean',
+            'weightKg' => 'nullable|numeric|gt:0|max:10000',
+            'weightUnit' => 'nullable|string|max:8',
+            'weightStable' => 'nullable|boolean',
+            'weightSource' => 'nullable|in:scale,manual',
+            'weightDeviceName' => 'nullable|string|max:100',
+        ]);
+        if ($validator->fails()) {
+            return $this->fail('Validation failed', 422, 'VALIDATION', $validator->errors());
+        }
+
+        return $this->guard(function () use ($request, $uuid, $validator) {
+            $result = $this->service->recordPhysicalSale($request->user(), $this->find($uuid), $validator->validated());
+
+            return $this->ok('Sold', [
+                'lot' => $result['lot']->toWire($request->user()->id, true),
+                'sale' => $this->service->receipt($request->user(), $result['sale']),
+            ], 201);
+        });
+    }
+
+    /** POST auctions/lots/{uuid}/pass {reason?} — unsold at the ring. */
+    public function pass(Request $request, string $uuid): JsonResponse
+    {
+        return $this->guard(function () use ($request, $uuid) {
+            $lot = $this->service->passLot($request->user(), $this->find($uuid), $request->input('reason'));
+
+            return $this->ok('Lot passed', $lot->toWire($request->user()->id, true));
+        });
+    }
+
     /** GET auctions/lots/{uuid}/bids */
     public function bids(Request $request, string $uuid): JsonResponse
     {

@@ -255,6 +255,25 @@ class AuctionSessionController extends Controller
         });
     }
 
+    /** GET auctions/records?range=week|month|year&reference=&centreUuid=&sessionUuid=&status=&channel=&q= */
+    public function records(Request $request): JsonResponse
+    {
+        return $this->ok('Auction records', app(\App\Services\Auction\AuctionRecordsService::class)->records(
+            $request->user(),
+            $request->only(['range', 'reference', 'centreUuid', 'sessionUuid', 'status', 'channel', 'q']),
+        ));
+    }
+
+    /** GET auctions/sales/{uuid}/receipt */
+    public function receipt(Request $request, string $uuid): JsonResponse
+    {
+        return $this->guard(function () use ($request, $uuid) {
+            $sale = AuctionSale::where('uuid', $uuid)->orWhere('receiptNo', strtoupper($uuid))->firstOrFail();
+
+            return $this->ok('Receipt', $this->service->receipt($request->user(), $sale));
+        });
+    }
+
     private function find(string $uuid): AuctionSession
     {
         return AuctionSession::where('uuid', $uuid)->firstOrFail();

@@ -14,6 +14,7 @@ class AuctionLot extends Model
         'uuid', 'sessionId', 'livestockUuid', 'farmUuid', 'sellerUserId', 'sellerCard', 'livestockSnapshot', 'lotNumber', 'title', 'description',
         'photos', 'startingPrice', 'minIncrement', 'reservePrice', 'durationSeconds', 'status', 'openedAt', 'closesAt',
         'closedAt', 'extendedCount', 'currentPrice', 'currentBidId', 'bidCount', 'winnerUserId', 'winningBidId', 'version',
+        'weightKg', 'weightUnit', 'weightStable', 'weightSource', 'weightDeviceName', 'weighedAt', 'weighedBy',
     ];
 
     protected $casts = [
@@ -32,6 +33,9 @@ class AuctionLot extends Model
         'openedAt' => 'datetime',
         'closesAt' => 'datetime',
         'closedAt' => 'datetime',
+        'weightKg' => 'float',
+        'weightStable' => 'boolean',
+        'weighedAt' => 'datetime',
     ];
 
     public function session(): BelongsTo
@@ -92,6 +96,35 @@ class AuctionLot extends Model
      * Wire shape. The reserve price is only revealed to the host; buyers only
      * learn whether it has been met.
      */
+    /** Weight captured on the scale (or typed), null until weighed. */
+    public function weightWire(): ?array
+    {
+        if ($this->weightKg === null) {
+            return null;
+        }
+
+        return [
+            'kg' => (float) $this->weightKg,
+            'unit' => $this->weightUnit ?: 'kg',
+            'stable' => (bool) $this->weightStable,
+            'source' => $this->weightSource,
+            'deviceName' => $this->weightDeviceName,
+            'at' => $this->weighedAt?->toIso8601String(),
+        ];
+    }
+
+    /** Current (or starting) price per kilogram once a weight is known. */
+    public function pricePerKg(?float $price = null): ?float
+    {
+        $kg = (float) ($this->weightKg ?? 0);
+        if ($kg <= 0) {
+            return null;
+        }
+        $price ??= (float) ($this->currentPrice > 0 ? $this->currentPrice : $this->startingPrice);
+
+        return round($price / $kg, 2);
+    }
+
     public function toWire(?int $viewerUserId = null, bool $isHost = false): array
     {
         $leading = $this->relationLoaded('currentBid') ? $this->currentBid : ($this->currentBidId ? AuctionBid::find($this->currentBidId) : null);
@@ -113,6 +146,8 @@ class AuctionLot extends Model
             ] : null,
             'livestock' => $this->livestockSnapshot,
             'photos' => $this->photos ?? [],
+            'weight' => $this->weightWire(),
+            'pricePerKg' => $this->pricePerKg(),
             'startingPrice' => (float) $this->startingPrice,
             'minIncrement' => (float) $this->minIncrement,
             'reservePrice' => $isHost ? $this->reservePrice : null,

@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class AuctionSession extends Model
 {
     protected $fillable = [
-        'uuid', 'hostUserId', 'centreId', 'createdBy', 'title', 'description', 'coverPath', 'status', 'scheduledAt', 'startedAt',
+        'uuid', 'hostUserId', 'centreId', 'createdBy', 'mode', 'title', 'description', 'coverPath', 'status', 'scheduledAt', 'startedAt',
         'endedAt', 'lastHeartbeatAt', 'currency', 'settings', 'paymentInstructions', 'viewers', 'viewerPeak',
         'lotsCount', 'soldCount', 'grossSales', 'egressId', 'recordingStatus', 'recordingPath',
     ];
@@ -96,6 +96,12 @@ class AuctionSession extends Model
         return $this->status === AuctionSessionStatus::LIVE;
     }
 
+    /** In-person market day: weigh, record the buyer and price, print a receipt. */
+    public function isPhysical(): bool
+    {
+        return ($this->mode ?? 'live') === 'physical';
+    }
+
     public function isHost(?int $userId): bool
     {
         return $userId !== null && (int) $this->hostUserId === (int) $userId;
@@ -117,6 +123,7 @@ class AuctionSession extends Model
             'description' => $this->description,
             'coverUrl' => $this->coverPath ? url('storage/'.$this->coverPath) : null,
             'status' => $this->status,
+            'mode' => $this->mode ?? 'live',
             'hostUserId' => $this->hostUserId,
             'host' => $hostCard ? ['userId' => $hostCard['userId'], 'name' => $hostCard['name'], 'phone' => $isHost ? $hostCard['phone'] : null] : null,
             'isHost' => $isHost,
