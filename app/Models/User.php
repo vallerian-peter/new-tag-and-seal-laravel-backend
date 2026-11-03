@@ -198,6 +198,8 @@ class User extends Authenticatable
                 return $this->belongsTo(Vet::class, 'roleId');
             case UserRole::FARM_INVITED_USER:
                 return $this->belongsTo(FarmUser::class, 'roleId');
+            case UserRole::AUCTION_OFFICER:
+                return $this->belongsTo(AuctionOfficer::class, 'roleId');
             default:
                 return null;
         }
@@ -212,6 +214,18 @@ class User extends Authenticatable
     public function vet()
     {
         return $this->hasOne(Vet::class, 'userId');
+    }
+
+    /** Auction officer profile attached to this account, if any. */
+    public function auctionOfficer()
+    {
+        return $this->hasOne(AuctionOfficer::class, 'userId');
+    }
+
+    /** Auction centres this account is attached to (manager, auctioneer or clerk). */
+    public function auctionCentreMemberships()
+    {
+        return $this->hasMany(AuctionCentreMember::class, 'userId');
     }
 
     /**

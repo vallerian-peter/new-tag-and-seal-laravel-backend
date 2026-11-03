@@ -44,17 +44,22 @@ class AuctionSessionController extends Controller
         ]);
     }
 
-    /** GET auctions/sessions?scope=live|upcoming|mine|all */
+    /** GET auctions/sessions?scope=live|upcoming|mine|assigned|ended|all&centreUuid= */
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
         $this->service->sweepStale();
         $scope = $request->query('scope', 'all');
-        $q = AuctionSession::with('host');
+        $q = AuctionSession::with(['host', 'centre']);
+        if ($request->filled('centreUuid')) {
+            $q->whereHas('centre', fn ($c) => $c->where('uuid', $request->query('centreUuid')));
+        }
         match ($scope) {
             'live' => $q->live()->orderByDesc('viewers'),
             'upcoming' => $q->upcoming(),
             'mine' => $q->where('hostUserId', $user->id)->orderByDesc('created_at'),
+            'assigned' => $q->where('hostUserId', $user->id)->whereNotNull('centreId')
+                ->orderByRaw("FIELD(status, 'live', 'scheduled', 'ended', 'cancelled')")->orderBy('scheduledAt'),
             'ended' => $q->where('status', Status::ENDED)->orderByDesc('endedAt'),
             default => $q->whereIn('status', [Status::LIVE, Status::SCHEDULED])
                 ->orderByRaw("FIELD(status, 'live', 'scheduled')")->orderBy('scheduledAt'),
@@ -74,6 +79,7 @@ class AuctionSessionController extends Controller
         $validator = Validator::make($request->all(), [
             'uuid' => 'nullable|string|max:100',
             'title' => 'required|string|min:3|max:120',
+            'centreUuid' => 'nullable|string|max:100',
             'description' => 'nullable|string|max:2000',
             'scheduledAt' => 'nullable|date',
             'currency' => 'nullable|string|max:8',
@@ -103,14 +109,14 @@ class AuctionSessionController extends Controller
         return $this->guard(function () use ($request, $validator) {
             $session = $this->service->createSession($request->user(), $validator->validated());
 
-            return $this->ok('Auction created', $session->load('host')->toWire($request->user()->id, true), 201);
+            return $this->ok('Auction created', $session->load(['host', 'centre'])->toWire($request->user()->id, true), 201);
         });
     }
 
     /** GET auctions/sessions/{uuid} */
     public function show(Request $request, string $uuid): JsonResponse
     {
-        $session = AuctionSession::with(['host', 'lots.currentBid'])->where('uuid', $uuid)->first();
+        $session = AuctionSession::with(['host', 'centre', 'lots.currentBid'])->where('uuid', $uuid)->first();
         if (! $session) {
             return $this->fail('Auction not found', 404, 'NOT_FOUND');
         }

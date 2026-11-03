@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class AuctionSession extends Model
 {
     protected $fillable = [
-        'uuid', 'hostUserId', 'title', 'description', 'coverPath', 'status', 'scheduledAt', 'startedAt',
+        'uuid', 'hostUserId', 'centreId', 'createdBy', 'title', 'description', 'coverPath', 'status', 'scheduledAt', 'startedAt',
         'endedAt', 'lastHeartbeatAt', 'currency', 'settings', 'paymentInstructions', 'viewers', 'viewerPeak',
         'lotsCount', 'soldCount', 'grossSales', 'egressId', 'recordingStatus', 'recordingPath',
     ];
@@ -48,6 +48,12 @@ class AuctionSession extends Model
     public function host(): BelongsTo
     {
         return $this->belongsTo(User::class, 'hostUserId');
+    }
+
+    /** The auction centre this session is hosted at, when not a farm auction. */
+    public function centre(): BelongsTo
+    {
+        return $this->belongsTo(AuctionCentre::class, 'centreId');
     }
 
     public function lots(): HasMany
@@ -114,6 +120,9 @@ class AuctionSession extends Model
             'hostUserId' => $this->hostUserId,
             'host' => $hostCard ? ['userId' => $hostCard['userId'], 'name' => $hostCard['name'], 'phone' => $isHost ? $hostCard['phone'] : null] : null,
             'isHost' => $isHost,
+            'centreId' => $this->centreId,
+            'centre' => $this->centreId ? $this->centre?->summary() : null,
+            'plannedByPortal' => $this->createdBy !== null,
             'scheduledAt' => $this->scheduledAt?->toIso8601String(),
             'startedAt' => $this->startedAt?->toIso8601String(),
             'endedAt' => $this->endedAt?->toIso8601String(),

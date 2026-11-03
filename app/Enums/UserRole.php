@@ -35,6 +35,11 @@ class UserRole
     public const FARM_INVITED_USER = 'farmInvitedUser';
 
     /**
+     * Auction Officer - Auctioneer attached to an auction centre (verified by an admin)
+     */
+    public const AUCTION_OFFICER = 'auctionOfficer';
+
+    /**
      * Get all available roles
      *
      * @return array
@@ -47,6 +52,7 @@ class UserRole
             self::EXTENSION_OFFICER,
             self::VET,
             self::FARM_INVITED_USER,
+            self::AUCTION_OFFICER,
         ];
     }
 
@@ -129,6 +135,7 @@ class UserRole
             self::EXTENSION_OFFICER => 'Extension Officer',
             self::VET => 'Veterinarian',
             self::FARM_INVITED_USER => 'Farm Invited User',
+            self::AUCTION_OFFICER => 'Auction Officer',
             default => 'Unknown',
         };
     }
@@ -147,6 +154,7 @@ class UserRole
             self::EXTENSION_OFFICER => 'Agricultural extension services provider',
             self::VET => 'Veterinary professional providing animal health services',
             self::FARM_INVITED_USER => 'Guest user with limited access to specific farms',
+            self::AUCTION_OFFICER => 'Auctioneer who conducts live auctions at an auction centre once verified',
 
             default => 'No description available',
         };

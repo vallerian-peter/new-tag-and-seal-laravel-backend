@@ -2,7 +2,10 @@
 
 use App\Enums\UserRole;
 use App\Http\Controllers\AdministrationRoute\AdministrationRouteController;
+use App\Http\Controllers\Auction\AuctionCentreController;
 use App\Http\Controllers\Auction\AuctionLotController;
+use App\Http\Controllers\Auction\AuctionOfficerController;
+use App\Http\Controllers\Auction\AuctionPlanController;
 use App\Http\Controllers\Auction\AuctionSessionController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\BirthProblem\BirthProblemController;
@@ -521,6 +524,37 @@ Route::middleware('auth:sanctum')->group(function () {
                     Route::get('vet-service-requests', [VetController::class, 'adminRequests']);
                     Route::delete('vets/{vet}', [VetController::class, 'adminDestroy']);
 
+                    // Auction centres (livestock markets) and their auctioneers
+                    Route::get('auction-centres', [AuctionCentreController::class, 'adminIndex']);
+                    Route::post('auction-centres', [AuctionCentreController::class, 'adminStore']);
+                    Route::get('auction-centres/{centre}', [AuctionCentreController::class, 'adminShow']);
+                    Route::put('auction-centres/{centre}', [AuctionCentreController::class, 'adminUpdate']);
+                    Route::delete('auction-centres/{centre}', [AuctionCentreController::class, 'adminDestroy']);
+                    Route::get('auction-centres/{centre}/members', [AuctionCentreController::class, 'adminMembers']);
+                    Route::post('auction-centres/{centre}/members', [AuctionCentreController::class, 'adminAddMember']);
+                    Route::put('auction-centres/{centre}/members/{member}', [AuctionCentreController::class, 'adminUpdateMember']);
+                    Route::delete('auction-centres/{centre}/members/{member}', [AuctionCentreController::class, 'adminRemoveMember']);
+                    Route::get('auction-centres/{centre}/officers', [AuctionPlanController::class, 'assignableOfficers']);
+
+                    // Auction officers: self-registered (pending) or portal-created; verify before they can conduct auctions
+                    Route::get('auction-officers', [AuctionOfficerController::class, 'adminIndex']);
+                    Route::post('auction-officers', [AuctionOfficerController::class, 'adminStore']);
+                    Route::get('auction-officers/{officer}', [AuctionOfficerController::class, 'adminShow']);
+                    Route::put('auction-officers/{officer}', [AuctionOfficerController::class, 'adminUpdate']);
+                    Route::post('auction-officers/{officer}/verify', [AuctionOfficerController::class, 'adminVerify']);
+                    Route::delete('auction-officers/{officer}', [AuctionOfficerController::class, 'adminDestroy']);
+
+                    // Auction planning: schedule sessions at a centre, assign the officer, attach animals
+                    Route::get('auction-sessions', [AuctionPlanController::class, 'index']);
+                    Route::post('auction-sessions', [AuctionPlanController::class, 'store']);
+                    Route::get('auction-sessions/{uuid}', [AuctionPlanController::class, 'show']);
+                    Route::put('auction-sessions/{uuid}', [AuctionPlanController::class, 'update']);
+                    Route::post('auction-sessions/{uuid}/cancel', [AuctionPlanController::class, 'cancel']);
+                    Route::post('auction-sessions/{uuid}/lots', [AuctionPlanController::class, 'addLot']);
+                    Route::put('auction-lots/{uuid}', [AuctionPlanController::class, 'updateLot']);
+                    Route::delete('auction-lots/{uuid}', [AuctionPlanController::class, 'removeLot']);
+                    Route::get('auction-livestock', [AuctionPlanController::class, 'livestock']);
+
                     // Vaccines
                     Route::get('vaccines', [VaccineController::class, 'adminIndex']);
                     Route::post('vaccines', [VaccineController::class, 'adminStore']);
@@ -688,6 +722,14 @@ Route::middleware('auth:sanctum')->group(function () {
         */
         Route::prefix('auctions')->group(function () {
             Route::get('realtime-config', [AuctionSessionController::class, 'realtimeConfig']);
+            Route::get('centres', [AuctionCentreController::class, 'index']);
+            Route::get('centres/mine', [AuctionCentreController::class, 'mine']);
+            Route::get('officers/me', [AuctionOfficerController::class, 'me']);
+            Route::post('officers/apply', [AuctionOfficerController::class, 'apply']);
+            Route::put('officers/me', [AuctionOfficerController::class, 'update']);
+            Route::get('centres/{uuid}', [AuctionCentreController::class, 'show']);
+            Route::get('centres/{uuid}/livestock', [AuctionCentreController::class, 'livestock']);
+            Route::get('centres/{uuid}/sessions', [AuctionCentreController::class, 'sessions']);
             Route::get('holds', [AuctionLotController::class, 'holds']);
             Route::get('my-bids', [AuctionLotController::class, 'myBids']);
             Route::get('purchases', [AuctionSessionController::class, 'purchases']);

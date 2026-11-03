@@ -11,13 +11,14 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class AuctionLot extends Model
 {
     protected $fillable = [
-        'uuid', 'sessionId', 'livestockUuid', 'farmUuid', 'livestockSnapshot', 'lotNumber', 'title', 'description',
+        'uuid', 'sessionId', 'livestockUuid', 'farmUuid', 'sellerUserId', 'sellerCard', 'livestockSnapshot', 'lotNumber', 'title', 'description',
         'photos', 'startingPrice', 'minIncrement', 'reservePrice', 'durationSeconds', 'status', 'openedAt', 'closesAt',
         'closedAt', 'extendedCount', 'currentPrice', 'currentBidId', 'bidCount', 'winnerUserId', 'winningBidId', 'version',
     ];
 
     protected $casts = [
         'livestockSnapshot' => 'array',
+        'sellerCard' => 'array',
         'photos' => 'array',
         'startingPrice' => 'float',
         'minIncrement' => 'float',
@@ -104,6 +105,12 @@ class AuctionLot extends Model
             'description' => $this->description,
             'livestockUuid' => $this->livestockUuid,
             'farmUuid' => $this->farmUuid,
+            'sellerUserId' => $this->sellerUserId,
+            'seller' => $this->sellerCard ? [
+                'name' => $this->sellerCard['name'] ?? null,
+                'farmName' => $this->sellerCard['farmName'] ?? null,
+                'phone' => $isHost ? ($this->sellerCard['phone'] ?? null) : null,
+            ] : null,
             'livestock' => $this->livestockSnapshot,
             'photos' => $this->photos ?? [],
             'startingPrice' => (float) $this->startingPrice,

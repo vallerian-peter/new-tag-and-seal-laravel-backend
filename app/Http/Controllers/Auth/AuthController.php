@@ -61,7 +61,7 @@ class AuthController extends Controller
             'updatedBy'  => 'nullable|integer',
 
             // Farmer-specific fields
-            'firstName'  => 'required_if:role,farmer,systemUser,extensionOfficer,vet,farmInvitedUser|string|max:255',
+            'firstName'  => 'required_if:role,farmer,systemUser,extensionOfficer,vet,farmInvitedUser,auctionOfficer|string|max:255',
             'middleName' => 'nullable|string|max:255',
             'surname'    => 'required_if:role,farmer|string|max:255',
             'phone1'     => 'required_if:role,farmer|string',
@@ -82,9 +82,14 @@ class AuthController extends Controller
             'farmerType'                 => 'nullable|in:individual,organization',
 
             // SystemUser / Extension Officer / Vet / Farm Invited User
-            'lastName'  => 'required_if:role,systemUser,extensionOfficer,vet,farmInvitedUser|string|max:255',
-            'phone'     => 'required_if:role,systemUser,extensionOfficer,vet,farmInvitedUser|string',
+            'lastName'  => 'required_if:role,systemUser,extensionOfficer,vet,farmInvitedUser,auctionOfficer|string|max:255',
+            'phone'     => 'required_if:role,systemUser,extensionOfficer,vet,farmInvitedUser,auctionOfficer|string',
             'address'   => 'nullable|string',
+
+            // Auction officer fields (approved later in the admin portal)
+            'centreUuid' => 'required_if:role,auctionOfficer|nullable|string|max:100',
+            'licenceNo' => 'nullable|string|max:100',
+            'nationalId' => 'nullable|string|max:50',
 
             // Vet-specific fields (verification happens later in the admin portal)
             'medicalLicenseNo' => 'required_if:role,vet|nullable|string|max:100',
@@ -183,6 +188,9 @@ class AuthController extends Controller
             // Link the veterinarian profile back to its account
             if ($request->role === UserRole::VET && $profileRecord instanceof \App\Models\Vet) {
                 $profileRecord->update(['userId' => $user->id]);
+            }
+            if ($request->role === UserRole::AUCTION_OFFICER && $profileRecord instanceof \App\Models\AuctionOfficer) {
+                app(\App\Services\Auction\AuctionOfficerService::class)->attachRegisteredAccount($profileRecord, $user);
             }
 
             // If this is a farm invited user, send invitation SMS with credentials
@@ -363,6 +371,13 @@ class AuthController extends Controller
                     'message' => 'Your farm user account has been deactivated. Please contact support.'
                 ], 403);
             }
+        } elseif ($user->role === UserRole::AUCTION_OFFICER && $profileData instanceof \App\Models\AuctionOfficer) {
+            if ($profileData->status !== 'active') {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Your auction officer account has been deactivated. Please contact support.'
+                ], 403);
+            }
         } elseif ($user->role === UserRole::VET && $profileData instanceof \App\Models\Vet) {
             if ($profileData->status !== 'active') {
                 Log::warning("❌ Vet profile is not active for user ID: {$user->id}, Vet ID: {$profileData->id}");
@@ -395,6 +410,9 @@ class AuthController extends Controller
             // FarmUser uses lastName instead of surname
             $surname = $profileData->lastName ?? '';
             // FarmUser uses phone instead of phone1
+            $phone1 = $profileData->phone ?? '';
+        } elseif ($user->role === UserRole::AUCTION_OFFICER && $profileData instanceof \App\Models\AuctionOfficer) {
+            $surname = $profileData->lastName ?? '';
             $phone1 = $profileData->phone ?? '';
         } elseif ($user->role === UserRole::VET && $profileData instanceof \App\Models\Vet) {
             $surname = $profileData->lastName ?? '';
@@ -1324,6 +1342,28 @@ class AuthController extends Controller
                     'status' => 'active',
                 ]);
 
+            case UserRole::AUCTION_OFFICER:
+                $centre = $request->filled('centreUuid') ? \App\Models\AuctionCentre::where('uuid', $request->centreUuid)->first() : null;
+                if (! $centre) {
+                    throw new \RuntimeException('Auction centre not found. Choose the centre you will work at.');
+                }
+
+                return \App\Models\AuctionOfficer::create([
+                    'firstName' => $request->firstName,
+                    'middleName' => $request->middleName,
+                    'lastName' => $request->lastName,
+                    'phone' => $request->phone,
+                    'email' => $request->email,
+                    'nationalId' => $request->nationalId,
+                    'licenceNo' => $request->licenceNo,
+                    'address' => $request->address,
+                    'regionId' => $request->regionId,
+                    'districtId' => $request->districtId,
+                    'requestedCentreId' => $centre->id,
+                    'verificationStatus' => \App\Models\AuctionOfficer::PENDING,
+                    'status' => 'active',
+                ]);
+
             case UserRole::SYSTEM_USER:
             case UserRole::EXTENSION_OFFICER:
                 return SystemUser::create([
@@ -1366,6 +1406,9 @@ class AuthController extends Controller
 
             case UserRole::VET:
                 return \App\Models\Vet::find($user->roleId);
+
+            case UserRole::AUCTION_OFFICER:
+                return \App\Models\AuctionOfficer::find($user->roleId);
 
             case UserRole::SYSTEM_USER:
             case UserRole::EXTENSION_OFFICER:

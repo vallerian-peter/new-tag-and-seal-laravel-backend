@@ -437,6 +437,7 @@ class SyncController extends Controller
                 'extensionofficer',
                 'vet',
                 'farminviteduser',
+                'auctionofficer',
             ])) {
                 $data['userSpecificData'] = $this->getFieldWorkerData($user->roleId);
             } elseif (in_array($normalizedRole, ['systemuser'])) {
@@ -622,6 +623,25 @@ class SyncController extends Controller
             // Veterinarians sync the farms attached to their active service requests
             if ($roleNormalized === 'vet' && is_object($authenticated)) {
                 return $this->getVetData($authenticated);
+            }
+
+            // Auction officers work from the auction module; they hold no farm data
+            if ($roleNormalized === 'auctionofficer' && is_object($authenticated)) {
+                $officer = \App\Models\AuctionOfficer::where('userId', $authenticated->id)->first();
+
+                return [
+                    'type' => 'field_worker',
+                    'farmUser' => null,
+                    'auctionOfficer' => $officer?->toWire(true),
+                    'farms' => [],
+                    'livestock' => [],
+                    'logs' => [],
+                    'vaccines' => [],
+                    'farmsCount' => 0,
+                    'livestockCount' => 0,
+                    'logsCount' => 0,
+                    'vaccinesCount' => 0,
+                ];
             }
 
             // If caller is an Extension Officer, handle EO path regardless of FarmUser presence
@@ -2131,6 +2151,11 @@ class SyncController extends Controller
         // Vets get the farms of the service requests they are working on
         if ($normalizedRole === 'vet') {
             return \App\Services\VetServices\VetServiceRequestService::farmUuidsForVetUser($user);
+        }
+
+        // Auction officers have no farms of their own
+        if ($normalizedRole === 'auctionofficer') {
+            return [];
         }
 
         // For farm invited users

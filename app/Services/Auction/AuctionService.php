@@ -9,6 +9,7 @@ use App\Events\AuctionLobbyEvent;
 use App\Events\AuctionRoomEvent;
 use App\Jobs\SendVetServiceSms;
 use App\Models\AuctionBid;
+use App\Models\AuctionCentre;
 use App\Models\AuctionEvent;
 use App\Models\AuctionLot;
 use App\Models\AuctionParticipant;
@@ -38,6 +39,7 @@ class AuctionService
     public function __construct(
         private readonly LiveKitService $livekit,
         private readonly SaleHoldService $holds,
+        private readonly AuctionCentreService $centres,
     ) {
     }
 
@@ -47,7 +49,28 @@ class AuctionService
 
     public function canHost(User $user): bool
     {
-        return in_array($user->role, [UserRole::FARMER, UserRole::SYSTEM_USER], true);
+        return in_array($user->role, [UserRole::FARMER, UserRole::SYSTEM_USER], true)
+            || $this->centres->hasHostingCentre($user);
+    }
+
+    /** Resolve and authorise the centre a session is to be hosted at, if any. */
+    private function centreFor(User $host, array $data): ?AuctionCentre
+    {
+        if (empty($data['centreUuid'])) {
+            if (in_array($host->role, [UserRole::FARMER, UserRole::SYSTEM_USER], true)) {
+                return null; // farmers and admins may auction from their own farms
+            }
+            throw new AuctionException('Select the auction centre you are attached to.', 422, 'CENTRE_REQUIRED');
+        }
+        $centre = AuctionCentre::where('uuid', $data['centreUuid'])->first();
+        if (! $centre || ! $centre->isActive()) {
+            throw new AuctionException('Auction centre not found.', 404, 'CENTRE_NOT_FOUND');
+        }
+        if (! $this->centres->canHostAt($host, $centre)) {
+            throw new AuctionException('You are not an auctioneer at this centre.', 403, 'NOT_CENTRE_MEMBER');
+        }
+
+        return $centre;
     }
 
     public function farmUuidsFor(User $user): array
@@ -65,9 +88,10 @@ class AuctionService
         return [];
     }
 
+    /** The session's auctioneer, or an administrator planning from the portal. */
     private function assertHost(User $user, AuctionSession $session): void
     {
-        if (! $session->isHost($user->id)) {
+        if (! $session->isHost($user->id) && $user->role !== UserRole::SYSTEM_USER) {
             throw new AuctionException('Only the auctioneer can do this.', 403, 'NOT_HOST');
         }
     }
@@ -76,17 +100,37 @@ class AuctionService
     // Sessions
     // ------------------------------------------------------------------
 
-    public function createSession(User $host, array $data): AuctionSession
+    /**
+     * @param User $actor  the caller: the host themselves, or an administrator
+     *                     planning on behalf of an officer (`$data['hostUserId']`).
+     */
+    public function createSession(User $actor, array $data): AuctionSession
     {
+        $host = $actor;
+        if (! empty($data['hostUserId']) && (int) $data['hostUserId'] !== (int) $actor->id) {
+            if ($actor->role !== UserRole::SYSTEM_USER) {
+                throw new AuctionException('Only administrators can schedule auctions for someone else.', 403, 'NOT_ADMIN');
+            }
+            $host = User::find((int) $data['hostUserId']);
+            if (! $host) {
+                throw new AuctionException('Assigned officer not found.', 404, 'OFFICER_NOT_FOUND');
+            }
+            if (empty($data['centreUuid'])) {
+                throw new AuctionException('Portal-planned auctions must be at an auction centre.', 422, 'CENTRE_REQUIRED');
+            }
+        }
         if (! $this->canHost($host)) {
-            throw new AuctionException('Only farmers or authorised auctioneers can host an auction.', 403, 'CANNOT_HOST');
+            throw new AuctionException('Only farmers or verified auction officers can host an auction.', 403, 'CANNOT_HOST');
         }
         $settings = array_merge(AuctionSession::defaultSettings(), $data['settings'] ?? []);
+        $centre = $this->centreFor($host, $data);
 
-        return DB::transaction(function () use ($host, $data, $settings) {
+        return DB::transaction(function () use ($host, $actor, $data, $settings, $centre) {
             $session = AuctionSession::create([
                 'uuid' => $data['uuid'] ?? (string) Str::uuid(),
                 'hostUserId' => $host->id,
+                'centreId' => $centre?->id,
+                'createdBy' => $actor->id !== $host->id ? $actor->id : null,
                 'title' => $data['title'],
                 'description' => $data['description'] ?? null,
                 'status' => Session::SCHEDULED,
@@ -96,9 +140,9 @@ class AuctionService
                 'paymentInstructions' => $data['paymentInstructions'] ?? null,
             ]);
             foreach ($data['lots'] ?? [] as $i => $lot) {
-                $this->addLot($host, $session, $lot, $i + 1);
+                $this->addLot($actor, $session, $lot, $i + 1);
             }
-            $this->event($session, 'session_created', $host->id);
+            $this->event($session, 'session_created', $actor->id);
 
             return $session->refresh();
         });
@@ -109,6 +153,16 @@ class AuctionService
         $this->assertHost($host, $session);
         if ($session->status !== Session::SCHEDULED) {
             throw new AuctionException('Only scheduled auctions can be edited.', 409, 'NOT_EDITABLE');
+        }
+        if (! empty($data['hostUserId']) && (int) $data['hostUserId'] !== (int) $session->hostUserId) {
+            if ($host->role !== UserRole::SYSTEM_USER) {
+                throw new AuctionException('Only administrators can reassign an auction.', 403, 'NOT_ADMIN');
+            }
+            $newHost = User::find((int) $data['hostUserId']);
+            if (! $newHost || ! $this->canHost($newHost) || ($session->centreId && ! $this->centres->canHostAt($newHost, $session->centre))) {
+                throw new AuctionException('That officer cannot host at this centre.', 422, 'OFFICER_NOT_ELIGIBLE');
+            }
+            $session->hostUserId = $newHost->id;
         }
         $session->fill(array_filter([
             'title' => $data['title'] ?? null,
@@ -152,6 +206,9 @@ class AuctionService
         $this->assertHost($host, $session);
         if ($session->status === Session::ENDED || $session->status === Session::CANCELLED) {
             throw new AuctionException('This auction has already finished.', 410, 'FINISHED');
+        }
+        if (! $this->canHost($host)) {
+            throw new AuctionException('Your auction officer account is not verified yet.', 403, 'NOT_VERIFIED');
         }
         if ($session->lots()->count() === 0) {
             throw new AuctionException('Add at least one animal before going live.', 422, 'NO_LOTS');
@@ -279,17 +336,31 @@ class AuctionService
         if ($session->status === Session::ENDED || $session->status === Session::CANCELLED) {
             throw new AuctionException('This auction has finished.', 410, 'FINISHED');
         }
-        $farmUuids = $this->farmUuidsFor($host);
-        $animal = Livestock::where('uuid', $data['livestockUuid'])->first();
-        $farmUuid = $data['farmUuid'] ?? $animal?->farmUuid;
-        if (! $farmUuid || ! in_array($farmUuid, $farmUuids, true)) {
-            throw new AuctionException('You can only auction animals from your own farms.', 403, 'ANIMAL_NOT_OWNED');
+        $animal = Livestock::with('farm')->where('uuid', $data['livestockUuid'])->first();
+        $sellerUserId = null;
+        $sellerCard = null;
+        if ($session->centreId) {
+            // Centre sessions consign animals farmers bring to the market: any
+            // tagged animal on record, with its owner recorded as the seller.
+            if (! $animal) {
+                throw new AuctionException('Animal not found. Only animals registered in Tag & Seal can be consigned.', 404, 'ANIMAL_NOT_FOUND');
+            }
+            $farmUuid = $animal->farmUuid;
+            $owner = $this->centres->ownerCard($animal->farm);
+            $sellerUserId = $owner['userId'];
+            $sellerCard = ['name' => $owner['name'], 'phone' => $owner['phone'], 'farmName' => $owner['farmName']];
+        } else {
+            $farmUuids = $this->farmUuidsFor($host);
+            $farmUuid = $data['farmUuid'] ?? $animal?->farmUuid;
+            if (! $farmUuid || ! in_array($farmUuid, $farmUuids, true)) {
+                throw new AuctionException('You can only auction animals from your own farms.', 403, 'ANIMAL_NOT_OWNED');
+            }
         }
         if ($session->lots()->where('livestockUuid', $data['livestockUuid'])->exists()) {
             throw new AuctionException('This animal is already a lot in this auction.', 409, 'DUPLICATE_LOT');
         }
 
-        return DB::transaction(function () use ($session, $data, $animal, $farmUuid, $host, $lotNumber) {
+        return DB::transaction(function () use ($session, $data, $animal, $farmUuid, $host, $lotNumber, $sellerUserId, $sellerCard) {
             $uuid = $data['uuid'] ?? (string) Str::uuid();
             $this->holds->acquire($data['livestockUuid'], LivestockSaleHold::CHANNEL_AUCTION, $uuid, $host->id);
             $number = $lotNumber ?? ((int) $session->lots()->max('lotNumber') + 1);
@@ -299,6 +370,8 @@ class AuctionService
                 'sessionId' => $session->id,
                 'livestockUuid' => $data['livestockUuid'],
                 'farmUuid' => $farmUuid,
+                'sellerUserId' => $sellerUserId,
+                'sellerCard' => $sellerCard,
                 'livestockSnapshot' => $snapshot,
                 'lotNumber' => $number,
                 'title' => $data['title'] ?? ($snapshot['name'] ?? $snapshot['identificationNumber'] ?? "Lot $number"),
@@ -530,7 +603,7 @@ class AuctionService
                 'lotId' => $lot->id,
                 'sessionId' => $session->id,
                 'buyerUserId' => $leading->bidderUserId,
-                'sellerUserId' => $session->hostUserId,
+                'sellerUserId' => $lot->sellerUserId ?: $session->hostUserId,
                 'livestockUuid' => $lot->livestockUuid,
                 'amount' => $leading->amount,
                 'currency' => $session->currency,
@@ -569,6 +642,7 @@ class AuctionService
             ]));
             if ($sold) {
                 $this->notifyWinner($session, $lot, $sale);
+                $this->notifySeller($session, $lot, $sale);
             }
         });
 
@@ -727,6 +801,24 @@ class AuctionService
         $msg = "Tag & Seal: You won {$animal} (Lot {$lot->lotNumber}) in \"{$session->title}\" for {$amount}. "
             .'Payment: '.($session->paymentInstructions ?: 'see the app for instructions')
             .'. Pay before '.$sale->paymentDeadlineAt?->format('d M H:i').'.';
+        SendVetServiceSms::dispatchAfterResponse([$phone], $msg);
+    }
+
+    /** Centre lots belong to a farmer who is not the host: tell them the result. */
+    private function notifySeller(AuctionSession $session, AuctionLot $lot, AuctionSale $sale): void
+    {
+        if (! $lot->sellerUserId || (int) $lot->sellerUserId === (int) $session->hostUserId) {
+            return;
+        }
+        $phone = $lot->sellerCard['phone'] ?? User::find($lot->sellerUserId)?->farmerCard()['phone'] ?? null;
+        if (! $phone) {
+            return;
+        }
+        $animal = $lot->livestockSnapshot['name'] ?? $lot->livestockSnapshot['identificationNumber'] ?? $lot->title;
+        $amount = number_format((float) $sale->amount, 0).' '.$sale->currency;
+        $venue = $session->centreId ? ($session->centre?->name ?? 'the auction centre') : $session->title;
+        $msg = "Tag & Seal: Your animal {$animal} (Lot {$lot->lotNumber}) sold for {$amount} at {$venue}. "
+            .'The buyer has until '.$sale->paymentDeadlineAt?->format('d M H:i').' to pay. Check the app for details.';
         SendVetServiceSms::dispatchAfterResponse([$phone], $msg);
     }
 
