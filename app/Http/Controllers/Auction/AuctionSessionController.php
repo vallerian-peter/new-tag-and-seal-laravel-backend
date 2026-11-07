@@ -255,6 +255,28 @@ class AuctionSessionController extends Controller
         });
     }
 
+    /** POST auctions/sessions/{uuid}/republish {scheduledAt?, title?, mode?, paymentInstructions?, lotUuids?[]} */
+    public function republish(Request $request, string $uuid): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'scheduledAt' => 'nullable|date',
+            'title' => 'nullable|string|min:3|max:120',
+            'mode' => 'nullable|in:live,physical',
+            'paymentInstructions' => 'nullable|string|max:1000',
+            'lotUuids' => 'nullable|array',
+            'lotUuids.*' => 'string|max:100',
+        ]);
+        if ($validator->fails()) {
+            return $this->fail('Validation failed', 422, 'VALIDATION', $validator->errors());
+        }
+
+        return $this->guard(function () use ($request, $uuid, $validator) {
+            $new = $this->service->republishSession($request->user(), $this->find($uuid), $validator->validated());
+
+            return $this->ok('Auction republished', $new->load(['host', 'centre', 'lots'])->toWire($request->user()->id, true), 201);
+        });
+    }
+
     /** GET auctions/records?range=week|month|year&reference=&centreUuid=&sessionUuid=&status=&channel=&q= */
     public function records(Request $request): JsonResponse
     {

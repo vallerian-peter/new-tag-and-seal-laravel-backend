@@ -167,6 +167,41 @@ class AuctionPlanController extends Controller
         });
     }
 
+    /** POST admin/entities/auction-sessions/{uuid}/republish {scheduledAt?, title?, mode?, officerUuid?, lotUuids?[]} */
+    public function republish(Request $request, string $uuid): JsonResponse
+    {
+        $session = AuctionSession::where('uuid', $uuid)->first();
+        if (! $session) {
+            return $this->fail('Auction not found', 404, 'NOT_FOUND');
+        }
+        $validator = Validator::make($request->all(), [
+            'scheduledAt' => 'nullable|date',
+            'title' => 'nullable|string|min:3|max:120',
+            'mode' => 'nullable|in:live,physical',
+            'paymentInstructions' => 'nullable|string|max:1000',
+            'lotUuids' => 'nullable|array',
+            'lotUuids.*' => 'string|max:100',
+            'officerUserId' => 'nullable|integer',
+            'officerUuid' => 'nullable|string|max:100',
+        ]);
+        if ($validator->fails()) {
+            return $this->fail('Validation failed', 422, 'VALIDATION', $validator->errors());
+        }
+
+        return $this->guard(function () use ($request, $session, $validator) {
+            $new = $this->service->republishSession($request->user(), $session, $validator->validated());
+            if ($request->filled('officerUserId') || $request->filled('officerUuid')) {
+                $host = $this->resolveOfficer($request);
+                if (! $host) {
+                    return $this->fail('Officer not found or not verified.', 422, 'OFFICER_REQUIRED');
+                }
+                $new = $this->service->updateSession($request->user(), $new, ['hostUserId' => $host->id]);
+            }
+
+            return $this->ok('Auction republished', $this->row($new->load(['host', 'centre', 'lots'])), 201);
+        });
+    }
+
     /** POST admin/entities/auction-sessions/{uuid}/lots — attach an animal by uuid or tag number. */
     public function addLot(Request $request, string $uuid): JsonResponse
     {

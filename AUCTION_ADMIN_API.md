@@ -96,6 +96,7 @@ Officer object:
 | GET | `/auction-sessions/{uuid}` | | With `lots[]`, `officer`, `centre` |
 | PUT | `/auction-sessions/{uuid}` | `title`, `description`, `scheduledAt`, `paymentInstructions`, `currency`, `settings`, `officerUuid`/`officerUserId` | Only while `scheduled`; reassigning checks the officer can host at that centre |
 | POST | `/auction-sessions/{uuid}/cancel` | | Releases animal locks; ends it if already live |
+| POST | `/auction-sessions/{uuid}/republish` | `scheduledAt`, `title`, `mode`, `paymentInstructions`, `lotUuids[]`, `officerUuid`/`officerUserId` | Only for `ended`/`cancelled`. Creates a new `scheduled` session with the same settings and every unsold animal at its previous prices (or just `lotUuids`). `201`; `NOTHING_TO_REPUBLISH` when all sold |
 | POST | `/auction-sessions/{uuid}/lots` | lot fields (below) | `201` |
 | PUT | `/auction-lots/{uuid}` | `title`, `description`, `startingPrice`, `minIncrement`, `reservePrice`, `durationSeconds` | Only queued lots |
 | DELETE | `/auction-lots/{uuid}` | | Releases the animal lock |

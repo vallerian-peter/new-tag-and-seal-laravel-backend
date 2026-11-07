@@ -550,6 +550,7 @@ Route::middleware('auth:sanctum')->group(function () {
                     Route::get('auction-sessions/{uuid}', [AuctionPlanController::class, 'show']);
                     Route::put('auction-sessions/{uuid}', [AuctionPlanController::class, 'update']);
                     Route::post('auction-sessions/{uuid}/cancel', [AuctionPlanController::class, 'cancel']);
+                    Route::post('auction-sessions/{uuid}/republish', [AuctionPlanController::class, 'republish']);
                     Route::post('auction-sessions/{uuid}/lots', [AuctionPlanController::class, 'addLot']);
                     Route::put('auction-lots/{uuid}', [AuctionPlanController::class, 'updateLot']);
                     Route::delete('auction-lots/{uuid}', [AuctionPlanController::class, 'removeLot']);
@@ -743,6 +744,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('sessions/{uuid}', [AuctionSessionController::class, 'show']);
             Route::put('sessions/{uuid}', [AuctionSessionController::class, 'update']);
             Route::post('sessions/{uuid}/cancel', [AuctionSessionController::class, 'cancel']);
+            Route::post('sessions/{uuid}/republish', [AuctionSessionController::class, 'republish']);
             Route::post('sessions/{uuid}/start', [AuctionSessionController::class, 'start']);
             Route::post('sessions/{uuid}/join', [AuctionSessionController::class, 'join']);
             Route::post('sessions/{uuid}/heartbeat', [AuctionSessionController::class, 'heartbeat']);

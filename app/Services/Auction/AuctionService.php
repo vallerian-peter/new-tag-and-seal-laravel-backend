@@ -181,6 +181,58 @@ class AuctionService
         return $session;
     }
 
+    /**
+     * Run a finished auction again: a new scheduled session with the same
+     * title, mode, centre, settings and payment instructions, relisting every
+     * animal that did not sell at its previous prices. The original session
+     * and its history are kept untouched.
+     */
+    public function republishSession(User $actor, AuctionSession $session, array $data = []): AuctionSession
+    {
+        $this->assertHost($actor, $session);
+        if (! in_array($session->status, [Session::ENDED, Session::CANCELLED], true)) {
+            throw new AuctionException('Only ended or cancelled auctions can be republished.', 409, 'NOT_FINISHED');
+        }
+        $lots = $session->lots()->whereIn('status', [Lot::UNSOLD, Lot::CANCELLED, Lot::QUEUED])->get();
+        if (! empty($data['lotUuids'])) {
+            $lots = $lots->whereIn('uuid', (array) $data['lotUuids'])->values();
+        }
+        if ($lots->isEmpty()) {
+            throw new AuctionException('Every animal in this auction was sold. There is nothing to relist.', 422, 'NOTHING_TO_REPUBLISH');
+        }
+
+        $payload = [
+            'title' => $data['title'] ?? $session->title,
+            'description' => $session->description,
+            'scheduledAt' => $data['scheduledAt'] ?? now()->addDay(),
+            'currency' => $session->currency,
+            'paymentInstructions' => $data['paymentInstructions'] ?? $session->paymentInstructions,
+            'settings' => $session->config(),
+            'mode' => $data['mode'] ?? ($session->mode ?? 'live'),
+            'centreUuid' => $session->centre?->uuid,
+            'hostUserId' => $session->hostUserId,
+            'lots' => $lots->map(fn (AuctionLot $l) => array_filter([
+                'livestockUuid' => $l->livestockUuid,
+                'farmUuid' => $l->farmUuid,
+                'livestock' => $l->livestockSnapshot,
+                'title' => $l->title,
+                'description' => $l->description,
+                'photos' => $l->photos,
+                'startingPrice' => (float) $l->startingPrice,
+                'minIncrement' => (float) $l->minIncrement,
+                'reservePrice' => $l->reservePrice,
+                'durationSeconds' => $l->durationSeconds,
+            ], fn ($v) => $v !== null))->values()->all(),
+        ];
+
+        $new = $this->createSession($actor, $payload);
+        $this->event($session, 'session_republished', $actor->id, null, ['newUuid' => $new->uuid]);
+        $this->event($new, 'session_republished_from', $actor->id, null, ['fromUuid' => $session->uuid]);
+        $this->emit(new AuctionLobbyEvent('changed', ['uuid' => $new->uuid]));
+
+        return $new;
+    }
+
     public function cancelSession(User $host, AuctionSession $session): AuctionSession
     {
         $this->assertHost($host, $session);
