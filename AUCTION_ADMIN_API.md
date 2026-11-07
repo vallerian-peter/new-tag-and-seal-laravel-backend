@@ -178,6 +178,22 @@ App-side endpoints under `/api/v1/auctions` (auctioneer only):
 - `GET sales/{uuidOrReceiptNo}/receipt` — receipt data (buyer, seller, officer, centre)
 - `GET records?range=week|month|year&centreUuid=&q=` — sales with a period graph of weight and money
 
+## Auctioneer decision and auction history
+
+A lot that ends with bids (timer runs out or the auctioneer closes bidding)
+does not sell on its own. It moves to `awaiting_decision` and the auctioneer
+decides with `POST /api/v1/auctions/lots/{uuid}/decide {decision: sold|unsold, note?}`.
+`sold` sells to the leading bidder even below the reserve; `unsold` releases
+the animal. A lot with no bids closes as `unsold` without a decision. The next
+lot cannot open, and the auction cannot end, while a decision is pending
+(`DECISION_PENDING`). If the auctioneer disconnects and the session times out,
+pending lots become `unsold`.
+
+Lot objects add `awaitingDecision`, `decision`, `decidedAt`, `biddingEndedAt`
+(and `decisionNote` for the auctioneer). `GET /api/v1/auctions/sessions/{uuid}/history`
+returns every lot with its outcome, decision, all bids (bidder names for the
+auctioneer and admins) and the sale's receipt number.
+
 ## App-side endpoints (for reference)
 
 Under `/api/v1/auctions`, any signed-in account:

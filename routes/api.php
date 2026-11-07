@@ -753,6 +753,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('sessions/{uuid}/state', [AuctionSessionController::class, 'state']);
             Route::post('sessions/{uuid}/chat', [AuctionSessionController::class, 'chat'])->middleware('throttle:60,1');
             Route::get('sessions/{uuid}/events', [AuctionSessionController::class, 'events']);
+            Route::get('sessions/{uuid}/history', [AuctionSessionController::class, 'history']);
             Route::post('sessions/{uuid}/lots', [AuctionLotController::class, 'store']);
 
             Route::put('lots/{uuid}', [AuctionLotController::class, 'update']);
@@ -764,6 +765,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('lots/{uuid}/weight', [AuctionLotController::class, 'lockWeight']);
             Route::post('lots/{uuid}/physical-sale', [AuctionLotController::class, 'physicalSale']);
             Route::post('lots/{uuid}/pass', [AuctionLotController::class, 'pass']);
+            Route::post('lots/{uuid}/decide', [AuctionLotController::class, 'decide']);
             Route::get('lots/{uuid}/bids', [AuctionLotController::class, 'bids']);
         });
 

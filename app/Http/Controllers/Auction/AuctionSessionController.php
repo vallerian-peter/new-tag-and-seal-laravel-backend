@@ -228,6 +228,46 @@ class AuctionSessionController extends Controller
         return $this->ok('History', $session->events()->limit(1000)->get()->map->toWire()->values()->all());
     }
 
+    /**
+     * GET auctions/sessions/{uuid}/history — the full record of an auction:
+     * every lot with its outcome, the auctioneer's decision and all bids.
+     * Bidders appear by paddle number; the auctioneer also sees names.
+     */
+    public function history(Request $request, string $uuid): JsonResponse
+    {
+        $user = $request->user();
+        $session = AuctionSession::with(['host', 'centre', 'lots.currentBid'])->where('uuid', $uuid)->first();
+        if (! $session) {
+            return $this->fail('Auction not found', 404, 'NOT_FOUND');
+        }
+        $isHost = $session->isHost($user->id) || $user->role === \App\Enums\UserRole::SYSTEM_USER;
+        $bids = \App\Models\AuctionBid::with('bidder')->where('sessionId', $session->id)->orderByDesc('amount')->orderBy('id')->get()->groupBy('lotId');
+        $sales = AuctionSale::where('sessionId', $session->id)->get()->keyBy('lotId');
+
+        $lots = $session->lots->map(function ($lot) use ($user, $isHost, $bids, $sales) {
+            $row = $lot->toWire($user->id, $isHost);
+            $row['bids'] = ($bids[$lot->id] ?? collect())->map(function ($b) use ($user, $isHost) {
+                $w = $b->toWire($user->id);
+                if ($isHost) {
+                    $w['bidderName'] = $b->bidder?->farmerCard()['name'] ?? null;
+                }
+
+                return $w;
+            })->values()->all();
+            $sale = $sales[$lot->id] ?? null;
+            $row['sale'] = $sale && ($isHost || (int) $sale->buyerUserId === (int) $user->id)
+                ? ['uuid' => $sale->uuid, 'receiptNo' => $sale->receiptNo, 'status' => $sale->status, 'amount' => (float) $sale->amount]
+                : null;
+
+            return $row;
+        })->values()->all();
+
+        return $this->ok('Auction history', [
+            'session' => $session->toWire($user->id),
+            'lots' => $lots,
+        ]);
+    }
+
     /** GET auctions/purchases — sales where I'm the buyer (payment instructions). */
     public function purchases(Request $request): JsonResponse
     {

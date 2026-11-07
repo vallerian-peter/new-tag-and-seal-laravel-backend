@@ -14,6 +14,7 @@ class AuctionLot extends Model
         'uuid', 'sessionId', 'livestockUuid', 'farmUuid', 'sellerUserId', 'sellerCard', 'livestockSnapshot', 'lotNumber', 'title', 'description',
         'photos', 'startingPrice', 'minIncrement', 'reservePrice', 'durationSeconds', 'status', 'openedAt', 'closesAt',
         'closedAt', 'extendedCount', 'currentPrice', 'currentBidId', 'bidCount', 'winnerUserId', 'winningBidId', 'version',
+        'decision', 'decisionNote', 'decidedBy', 'decidedAt', 'biddingEndedAt',
         'weightKg', 'weightUnit', 'weightStable', 'weightSource', 'weightDeviceName', 'weighedAt', 'weighedBy',
     ];
 
@@ -33,6 +34,8 @@ class AuctionLot extends Model
         'openedAt' => 'datetime',
         'closesAt' => 'datetime',
         'closedAt' => 'datetime',
+        'decidedAt' => 'datetime',
+        'biddingEndedAt' => 'datetime',
         'weightKg' => 'float',
         'weightStable' => 'boolean',
         'weighedAt' => 'datetime',
@@ -158,6 +161,11 @@ class AuctionLot extends Model
             'openedAt' => $this->openedAt?->toIso8601String(),
             'closesAt' => $this->closesAt?->toIso8601String(),
             'closedAt' => $this->closedAt?->toIso8601String(),
+            'biddingEndedAt' => $this->biddingEndedAt?->toIso8601String(),
+            'awaitingDecision' => $this->status === 'awaiting_decision',
+            'decision' => $this->decision,
+            'decisionNote' => $isHost ? $this->decisionNote : null,
+            'decidedAt' => $this->decidedAt?->toIso8601String(),
             'secondsRemaining' => $this->secondsRemaining(),
             'extendedCount' => $this->extendedCount,
             'currentPrice' => (float) $this->currentPrice,

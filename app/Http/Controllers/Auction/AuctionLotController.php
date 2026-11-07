@@ -95,7 +95,13 @@ class AuctionLotController extends Controller
         return $this->guard(function () use ($request, $uuid) {
             $lot = $this->service->closeLotNow($request->user(), $this->find($uuid));
 
-            return $this->ok($lot->status === 'sold' ? 'Sold!' : 'Lot closed without a sale', $lot->toWire($request->user()->id, true));
+            $message = match ($lot->status) {
+                'awaiting_decision' => 'Bidding closed. Decide sold or not sold.',
+                'sold' => 'Sold!',
+                default => 'Lot closed without a sale',
+            };
+
+            return $this->ok($message, $lot->toWire($request->user()->id, true));
         });
     }
 
@@ -208,6 +214,24 @@ class AuctionLotController extends Controller
             $lot = $this->service->passLot($request->user(), $this->find($uuid), $request->input('reason'));
 
             return $this->ok('Lot passed', $lot->toWire($request->user()->id, true));
+        });
+    }
+
+    /** POST auctions/lots/{uuid}/decide {decision: sold|unsold, note?} — auctioneer's final word. */
+    public function decide(Request $request, string $uuid): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'decision' => 'required|in:sold,unsold',
+            'note' => 'nullable|string|max:500',
+        ]);
+        if ($validator->fails()) {
+            return $this->fail('Validation failed', 422, 'VALIDATION', $validator->errors());
+        }
+
+        return $this->guard(function () use ($request, $uuid) {
+            $lot = $this->service->decideLot($request->user(), $this->find($uuid), $request->input('decision'), $request->input('note'));
+
+            return $this->ok($lot->status === 'sold' ? 'Sold!' : 'Marked not sold', $lot->toWire($request->user()->id, true));
         });
     }
 

@@ -340,16 +340,31 @@ class AuctionService
         $this->syncViewers($session);
     }
 
-    public function endSession(User $host, AuctionSession $session): AuctionSession
+    public function endSession(User $host, AuctionSession $session, bool $force = false): AuctionSession
     {
         $this->assertHost($host, $session);
         if ($session->status !== Session::LIVE) {
             return $session;
         }
-        DB::transaction(function () use ($session, $host) {
+        if (! $force) {
+            $live = $session->liveLot();
+            if ($live && $live->bidCount > 0) {
+                throw new AuctionException("Lot {$live->lotNumber} has bids. Close bidding and decide sold or not sold before ending.", 409, 'DECISION_PENDING');
+            }
+            if ($pending = $this->pendingDecision($session)) {
+                throw new AuctionException("Decide on Lot {$pending->lotNumber} (sold or not sold) before ending the auction.", 409, 'DECISION_PENDING');
+            }
+        }
+        DB::transaction(function () use ($session, $host, $force) {
             $live = $session->liveLot();
             if ($live) {
-                $this->closeLot($live, $host->id, 'ended_by_host');
+                $locked = AuctionLot::whereKey($live->id)->lockForUpdate()->first();
+                $this->finaliseLot($locked, null, false, $host->id, $force ? 'session_timed_out' : 'ended_by_host');
+            }
+            // The auctioneer vanished before deciding: nothing sells unseen.
+            foreach ($session->lots()->where('status', Lot::AWAITING_DECISION)->get() as $pending) {
+                $pending->forceFill(['decision' => Lot::UNSOLD, 'decisionNote' => 'Auction ended before a decision', 'decidedAt' => now()])->save();
+                $this->finaliseLot($pending, null, false, null, 'session_timed_out');
             }
             foreach ($session->lots()->where('status', Lot::QUEUED)->get() as $lot) {
                 $lot->update(['status' => Lot::UNSOLD, 'closedAt' => now()]);
@@ -480,6 +495,9 @@ class AuctionService
         }
         if ($lot->status !== Lot::QUEUED) {
             throw new AuctionException('This lot is not waiting to be opened.', 409, 'LOT_NOT_QUEUED');
+        }
+        if ($pending = $this->pendingDecision($session)) {
+            throw new AuctionException("Decide on Lot {$pending->lotNumber} (sold or not sold) before opening the next animal.", 409, 'DECISION_PENDING');
         }
 
         $lot = DB::transaction(function () use ($lot, $session, $host) {
@@ -637,18 +655,87 @@ class AuctionService
      * Decides the outcome of a lot. Must be called with the row already locked
      * inside a transaction. Broadcasts after the caller's transaction commits.
      */
+    /**
+     * Ends bidding on a lot. Must be called with the row already locked
+     * inside a transaction. A lot with bids does not sell on its own: it
+     * waits for the auctioneer's decision. A lot without bids is unsold.
+     */
     private function closeLot(AuctionLot $lot, ?int $actorUserId, string $reason): AuctionLot
     {
         $session = $lot->session;
         $leading = $lot->currentBidId ? AuctionBid::find($lot->currentBidId) : null;
-        $sold = $leading !== null && $lot->reserveMet();
+        if ($leading === null) {
+            return $this->finaliseLot($lot, null, false, $actorUserId, $reason);
+        }
+
+        $lot->update([
+            'status' => Lot::AWAITING_DECISION,
+            'biddingEndedAt' => now(),
+            'version' => $lot->version + 1,
+        ]);
+        $this->event($session, 'lot_awaiting_decision', $actorUserId, $lot->id, [
+            'reason' => $reason,
+            'amount' => (float) $leading->amount,
+            'bidderNumber' => $leading->bidderNumber,
+            'reserveMet' => $lot->reserveMet(),
+        ]);
+        DB::afterCommit(function () use ($session, $lot, $leading, $reason) {
+            $this->emit(new AuctionRoomEvent($session->uuid, 'lot_awaiting_decision', [
+                'lotUuid' => $lot->uuid,
+                'reason' => $reason,
+                'amount' => (float) $leading->amount,
+                'bidderNumber' => $leading->bidderNumber,
+                'reserveMet' => $lot->reserveMet(),
+                'version' => $lot->version,
+            ]));
+        });
+
+        return $lot->refresh();
+    }
+
+    /**
+     * The auctioneer's final word on a lot whose bidding has ended:
+     * `sold` sells to the leading bidder (even below the reserve), `unsold`
+     * releases the animal. Kept on the lot for the auction history.
+     */
+    public function decideLot(User $host, AuctionLot $lot, string $decision, ?string $note = null): AuctionLot
+    {
+        $session = $lot->session;
+        $this->assertHost($host, $session);
+        if (! in_array($decision, [Lot::SOLD, Lot::UNSOLD], true)) {
+            throw new AuctionException('Choose sold or not sold.', 422, 'VALIDATION');
+        }
+
+        return DB::transaction(function () use ($host, $lot, $decision, $note) {
+            $locked = AuctionLot::whereKey($lot->id)->lockForUpdate()->first();
+            if ($locked->status !== Lot::AWAITING_DECISION) {
+                throw new AuctionException('This lot is not waiting for a decision.', 409, 'NO_DECISION_PENDING');
+            }
+            $leading = $locked->currentBidId ? AuctionBid::find($locked->currentBidId) : null;
+            $sold = $decision === Lot::SOLD && $leading !== null;
+            $locked->forceFill([
+                'decision' => $sold ? Lot::SOLD : Lot::UNSOLD,
+                'decisionNote' => $note,
+                'decidedBy' => $host->id,
+                'decidedAt' => now(),
+            ])->save();
+
+            return $this->finaliseLot($locked, $leading, $sold, $host->id, $sold ? 'auctioneer_sold' : 'auctioneer_declined');
+        });
+    }
+
+    /** Writes the final outcome of a lot, creates the sale, moves the hold. */
+    private function finaliseLot(AuctionLot $lot, ?AuctionBid $leading, bool $sold, ?int $actorUserId, string $reason): AuctionLot
+    {
+        $session = $lot->session;
         $sale = null;
 
-        if ($sold) {
+        if ($sold && $leading !== null) {
             $cfg = $session->config();
             $lot->update([
                 'status' => Lot::SOLD,
                 'closedAt' => now(),
+                'biddingEndedAt' => $lot->biddingEndedAt ?? now(),
                 'winnerUserId' => $leading->bidderUserId,
                 'winningBidId' => $leading->id,
                 'version' => $lot->version + 1,
@@ -657,16 +744,21 @@ class AuctionService
             AuctionBid::where('lotId', $lot->id)->where('id', '!=', $leading->id)->whereIn('status', ['outbid', 'leading'])->update(['status' => 'lost']);
             $sale = AuctionSale::create([
                 'uuid' => (string) Str::uuid(),
+                'receiptNo' => self::receiptNo(),
                 'lotId' => $lot->id,
                 'sessionId' => $session->id,
                 'buyerUserId' => $leading->bidderUserId,
                 'sellerUserId' => $lot->sellerUserId ?: $session->hostUserId,
                 'livestockUuid' => $lot->livestockUuid,
                 'amount' => $leading->amount,
+                'weightKg' => $lot->weightKg,
+                'pricePerKg' => $lot->pricePerKg((float) $leading->amount),
                 'currency' => $session->currency,
                 'status' => 'awaiting_payment',
+                'channel' => 'live',
                 'paymentInstructions' => $session->paymentInstructions,
                 'paymentDeadlineAt' => now()->addHours((int) $cfg['paymentWindowHours']),
+                'recordedByUserId' => $actorUserId,
             ]);
             $this->holds->consume(LivestockSaleHold::CHANNEL_AUCTION, $lot->uuid);
             AuctionSession::whereKey($session->id)->update([
@@ -674,7 +766,12 @@ class AuctionService
                 'grossSales' => DB::raw('grossSales + '.((float) $leading->amount)),
             ]);
         } else {
-            $lot->update(['status' => Lot::UNSOLD, 'closedAt' => now(), 'version' => $lot->version + 1]);
+            $lot->update([
+                'status' => Lot::UNSOLD,
+                'closedAt' => now(),
+                'biddingEndedAt' => $lot->biddingEndedAt ?? now(),
+                'version' => $lot->version + 1,
+            ]);
             AuctionBid::where('lotId', $lot->id)->whereIn('status', ['outbid', 'leading'])->update(['status' => 'lost']);
             $this->holds->release(LivestockSaleHold::CHANNEL_AUCTION, $lot->uuid);
         }
@@ -683,6 +780,7 @@ class AuctionService
             'amount' => $leading?->amount,
             'bidderNumber' => $leading?->bidderNumber,
             'reserveMet' => $lot->reserveMet(),
+            'decision' => $lot->decision,
         ]);
 
         DB::afterCommit(function () use ($session, $lot, $sold, $leading, $sale, $reason) {
@@ -691,19 +789,25 @@ class AuctionService
                 'status' => $lot->status,
                 'sold' => $sold,
                 'reason' => $reason,
+                'decision' => $lot->decision,
                 'amount' => $leading ? (float) $leading->amount : null,
                 'bidderNumber' => $leading?->bidderNumber,
-                'winnerUserId' => $sold ? $leading->bidderUserId : null,
+                'winnerUserId' => $sold ? $leading?->bidderUserId : null,
                 'saleUuid' => $sale?->uuid,
                 'version' => $lot->version,
             ]));
-            if ($sold) {
+            if ($sold && $sale) {
                 $this->notifyWinner($session, $lot, $sale);
                 $this->notifySeller($session, $lot, $sale);
             }
         });
 
         return $lot->refresh();
+    }
+
+    private function pendingDecision(AuctionSession $session): ?AuctionLot
+    {
+        return AuctionLot::where('sessionId', $session->id)->where('status', Lot::AWAITING_DECISION)->orderBy('lotNumber')->first();
     }
 
     // ------------------------------------------------------------------
@@ -785,7 +889,7 @@ class AuctionService
         foreach ($q->limit(10)->get() as $session) {
             $host = User::find($session->hostUserId);
             if ($host) {
-                $this->endSession($host, $session);
+                $this->endSession($host, $session, true);
             }
         }
     }
