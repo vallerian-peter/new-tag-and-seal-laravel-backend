@@ -34,7 +34,9 @@ class AuctionSessionController extends Controller
                 'host' => config('broadcasting.connections.reverb.options.host'),
                 'port' => (int) config('broadcasting.connections.reverb.options.port'),
                 'scheme' => config('broadcasting.connections.reverb.options.scheme'),
-                'authEndpoint' => url('/api/broadcasting/auth'),
+                // Built from APP_URL: behind a TLS proxy url() loses the port and
+                // scheme, and a redirected POST drops the auth body.
+                'authEndpoint' => rtrim((string) config('app.url'), '/').'/api/broadcasting/auth',
             ],
             'livekit' => [
                 'configured' => $this->livekit->configured(),
