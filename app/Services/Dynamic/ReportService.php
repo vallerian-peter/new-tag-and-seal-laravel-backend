@@ -2,6 +2,8 @@
 
 namespace App\Services\Dynamic;
 
+use App\Services\Hiring\FarmOwnership;
+use App\Services\Hiring\WorkerPermissions;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 
@@ -30,7 +32,7 @@ class ReportService
     /** @param Scope $scope */
     public function events(array $scope): array
     {
-        return $this->period($this->farms($this->liveEvents(), 'e.farm_uuid', $scope['farms']), $scope)
+        return $this->period($this->farms($this->visibleEvents($scope), 'e.farm_uuid', $scope['farms']), $scope)
             ->leftJoin('behavior_definitions as b', 'b.code', '=', 'e.behavior_code')
             ->leftJoin('event_definitions as d', 'd.uuid', '=', 'e.event_definition_uuid')
             ->groupBy('e.event_code', 'e.behavior_code', DB::raw('coalesce(d.family, b.family)'))
@@ -42,7 +44,7 @@ class ReportService
     /** @param Scope $scope */
     public function reproduction(array $scope): array
     {
-        $query = $this->farms(DB::table('subject_reproduction_state as r'), 'r.farm_uuid', $scope['farms'])
+        $query = $this->farms(DB::table('subject_reproduction_state as r'), 'r.farm_uuid', $this->summaryFarms($scope, 'birth-event'))
             ->join('animal_subjects as s', 's.uuid', '=', 'r.subject_uuid')
             ->when($scope['from'], fn ($q, $from) => $q->where('r.last_birth_at', '>=', $from))
             ->when($scope['to'], fn ($q, $to) => $q->where('r.last_birth_at', '<=', $to.' 23:59:59'));
@@ -65,7 +67,7 @@ class ReportService
     /** @param Scope $scope */
     public function production(array $scope): array
     {
-        return $this->farms(DB::table('subject_production_daily as p'), 'p.farm_uuid', $scope['farms'])
+        return $this->farms(DB::table('subject_production_daily as p'), 'p.farm_uuid', $this->summaryFarms($scope, 'milking'))
             ->when($scope['from'], fn ($q, $from) => $q->where('p.production_date', '>=', $from))
             ->when($scope['to'], fn ($q, $to) => $q->where('p.production_date', '<=', $to))
             ->groupBy('p.production_date', 'p.product_code', 'p.unit')
@@ -80,7 +82,7 @@ class ReportService
     /** @param Scope $scope */
     public function health(array $scope): array
     {
-        $health = fn () => $this->period($this->farms($this->liveEvents(), 'e.farm_uuid', $scope['farms']), $scope)
+        $health = fn () => $this->period($this->farms($this->visibleEvents($scope), 'e.farm_uuid', $scope['farms']), $scope)
             ->join('behavior_definitions as b', 'b.code', '=', 'e.behavior_code')
             ->leftJoin('event_definitions as d', 'd.uuid', '=', 'e.event_definition_uuid')
             ->where(fn ($q) => $q->where(DB::raw('coalesce(d.family, b.family)'), 'health')->orWhere('e.event_code', 'like', '%vaccin%')->orWhere('e.event_code', 'like', '%treat%')->orWhere('e.event_code', 'like', '%deworm%'));
@@ -89,6 +91,38 @@ class ReportService
             'byEvent' => $health()->groupBy('e.event_code')->get(['e.event_code', DB::raw('count(*) as events'), DB::raw('count(distinct e.subject_uuid) as subjects')])->all(),
             'recent' => $health()->orderByDesc('e.occurred_at')->limit(100)->get(['e.uuid', 'e.subject_uuid', 'e.event_code', 'e.occurred_at'])->all(),
         ];
+    }
+
+    private function visibleEvents(array $scope): Builder
+    {
+        $query = $this->liveEvents();
+        $actor = $scope['actor'] ?? null;
+        if (! $actor || ($scope['farms'] ?? null) === null) {
+            return $query;
+        }
+        $access = app(FarmAccessService::class);
+
+        return $query->where(function ($query) use ($scope, $actor, $access) {
+            $query->whereRaw('1 = 0');
+            foreach ($scope['farms'] as $farm) {
+                if (app(FarmOwnership::class)->owns($actor, $farm) || $access->can($actor, $farm, 'events.create')) {
+                    $query->orWhere('e.farm_uuid', $farm);
+
+                    continue;
+                }
+                $modules = array_values(array_filter([...WorkerPermissions::MODULES, 'finance'], fn ($module) => $access->canModule($actor, $farm, $module, 'view')));
+                $query->orWhere(fn ($part) => $part->where('e.farm_uuid', $farm)->whereIn('e.event_definition_uuid', DB::table('event_definitions')->whereIn('access_module_code', $modules)->select('uuid')));
+            }
+        });
+    }
+
+    private function summaryFarms(array $scope, string $module): ?array
+    {
+        if (! isset($scope['actor']) || $scope['farms'] === null) {
+            return $scope['farms'];
+        }
+
+        return array_values(array_filter($scope['farms'], fn ($farm) => app(FarmAccessService::class)->canModule($scope['actor'], $farm, $module, 'view')));
     }
 
     private function liveEvents(): Builder

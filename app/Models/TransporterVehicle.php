@@ -15,6 +15,10 @@ class TransporterVehicle extends Model
         'registration_number',
         'tanker_capacity_liters',
         'make_model',
+        'vehicle_type',
+        'color',
+        'tare_weight_kg',
+        'status',
         'calibration_certificate_url',
         'approval_status',
         'is_active',
@@ -22,6 +26,7 @@ class TransporterVehicle extends Model
 
     protected $casts = [
         'tanker_capacity_liters' => 'decimal:2',
+        'tare_weight_kg' => 'decimal:2',
         'is_active' => 'boolean',
     ];
 

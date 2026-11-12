@@ -14,12 +14,15 @@ class DairyFactory extends Model
         'name',
         'factory_code',
         'registration_number',
+        'tin_number',
+        'mcu_uuid',
         'dairy_board_license_no',
         'contact_name',
         'contact_phone',
         'contact_email',
         'region_id',
         'district_id',
+        'ward_id',
         'address',
         'latitude',
         'longitude',
@@ -30,7 +33,6 @@ class DairyFactory extends Model
         'approval_remarks',
         'approved_at',
         'is_active',
-        'current_inventory_liters',
         'manager_user_id',
         'status',
     ];
@@ -61,19 +63,8 @@ class DairyFactory extends Model
         return $this->belongsTo(District::class, 'district_id', 'id');
     }
 
-    public function tanks()
-    {
-        return $this->hasMany(DairyFactoryTank::class, 'factory_uuid', 'uuid');
-    }
-
     public function operators()
     {
         return $this->hasMany(FactoryOperator::class, 'factory_uuid', 'uuid');
     }
-
-    public function stockMovements()
-    {
-        return $this->hasMany(DairyFactoryStockMovement::class, 'factory_uuid', 'uuid');
-    }
-
 }

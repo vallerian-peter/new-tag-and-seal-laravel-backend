@@ -9,7 +9,7 @@ class RegistrationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_new_users_can_register(): void
+    public function test_public_registration_cannot_create_an_administrator(): void
     {
         $response = $this->postJson('/api/auth/register', [
             'username' => 'test.admin',
@@ -21,21 +21,16 @@ class RegistrationTest extends TestCase
             'phone' => '+255700000001',
         ]);
 
-        $response
-            ->assertCreated()
-            ->assertJsonPath('status', true)
-            ->assertJsonPath('data.user.username', 'test.admin')
-            ->assertJsonPath('data.user.role', 'systemUser')
-            ->assertJsonStructure(['data' => ['accessToken']]);
+        $response->assertForbidden();
 
-        $this->assertDatabaseHas('users', [
+        $this->assertDatabaseMissing('users', [
             'username' => 'test.admin',
             'email' => 'test@example.com',
             'role' => 'systemUser',
             'status' => 'active',
         ]);
 
-        $this->assertDatabaseHas('system_users', [
+        $this->assertDatabaseMissing('system_users', [
             'firstName' => 'Test',
             'lastName' => 'Administrator',
             'phone' => '+255700000001',

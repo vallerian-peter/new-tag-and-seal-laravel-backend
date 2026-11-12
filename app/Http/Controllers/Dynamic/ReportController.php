@@ -53,7 +53,7 @@ class ReportController extends Controller
             $farms = [$data['farmUuid']];
         }
 
-        return ['farms' => $farms, 'from' => $data['from'] ?? null, 'to' => $data['to'] ?? null];
+        return ['actor' => $request->user(), 'farms' => $farms, 'from' => $data['from'] ?? null, 'to' => $data['to'] ?? null];
     }
 
     private function respond(array $data): JsonResponse

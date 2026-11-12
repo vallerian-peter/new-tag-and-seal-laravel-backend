@@ -32,12 +32,65 @@ class User extends Authenticatable
         'updatedBy',
     ];
 
+    protected $appends = ['name', 'phone'];
+
+    public function getNameAttribute(): string
+    {
+        try {
+            $phoneIdentity = DB::table('phone_identities')->where('user_id', $this->id)->first();
+            if ($phoneIdentity && ! empty($phoneIdentity->display_name)) {
+                return trim($phoneIdentity->display_name);
+            }
+
+            $profile = $this->roleId ? $this->profile()->first() : null;
+            if ($profile) {
+                $fullName = trim(($profile->firstName ?? '') . ' ' . ($profile->surname ?? $profile->lastName ?? ''));
+                if (! empty($fullName)) {
+                    return $fullName;
+                }
+            }
+        } catch (\Throwable $e) {}
+
+        if ($this->username && ! str_starts_with($this->username, 'phone-')) {
+            return $this->username;
+        }
+
+        return 'User #' . $this->id;
+    }
+
+    public function getPhoneAttribute(): ?string
+    {
+        try {
+            $phoneIdentity = DB::table('phone_identities')->where('user_id', $this->id)->first();
+            if ($phoneIdentity && ! empty($phoneIdentity->phone)) {
+                return $phoneIdentity->phone;
+            }
+
+            $profile = $this->roleId ? $this->profile()->first() : null;
+            if ($profile) {
+                return $profile->phone1 ?? $profile->phone ?? null;
+            }
+        } catch (\Throwable $e) {}
+
+        return null;
+    }
+
+    public function getEmailAttribute($value): string
+    {
+        if (str_ends_with($value ?? '', '@accounts.invalid')) {
+            return '';
+        }
+
+        return $value ?? '';
+    }
+
     protected static function booted(): void
     {
         static::creating(function (self $user): void {
             if (empty($user->uuid)) {
                 $user->uuid = (string) Str::uuid();
             }
+            $user->platform_role ??= 'appUser';
         });
     }
 
@@ -184,6 +237,7 @@ class User extends Authenticatable
 
     public function hasPlatformPermission(string $permission): bool
     {
+        if ($this->platform_role === 'superAdmin') return true;
         if (! Schema::hasTable('platform_permissions') || empty($this->uuid)) {
             return false;
         }
@@ -262,7 +316,7 @@ class User extends Authenticatable
             case UserRole::FARM_INVITED_USER:
                 return $this->belongsTo(FarmUser::class, 'roleId');
             default:
-                return null;
+                return $this->belongsTo(Farmer::class, 'roleId');
         }
     }
 

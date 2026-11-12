@@ -39,7 +39,9 @@ class UserFactory extends Factory
 
     public function configure(): static
     {
-        return $this->afterCreating(function ($user): void {
+        return $this->afterMaking(function ($user): void {
+            $user->platform_role ??= $user->role === UserRole::SYSTEM_USER ? 'admin' : 'appUser';
+        })->afterCreating(function ($user): void {
             if ($user->role !== UserRole::SYSTEM_USER || $user->roleId !== 0) {
                 return;
             }

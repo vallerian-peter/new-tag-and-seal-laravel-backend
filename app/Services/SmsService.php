@@ -99,8 +99,6 @@ class SmsService
 
         try {
             Log::info("📱 Sending SMS to: " . implode(', ', $normalizedNumbers));
-            Log::debug("📱 SMS Message: {$message}");
-            Log::debug("📱 SMS Payload: " . json_encode($payload, JSON_PRETTY_PRINT));
 
             $response = Http::timeout(30)->post(self::SMS_API_URL, $payload);
 

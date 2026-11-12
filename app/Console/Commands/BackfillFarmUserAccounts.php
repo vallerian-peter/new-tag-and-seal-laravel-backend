@@ -3,11 +3,10 @@
 namespace App\Console\Commands;
 
 use App\Enums\UserRole;
-use App\Enums\UserStatus;
+use App\Http\Controllers\FarmUser\FarmUserController;
 use App\Models\FarmUser;
 use App\Models\User;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -39,12 +38,12 @@ class BackfillFarmUserAccounts extends Command
         $farmUsers = FarmUser::all();
         $this->info("Total farm_users found: {$farmUsers->count()}");
 
-        $created  = 0;
-        $skipped  = 0;
-        $errors   = 0;
+        $created = 0;
+        $skipped = 0;
+        $errors = 0;
 
-        /** @var \App\Http\Controllers\FarmUser\FarmUserController $farmUserController */
-        $farmUserController = app(\App\Http\Controllers\FarmUser\FarmUserController::class);
+        /** @var FarmUserController $farmUserController */
+        $farmUserController = app(FarmUserController::class);
 
         foreach ($farmUsers as $farmUser) {
             try {
@@ -56,16 +55,24 @@ class BackfillFarmUserAccounts extends Command
                 if ($linkedUser) {
                     $this->line("  ⏭️  FarmUser ID={$farmUser->id} ({$farmUser->email}) → already linked to User ID={$linkedUser->id} (username={$linkedUser->username})");
                     $skipped++;
+
                     continue;
                 }
 
                 if ($isDryRun) {
                     $this->info("  ✅ [DRY-RUN] Would create/link User for FarmUser ID={$farmUser->id} ({$farmUser->email})");
                     $created++;
+
                     continue;
                 }
 
                 $user = $farmUserController->ensureUserAccount($farmUser, null, null, false);
+                if (! $user) {
+                    $this->line('Pending verified phone identity; no account created.');
+                    $skipped++;
+
+                    continue;
+                }
                 $this->info("  ✅ Linked/Created User ID={$user->id} for FarmUser ID={$farmUser->id} ({$farmUser->email}) username={$user->username}");
                 Log::info("✅ [BackfillFarmUserAccounts] Created/Linked User ID={$user->id} for FarmUser ID={$farmUser->id} ({$farmUser->email})");
                 $created++;

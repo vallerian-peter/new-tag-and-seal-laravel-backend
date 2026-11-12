@@ -12,6 +12,11 @@ class MilkFactoryDelivery extends Model
     protected $fillable = [
         'uuid',
         'dispatch_order_uuid',
+        'trip_uuid',
+        'factory_uuid',
+        'dispatched_volume_liters',
+        'accepted_volume_liters',
+        'notes',
         'factory_qa_officer_user_id',
         'received_volume_liters',
         'arrival_temperature_celsius',
@@ -24,7 +29,9 @@ class MilkFactoryDelivery extends Model
     ];
 
     protected $casts = [
+        'dispatched_volume_liters' => 'decimal:2',
         'received_volume_liters' => 'decimal:2',
+        'accepted_volume_liters' => 'decimal:2',
         'arrival_temperature_celsius' => 'decimal:2',
         'seals_intact' => 'boolean',
         'discrepancy_liters' => 'decimal:2',
@@ -48,4 +55,13 @@ class MilkFactoryDelivery extends Model
         return $this->belongsTo(User::class, 'factory_qa_officer_user_id', 'id');
     }
 
+    public function trip()
+    {
+        return $this->belongsTo(DairyTrip::class, 'trip_uuid', 'uuid');
+    }
+
+    public function factory()
+    {
+        return $this->belongsTo(DairyFactory::class, 'factory_uuid', 'uuid');
+    }
 }

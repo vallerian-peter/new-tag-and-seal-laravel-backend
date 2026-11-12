@@ -12,11 +12,21 @@ class TransporterCompany extends Model
     protected $fillable = [
         'uuid',
         'name',
+        'mcu_uuid',
         'license_number',
         'tin_number',
         'contact_person',
         'phone',
         'email',
+        'contact_phone',
+        'contact_email',
+        'contact_title',
+        'region_id',
+        'district_id',
+        'physical_address',
+        'website',
+        'rejected_at',
+        'archived_at',
         'manager_user_id',
         'status',
         'document_urls',
@@ -30,6 +40,8 @@ class TransporterCompany extends Model
     protected $casts = [
         'document_urls' => 'array',
         'approved_at' => 'datetime',
+        'rejected_at' => 'datetime',
+        'archived_at' => 'datetime',
         'is_active' => 'boolean',
     ];
 
@@ -55,4 +67,16 @@ class TransporterCompany extends Model
         return $this->hasMany(DairyTrip::class, 'transporter_company_uuid', 'uuid');
     }
 
+    public const TIN_PATTERN = '/^\d{3}-\d{3}-\d{3}$/';
+
+    /** Nine TIN digits typed with or without dashes are stored as 123-456-789. */
+    public static function normaliseTin(mixed $tin): mixed
+    {
+        if (! is_string($tin)) {
+            return $tin;
+        }
+        $digits = preg_replace('/\D/', '', $tin);
+
+        return strlen($digits) === 9 ? implode('-', str_split($digits, 3)) : trim($tin);
+    }
 }

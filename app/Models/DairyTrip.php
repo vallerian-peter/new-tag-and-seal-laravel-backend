@@ -14,6 +14,8 @@ class DairyTrip extends Model
         'trip_number',
         'transporter_company_uuid',
         'driver_user_id',
+        'created_by_user_id',
+        'commodity_code',
         'vehicle_uuid',
         'vehicle_plate_number',
         'destination_factory_uuid',
@@ -71,5 +73,4 @@ class DairyTrip extends Model
     {
         return $this->hasMany(DairyTripRoute::class, 'dairy_trip_uuid', 'uuid');
     }
-
 }

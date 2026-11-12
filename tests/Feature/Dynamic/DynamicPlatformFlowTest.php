@@ -26,7 +26,7 @@ class DynamicPlatformFlowTest extends TestCase
 
     public function test_new_blueprint_event_versions_work_for_existing_animals_without_rewriting_registration(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::SYSTEM_USER]);
+        $admin = User::factory()->create(['role' => UserRole::SYSTEM_USER, 'platform_role' => 'superAdmin']);
         $headers = ['Authorization' => 'Bearer '.$admin->createToken('workflow-version')->plainTextToken];
         $species = $this->draftSpecies('versioned_events');
         $registration = $this->publishedForm('versioned.registration', 'registration', [$this->field('display_name', 'text', 'string', true)]);
@@ -75,7 +75,7 @@ class DynamicPlatformFlowTest extends TestCase
 
     public function test_bulk_event_commands_validate_each_animal_and_retry_without_duplicates(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::SYSTEM_USER]);
+        $admin = User::factory()->create(['role' => UserRole::SYSTEM_USER, 'platform_role' => 'superAdmin']);
         $headers = ['Authorization' => 'Bearer '.$admin->createToken('bulk-events')->plainTextToken];
         $species = $this->draftSpecies('bulk_test');
         $registration = $this->publishedForm('bulk.registration', 'registration', [$this->field('display_name', 'text', 'string', true)]);
@@ -114,7 +114,7 @@ class DynamicPlatformFlowTest extends TestCase
 
     public function test_published_configuration_lets_mobile_register_and_record_event(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::SYSTEM_USER]);
+        $admin = User::factory()->create(['role' => UserRole::SYSTEM_USER, 'platform_role' => 'superAdmin']);
         $headers = ['Authorization' => 'Bearer '.$admin->createToken('dynamic-test')->plainTextToken];
 
         $speciesUuid = $this->draftSpecies('test_animal', null, 'both', ['group_display_name' => 'Group']);
@@ -186,7 +186,7 @@ class DynamicPlatformFlowTest extends TestCase
 
     public function test_existing_catalog_binding_and_profile_updates_keep_identity_and_retry_safely(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::SYSTEM_USER]);
+        $admin = User::factory()->create(['role' => UserRole::SYSTEM_USER, 'platform_role' => 'superAdmin']);
         $headers = ['Authorization' => 'Bearer '.$admin->createToken('existing-ui')->plainTextToken];
         app(DynamicV1Installer::class)->install($admin->uuid);
         $blueprint = AnimalBlueprint::query()->firstOrFail();
@@ -238,7 +238,7 @@ class DynamicPlatformFlowTest extends TestCase
 
     public function test_group_sync_keeps_quantity_and_the_paired_identifier(): void
     {
-        $actor = User::factory()->create(['role' => UserRole::SYSTEM_USER]);
+        $actor = User::factory()->create(['role' => UserRole::SYSTEM_USER, 'platform_role' => 'superAdmin']);
         $headers = ['Authorization' => 'Bearer '.$actor->createToken('group-ui')->plainTextToken];
         app(DynamicV1Installer::class)->install($actor->uuid);
         $blueprint = AnimalBlueprint::query()->firstOrFail();

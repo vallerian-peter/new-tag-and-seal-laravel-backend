@@ -83,6 +83,12 @@ class PeopleAndUsersCrudTest extends TestCase
             'status' => UserStatus::ACTIVE,
         ]);
 
+        $this->admin->forceFill(['platform_role' => 'superAdmin'])->save();
+        DB::table('user_platform_permissions')->insert([
+            'user_uuid' => $this->admin->uuid,
+            'permission_id' => DB::table('platform_permissions')->where('code', 'permissions.manage')->value('id'),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
         Sanctum::actingAs($this->admin);
     }
 
@@ -114,6 +120,45 @@ class PeopleAndUsersCrudTest extends TestCase
             $this->getJson("/api/v1/admin/people/{$resource}")->assertForbidden();
         }
         $this->getJson('/api/v1/admin/users')->assertForbidden();
+    }
+
+    public function test_editing_a_farmer_owned_by_a_phone_account_does_not_add_a_second_login(): void
+    {
+        $owner = User::create([
+            'username' => 'phone-owner',
+            'email' => 'owner@example.com',
+            'password' => 'password123',
+            'role' => 'appUser',
+            'roleId' => 0,
+            'status' => UserStatus::ACTIVE,
+        ]);
+        DB::table('phone_identities')->insert([
+            'user_id' => $owner->id,
+            'phone' => '+255796000111',
+            'pin_hash' => Hash::make('1234'),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $farmer = Farmer::create([
+            'farmerNo' => 'FRM-PHONE-OWNED',
+            'firstName' => 'Vallerian',
+            'surname' => 'Mchau',
+            'phone1' => '+255796000111',
+            'gender' => 'male',
+            'countryId' => $this->country->id,
+            'farmerType' => 'individual',
+            'status' => 'active',
+            'createdBy' => $owner->id,
+        ]);
+        $users = User::count();
+
+        $this->patchJson("/api/v1/admin/people/farmers/{$farmer->id}", ['firstName' => 'Vallerian Peter'])
+            ->assertOk();
+
+        $this->assertSame($users, User::count());
+        $this->postJson('/api/auth/phone/check', ['phone' => '0796000111'])
+            ->assertOk()
+            ->assertJsonPath('next', 'pin');
     }
 
     public function test_farmers_crud_search_filter_sort_and_delete_protection(): void
@@ -164,7 +209,7 @@ class PeopleAndUsersCrudTest extends TestCase
             ->assertJsonPath('data.createdByName', 'sys.admin');
 
         $generatedFarmerNo = (string) $createResponse->json('data.farmerNo');
-        $this->assertMatchesRegularExpression('/^FMR-\d{8}-\d{4}-\d{3}$/', $generatedFarmerNo);
+        $this->assertMatchesRegularExpression('/^FMR-\d{4}-\d{6}$/', $generatedFarmerNo);
 
         $farmerId = (int) $createResponse->json('data.id');
 
@@ -407,86 +452,16 @@ class PeopleAndUsersCrudTest extends TestCase
         $this->assertDatabaseMissing('users', ['id' => $linkedOfficerAccount->id]);
     }
 
-    public function test_farm_users_crud_auto_creates_syncs_and_deletes_linked_user_account(): void
+    public function test_legacy_farm_worker_mutations_cannot_change_or_delete_login_accounts(): void
     {
-        $farmer = Farmer::create([
-            'farmerNo' => 'FN-3001',
-            'firstName' => 'Daudi',
-            'surname' => 'Massawe',
-            'phone1' => '+255755300300',
-            'gender' => 'male',
-            'countryId' => $this->country->id,
-            'farmerType' => 'individual',
-            'status' => 'active',
-        ]);
-
-        $farm = Farm::create([
-            'farmerId' => $farmer->id,
-            'uuid' => 'farm-uuid-3001',
-            'referenceNo' => 'FRM-3001',
-            'name' => 'Meru Highlands Farm',
-            'size' => 45,
-            'sizeUnit' => 'acre',
-            'physicalAddress' => 'Tengeru',
-            'countryId' => $this->country->id,
-            'status' => 'active',
-        ]);
-
-        $this->getJson('/api/v1/admin/people/farm-users/options')
-            ->assertOk()
-            ->assertJsonPath('data.farms.0.value', 'farm-uuid-3001');
-
-        $createResponse = $this->postJson('/api/v1/admin/people/farm-users', [
-            'farmUuid' => $farm->uuid,
-            'roleTitle' => 'farm-manager',
-            'firstName' => 'kelvin',
-            'middleName' => 'peter',
-            'lastName' => 'mushi',
-            'phone' => '+255788100200',
-            'email' => 'kelvin.mushi@merufarm.co.tz',
-            'gender' => 'male',
-            'status' => 'active',
-            'password' => 'farmManagerPass1',
-        ]);
-
-        $createResponse
-            ->assertCreated()
-            ->assertJsonPath('status', true)
-            ->assertJsonPath('data.farmName', 'Meru Highlands Farm')
-            ->assertJsonPath('data.roleTitle', 'farm-manager');
-
-        $farmUserId = (int) $createResponse->json('data.id');
-
-        $linkedUser = User::query()
-            ->where('role', UserRole::FARM_INVITED_USER)
-            ->where('roleId', $farmUserId)
-            ->first();
-
-        $this->assertNotNull($linkedUser);
-        $this->assertSame('kelvin.mushi@merufarm.co.tz', $linkedUser->email);
-        $this->assertTrue(Hash::check('farmManagerPass1', $linkedUser->password));
-
-        $this->patchJson("/api/v1/admin/people/farm-users/{$farmUserId}", [
-            'roleTitle' => 'milking-user',
-            'email' => 'kelvin.updated@merufarm.co.tz',
-            'status' => 'notActive',
-            'password' => 'newFarmManagerPass2',
-        ])
-            ->assertOk()
-            ->assertJsonPath('data.roleTitle', 'milking-user')
-            ->assertJsonPath('data.status', 'notActive');
-
-        $linkedUser->refresh();
-        $this->assertSame('kelvin.updated@merufarm.co.tz', $linkedUser->email);
-        $this->assertSame(UserStatus::NOT_ACTIVE, $linkedUser->status);
-        $this->assertTrue(Hash::check('newFarmManagerPass2', $linkedUser->password));
-
-        $this->deleteJson("/api/v1/admin/people/farm-users/{$farmUserId}")
-            ->assertOk()
-            ->assertJsonPath('status', true);
-
-        $this->assertDatabaseMissing('farm_users', ['id' => $farmUserId]);
-        $this->assertDatabaseMissing('users', ['id' => $linkedUser->id]);
+        $profile = FarmUser::create(['uuid' => 'legacy-worker', 'farmUuid' => 'legacy-farm', 'firstName' => 'Worker', 'lastName' => 'Test', 'phone' => '+255788100200', 'email' => 'worker@example.test', 'gender' => 'male', 'roleTitle' => 'milking-user', 'status' => 'active']);
+        $user = User::factory()->create(['role' => UserRole::FARM_INVITED_USER, 'roleId' => $profile->id]);
+        $password = $user->password;
+        $this->postJson('/api/v1/admin/people/farm-users', [])->assertStatus(405);
+        $this->patchJson('/api/v1/admin/people/farm-users/'.$profile->id, ['password' => 'changed-password'])->assertStatus(405);
+        $this->deleteJson('/api/v1/admin/people/farm-users/'.$profile->id)->assertStatus(405);
+        $this->assertSame($password, $user->fresh()->password);
+        $this->assertDatabaseHas('farm_users', ['id' => $profile->id, 'status' => 'active']);
     }
 
     public function test_farm_invites_crud_auto_generates_access_code_and_resolves_farm(): void
@@ -705,7 +680,7 @@ class PeopleAndUsersCrudTest extends TestCase
             ->assertJsonPath('data.profile.name', 'Zawadi Msuya');
 
         $generatedUserFarmerNo = (string) $farmerUserResponse->json('data.profileDetails.farmerNo');
-        $this->assertMatchesRegularExpression('/^FMR-\d{8}-\d{4}-\d{3}$/', $generatedUserFarmerNo);
+        $this->assertMatchesRegularExpression('/^FMR-\d{4}-\d{6}$/', $generatedUserFarmerNo);
 
         $farmerProfileId = (int) $farmerUserResponse->json('data.roleId');
         $this->assertDatabaseHas('farmers', [

@@ -6,9 +6,6 @@ use App\Enums\UserRole;
 use App\Enums\UserStatus;
 use App\Models\Country;
 use App\Models\DairyFactory;
-use App\Models\DairyFactoryTank;
-use App\Models\DairyTrip;
-use App\Models\DairyTripRoute;
 use App\Models\District;
 use App\Models\MilkCollectionCentre;
 use App\Models\Region;
@@ -17,6 +14,7 @@ use App\Models\TransporterCompany;
 use App\Models\TransporterVehicle;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
@@ -27,7 +25,9 @@ class DairyLogisticsTest extends TestCase
     use RefreshDatabase;
 
     protected User $admin;
+
     protected Region $region;
+
     protected District $district;
 
     protected function setUp(): void
@@ -71,6 +71,7 @@ class DairyLogisticsTest extends TestCase
             'email_verified_at' => now(),
         ]);
 
+        $this->admin->forceFill(['platform_role' => 'superAdmin'])->save();
         Sanctum::actingAs($this->admin, ['*']);
     }
 
@@ -79,7 +80,7 @@ class DairyLogisticsTest extends TestCase
         // 1. Register transporter
         $response = $this->postJson('/api/v1/admin/logistics/transporters', [
             'name' => 'Highland Milk Carriers Ltd',
-            'license_number' => 'LATRA-TEST-' . time(),
+            'license_number' => 'LATRA-TEST-'.time(),
             'tin_number' => '100-200-300',
             'contact_person' => 'Daniel Mwita',
             'phone' => '+255 788 112 233',
@@ -112,7 +113,7 @@ class DairyLogisticsTest extends TestCase
     {
         $response = $this->postJson('/api/v1/admin/logistics/factories', [
             'name' => 'Southern Highlands Dairies',
-            'factory_code' => 'FAC-TEST-' . time(),
+            'factory_code' => 'FAC-TEST-'.time(),
             'registration_number' => 'BRELA-TEST-001',
             'contact_name' => 'Sarah Lyimo',
             'contact_phone' => '+255 712 345 678',
@@ -272,7 +273,8 @@ class DairyLogisticsTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.trips.0.uuid', $tripUuid);
     }
-    public function test_factory_operator_receives_milk_and_stores_in_bulk_tank(): void
+
+    public function test_factory_receipt_reconciles_a_trip_against_its_dispatches(): void
     {
         $factory = DairyFactory::create([
             'name' => 'Mbeya Processing Plant',
@@ -284,41 +286,89 @@ class DairyLogisticsTest extends TestCase
             'district_id' => $this->district->id,
             'approval_status' => 'approved',
         ]);
-
-        $tank = DairyFactoryTank::create([
-            'factory_uuid' => $factory->uuid,
-            'tank_code' => 'SILO-01',
-            'capacity_liters' => 40000.00,
-            'current_stock_liters' => 5000.00,
-            'target_temperature_celsius' => 3.8,
-            'status' => 'active_chilling',
+        DB::table('dairy_trips')->insert([
+            'uuid' => 'trip-1', 'trip_number' => 'TRIP-1', 'transporter_company_uuid' => (string) Str::uuid(),
+            'driver_user_id' => $this->admin->id, 'vehicle_uuid' => (string) Str::uuid(), 'vehicle_plate_number' => 'T1',
+            'destination_factory_uuid' => $factory->uuid, 'status' => 'arrived', 'approval_status' => 'approved',
+            'total_liters' => 600, 'created_at' => now(), 'updated_at' => now(),
         ]);
+        foreach (['disp-1', 'disp-2'] as $uuid) {
+            DB::table('cooperative_dispatches')->insert([
+                'uuid' => $uuid, 'dispatch_code' => strtoupper($uuid), 'centre_uuid' => 'centre-1', 'quantity' => 300,
+                'destination_uuid' => $factory->uuid, 'destination_name' => $factory->name, 'status' => 'delivered',
+                'trip_uuid' => 'trip-1', 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+        $receipt = [
+            'trip_uuid' => 'trip-1', 'received_volume_liters' => 590, 'accepted_volume_liters' => 580,
+            'arrival_temperature_celsius' => 4.2, 'seals_intact' => true, 'factory_qa_status' => 'accepted_with_deduction',
+        ];
+        $url = "/api/v1/admin/logistics/factories/{$factory->uuid}/receive";
 
-        $initialStock = (float) $tank->current_stock_liters;
+        $this->postJson($url, $receipt)->assertUnprocessable();
+        $this->postJson($url, [...$receipt, 'spillage_reason' => 'Spilt at loading'])->assertCreated();
+        $this->postJson($url, [...$receipt, 'spillage_reason' => 'Again'])->assertStatus(409);
 
-        $receiveResponse = $this->postJson("/api/v1/admin/logistics/factories/{$factory->uuid}/receive", [
-            'factory_tank_uuid' => $tank->uuid,
-            'received_volume_liters' => 4950.00,
-            'arrival_temperature_celsius' => 4.2,
-            'seals_intact' => true,
-            'factory_qa_status' => 'accepted_full',
-            'notes' => 'Bulk tanker intake pumped to Silo 1 after rapid lab clearance.',
+        $this->assertDatabaseHas('milk_factory_deliveries', [
+            'trip_uuid' => 'trip-1', 'factory_uuid' => $factory->uuid, 'dispatched_volume_liters' => 600,
+            'received_volume_liters' => 590, 'accepted_volume_liters' => 580, 'discrepancy_liters' => -10,
         ]);
+        $this->assertDatabaseHas('dairy_trips', ['uuid' => 'trip-1', 'status' => 'completed']);
+        $this->assertSame(2, DB::table('cooperative_dispatches')->where('status', 'reconciled')->count());
 
-        $receiveResponse->assertStatus(201)
-            ->assertJsonPath('success', true);
+        $this->getJson('/api/v1/admin/dairy/deliveries')->assertOk()
+            ->assertJsonPath('data.data.0.trip_number', 'TRIP-1')
+            ->assertJsonPath('data.data.0.factory_name', 'Mbeya Processing Plant');
+        $this->getJson('/api/v1/admin/dairy/dispatches')->assertOk()
+            ->assertJsonPath('data.data.0.trip_number', 'TRIP-1');
+        $this->getJson('/api/v1/admin/dairy/trips')->assertOk()
+            ->assertJsonPath('data.data.0.dispatches.0.dispatch_code', 'DISP-1');
+        $this->getJson('/api/v1/admin/dairy/dispatches?search=DISP-2&status=reconciled&sort=asc')->assertOk()
+            ->assertJsonPath('data.total', 1)->assertJsonPath('data.data.0.dispatch_code', 'DISP-2');
+        $this->getJson('/api/v1/admin/dairy/dispatches?status=dispatched')->assertOk()->assertJsonPath('data.total', 0);
+        $this->getJson('/api/v1/admin/dairy/deliveries?search=Mbeya&status=accepted_with_deduction')->assertOk()
+            ->assertJsonPath('data.total', 1);
+        $this->getJson('/api/v1/admin/dairy/deliveries?status=rejected_spoiled')->assertOk()->assertJsonPath('data.total', 0);
+        $this->getJson('/api/v1/admin/dairy/trips?search=T1&sort=asc')->assertOk()->assertJsonPath('data.total', 1);
+        $this->getJson('/api/v1/admin/dairy/trips?search=missing')->assertOk()->assertJsonPath('data.total', 0);
 
-        // Verify stock increased in tank
-        $tank->refresh();
-        $this->assertEquals($initialStock + 4950.00, (float) $tank->current_stock_liters);
-
-        // Verify factory stock movement ledger record
-        $this->assertDatabaseHas('dairy_factory_stock_movements', [
-            'factory_uuid' => $factory->uuid,
-            'factory_tank_uuid' => $tank->uuid,
-            'movement_type' => 'tanker_intake',
-        ]);
     }
+
+    public function test_milk_intake_filters_and_sorting_apply_before_pagination(): void
+    {
+        DB::table('cooperative_collection_centres')->insert([
+            'uuid' => 'centre-filter', 'amcos_uuid' => 'amcos-1', 'name' => 'Test Collection', 'centre_code' => 'MCC-FILTER',
+        ]);
+        DB::table('cooperative_farmer_memberships')->insert([
+            'uuid' => 'member-1', 'amcos_uuid' => 'amcos-1', 'farmer_user_id' => $this->admin->id, 'member_number' => 'M-1',
+            'farmer_name' => 'Asha Mollel', 'farmer_phone' => '0712000111', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        foreach (range(0, 12) as $i) {
+            DB::table('cooperative_intakes')->insert([
+                'uuid' => 'intake-'.$i, 'receipt_number' => 'RCP-'.$i, 'unit' => 'l',
+                'commodity_code' => $i === 12 ? 'maize' : 'milk', 'amcos_uuid' => 'amcos-1', 'centre_uuid' => 'centre-filter',
+                'farmer_user_id' => $this->admin->id, 'clerk_user_id' => $this->admin->id,
+                'gross_quantity' => 20, 'accepted_quantity' => $i === 11 ? 18 : 20,
+                'rejected_quantity' => $i === 11 ? 2 : 0, 'temperature_celsius' => 4,
+                'intake_timestamp' => now()->addMinutes($i), 'created_at' => now()->addMinutes($i), 'updated_at' => now(),
+            ]);
+        }
+        $base = '/api/v1/admin/dairy/intakes';
+        $this->getJson($base.'?per_page=10&sort=asc')->assertOk()
+            ->assertJsonPath('data.total', 12)->assertJsonCount(10, 'data.data')
+            ->assertJsonPath('data.data.0.uuid', 'intake-0')
+            ->assertJsonPath('data.data.0.farmer_name', 'Asha Mollel')
+            ->assertJsonPath('data.data.0.centre_name', 'Test Collection')
+            ->assertJsonPath('data.meta.total_rejected_liters', 2);
+        $this->getJson($base.'?per_page=10&sort=desc')->assertOk()->assertJsonPath('data.data.0.uuid', 'intake-11');
+        $this->getJson($base.'?search=Test%20Collection&status=rejected')->assertOk()
+            ->assertJsonPath('data.total', 1)->assertJsonPath('data.data.0.uuid', 'intake-11');
+        $this->getJson($base.'?search=Asha&status=accepted')->assertOk()->assertJsonPath('data.total', 11);
+        $this->getJson($base.'?search=RCP-3')->assertOk()->assertJsonPath('data.total', 1);
+        $this->getJson($base.'?search=missing')->assertOk()->assertJsonPath('data.total', 0);
+        $this->getJson($base.'/RCP-11')->assertOk()->assertJsonPath('data.rejected_quantity', fn ($v) => (float) $v === 2.0);
+    }
+
     public function test_admin_commerce_and_dairy_resources_are_available(): void
     {
         $this->getJson('/api/v1/admin/commerce/listings')->assertOk()->assertJsonPath('status', true);
@@ -338,7 +388,7 @@ class DairyLogisticsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('status', true)
             ->assertJsonPath('data.uuid', $factory->uuid);
-        $this->getJson("/api/v1/admin/logistics/factories/{$factory->uuid}/inventory")
+        $this->getJson("/api/v1/admin/logistics/factories/{$factory->uuid}/receipts")
             ->assertOk()
             ->assertJsonPath('success', true);
     }

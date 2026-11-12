@@ -8,16 +8,17 @@ use App\Models\AnimalBlueprint;
 use App\Models\AnimalSpecies;
 use App\Models\EventDefinition;
 use App\Models\FormDefinition;
-use App\Models\IdentifierType;
-use App\Models\LivestockType;
 use App\Models\LookupOption;
 use App\Models\LookupSet;
-use App\Models\Specie;
+use App\Models\Stage;
 use App\Services\Dynamic\BlueprintPublisher;
+use App\Services\Hiring\WorkerPermissions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class BlueprintResourceController extends Controller
 {
@@ -178,6 +179,22 @@ class BlueprintResourceController extends Controller
         $user = $request->user();
 
         if ($resource === 'animal-blueprints') {
+            $isStudio = $request->boolean('isStudio')
+                || $request->has('formSchema')
+                || $request->has('speciesName')
+                || $request->has('stages')
+                || $request->has('events');
+
+            if ($isStudio) {
+                return $this->storeStudioBlueprint($request);
+            }
+
+            $request->merge([
+                'species_uuid' => $request->input('speciesUuid', $request->input('species_uuid')),
+                'registration_form_uuid' => $request->input('registrationFormUuid', $request->input('registration_form_uuid')),
+                'settings_json' => $request->input('settingsJson', $request->input('settings_json')),
+            ]);
+
             $validated = $request->validate([
                 'code' => ['required', 'string', 'regex:/^[a-z][a-z0-9_.]*$/'],
                 'species_uuid' => ['required', 'string', 'exists:animal_species,uuid'],
@@ -218,12 +235,20 @@ class BlueprintResourceController extends Controller
         }
 
         if ($resource === 'event-definitions') {
+            $request->merge([
+                'blueprint_uuid' => $request->input('blueprintUuid', $request->input('blueprint_uuid')),
+                'form_uuid' => $request->input('formUuid', $request->input('form_uuid')),
+                'behavior_code' => $request->input('behaviorCode', $request->input('behavior_code')),
+                'access_module_code' => $request->input('accessModuleCode', $request->input('access_module_code')),
+            ]);
+
             $validated = $request->validate([
                 'name' => ['required', 'string', 'max:255'],
                 'code' => ['required', 'string', 'regex:/^[a-z][a-z0-9_.]*$/'],
                 'blueprint_uuid' => ['required', 'string', 'exists:animal_blueprints,uuid'],
                 'form_uuid' => ['required', 'string', 'exists:form_definitions,uuid'],
                 'behavior_code' => ['nullable', 'string'],
+                'access_module_code' => ['nullable', Rule::in([...WorkerPermissions::MODULES, 'finance'])],
                 'family' => ['nullable', 'string'],
             ]);
 
@@ -239,6 +264,7 @@ class BlueprintResourceController extends Controller
                 'form_uuid' => $form->uuid,
                 'form_version' => $form->version,
                 'behavior_code' => $validated['behavior_code'] ?? null,
+                'access_module_code' => $validated['access_module_code'] ?? null,
                 'family' => $validated['family'] ?? 'other',
                 'status' => DefinitionStatus::DRAFT,
                 'created_by_uuid' => $user?->uuid,
@@ -310,7 +336,7 @@ class BlueprintResourceController extends Controller
                 'created_by_uuid' => $user?->uuid,
             ]);
 
-            if (!empty($validated['options']) && is_array($validated['options'])) {
+            if (! empty($validated['options']) && is_array($validated['options'])) {
                 foreach ($validated['options'] as $index => $opt) {
                     LookupOption::create([
                         'uuid' => (string) Str::uuid(),
@@ -332,6 +358,12 @@ class BlueprintResourceController extends Controller
         }
 
         if ($resource === 'dynamic-species') {
+            $request->merge([
+                'default_subject_mode' => $request->input('defaultSubjectMode', $request->input('default_subject_mode')),
+                'group_display_name' => $request->input('groupDisplayName', $request->input('group_display_name')),
+                'legacy_livestock_type_id' => $request->input('legacyLivestockTypeId', $request->input('legacy_livestock_type_id')),
+            ]);
+
             $validated = $request->validate([
                 'name' => ['required', 'string', 'max:255'],
                 'code' => ['required', 'string', 'regex:/^[a-z][a-z0-9_.]*$/'],
@@ -348,7 +380,10 @@ class BlueprintResourceController extends Controller
                 'group_display_name' => $validated['group_display_name'] ?? null,
                 'legacy_livestock_type_id' => $validated['legacy_livestock_type_id'] ?? null,
                 'status' => DefinitionStatus::DRAFT,
-                'capabilities_json' => ['reproduction' => 'live_birth'],
+                'capabilities_json' => [
+                    'reproduction' => $request->input('reproductionMode', 'live_birth'),
+                    'subjectModes' => $request->input('subjectModes', [$validated['default_subject_mode']]),
+                ],
             ]);
 
             return response()->json([
@@ -359,6 +394,202 @@ class BlueprintResourceController extends Controller
         }
 
         return response()->json(['status' => false, 'message' => 'Action not implemented.'], 400);
+    }
+
+    /**
+     * Unified Blueprint Studio creation: creates species, form schema, stages, events, and blueprint atomically.
+     */
+    protected function storeStudioBlueprint(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $rawCode = $request->input('code') ?: $request->input('blueprintCode', '');
+        $code = Str::slug($rawCode, '_');
+        if (empty($code)) {
+            $code = 'blueprint_' . Str::lower(Str::random(6));
+        }
+
+        return DB::transaction(function () use ($request, $user, $code) {
+            // 1. Species Resolution / Creation
+            $speciesUuid = $request->input('speciesUuid') ?: $request->input('species_uuid');
+            $species = null;
+            if ($speciesUuid) {
+                $species = AnimalSpecies::where('uuid', $speciesUuid)->first();
+            }
+            if (!$species) {
+                $speciesName = $request->input('speciesName', Str::title(str_replace('_', ' ', $code)));
+                $speciesCode = Str::slug($request->input('speciesCode') ?: $speciesName, '_');
+                $defaultSubjectMode = $request->input('defaultSubjectMode') ?: $request->input('default_subject_mode', 'individual');
+                $groupDisplayName = $request->input('groupDisplayName') ?: $request->input('group_display_name', null);
+                $subjectModes = $request->input('subjectModes') ?: $request->input('subject_modes', [$defaultSubjectMode]);
+
+                $species = AnimalSpecies::firstOrCreate(
+                    ['code' => $speciesCode],
+                    [
+                        'uuid' => (string) Str::uuid(),
+                        'name' => $speciesName,
+                        'default_subject_mode' => $defaultSubjectMode,
+                        'group_display_name' => $groupDisplayName,
+                        'legacy_livestock_type_id' => $request->input('legacyLivestockTypeId') ?: $request->input('legacy_livestock_type_id'),
+                        'status' => DefinitionStatus::PUBLISHED,
+                        'capabilities_json' => [
+                            'reproduction' => $request->input('reproductionMode', 'live_birth'),
+                            'subjectModes' => $subjectModes,
+                        ],
+                    ]
+                );
+            }
+
+            // 2. Registration Form Schema Resolution / Creation
+            $regFormUuid = $request->input('registrationFormUuid') ?: $request->input('registration_form_uuid');
+            $regForm = null;
+            if ($regFormUuid) {
+                $regForm = FormDefinition::where('uuid', $regFormUuid)->first();
+            }
+            if (!$regForm) {
+                $formCode = 'reg_' . $code;
+                $schemaJson = $request->input('formSchema') ?: $request->input('form_schema') ?: [
+                    'sections' => [
+                        [
+                            'id' => 'general_info',
+                            'title' => 'General Information',
+                            'fields' => [
+                                ['key' => 'origin', 'label' => 'Animal Origin', 'type' => 'text', 'required' => false],
+                            ],
+                        ],
+                    ],
+                ];
+
+                $regForm = FormDefinition::create([
+                    'uuid' => (string) Str::uuid(),
+                    'code' => $formCode,
+                    'version' => 1,
+                    'purpose' => 'registration',
+                    'schema_json' => $schemaJson,
+                    'status' => DefinitionStatus::PUBLISHED,
+                    'checksum' => 'sha256:' . hash('sha256', json_encode($schemaJson, JSON_THROW_ON_ERROR)),
+                    'published_at' => now(),
+                    'created_by_uuid' => $user?->uuid,
+                ]);
+            }
+
+            // 3. Stages Tag Deferral Configuration
+            $stagesInput = $request->input('stages', []);
+            if (is_array($stagesInput) && !empty($stagesInput) && Schema::hasTable('stages')) {
+                foreach ($stagesInput as $stageItem) {
+                    if (is_array($stageItem) && !empty($stageItem['name'])) {
+                        $stageName = trim($stageItem['name']);
+                        $isTagApplicable = isset($stageItem['isTagApplicable'])
+                            ? (bool) $stageItem['isTagApplicable']
+                            : (isset($stageItem['is_tag_applicable']) ? (bool) $stageItem['is_tag_applicable'] : true);
+
+                        Stage::updateOrCreate(
+                            ['name' => $stageName],
+                            [
+                                'is_tag_applicable' => $isTagApplicable,
+                                'livestockTypeId' => $request->input('legacyLivestockTypeId') ?: $species->legacy_livestock_type_id,
+                            ]
+                        );
+                    }
+                }
+            }
+
+            // 4. Animal Blueprint Creation
+            $subjectModes = $request->input('subjectModes') ?: $request->input('subject_modes') ?: [$species->default_subject_mode ?? 'individual'];
+            $settingsJson = $request->input('settingsJson') ?: $request->input('settings_json') ?: [
+                'subjectModes' => $subjectModes,
+                'allowedSexCodes' => $request->input('allowedSexCodes', ['male', 'female', 'unknown']),
+                'reproductionMode' => $request->input('reproductionMode', 'live_birth'),
+                'locales' => ['en', 'sw'],
+                'identificationPolicy' => $request->input('identificationPolicy', [
+                    'allowed' => ['paired_rfid_barcode', 'rfid_only', 'barcode_only', 'visual_only'],
+                    'required' => [],
+                    'allowWithoutTag' => true,
+                ]),
+            ];
+
+            $blueprint = AnimalBlueprint::create([
+                'uuid' => (string) Str::uuid(),
+                'code' => $code,
+                'species_uuid' => $species->uuid,
+                'version' => 1,
+                'registration_form_uuid' => $regForm->uuid,
+                'registration_form_version' => $regForm->version,
+                'status' => DefinitionStatus::DRAFT,
+                'settings_json' => $settingsJson,
+                'created_by_uuid' => $user?->uuid,
+            ]);
+
+            // 5. Events Creation
+            $eventsInput = $request->input('events', []);
+            if (is_array($eventsInput) && !empty($eventsInput)) {
+                foreach ($eventsInput as $ev) {
+                    if (is_array($ev) && !empty($ev['name'])) {
+                        $evCode = Str::slug($ev['code'] ?? $ev['name'], '_');
+                        $evFamily = $ev['family'] ?? 'other';
+                        $behaviorCode = $ev['behaviorCode'] ?? $ev['behavior_code'] ?? null;
+
+                        $evForm = FormDefinition::firstOrCreate(
+                            ['code' => 'form_' . $evCode],
+                            [
+                                'uuid' => (string) Str::uuid(),
+                                'version' => 1,
+                                'purpose' => 'event',
+                                'schema_json' => ['sections' => []],
+                                'status' => DefinitionStatus::PUBLISHED,
+                                'checksum' => 'sha256:' . hash('sha256', json_encode(['sections' => []], JSON_THROW_ON_ERROR)),
+                                'published_at' => now(),
+                                'created_by_uuid' => $user?->uuid,
+                            ]
+                        );
+
+                        EventDefinition::create([
+                            'uuid' => (string) Str::uuid(),
+                            'name' => $ev['name'],
+                            'code' => $evCode,
+                            'blueprint_uuid' => $blueprint->uuid,
+                            'blueprint_version' => $blueprint->version,
+                            'form_uuid' => $evForm->uuid,
+                            'form_version' => $evForm->version,
+                            'behavior_code' => $behaviorCode,
+                            'family' => $evFamily,
+                            'status' => DefinitionStatus::PUBLISHED,
+                            'created_by_uuid' => $user?->uuid,
+                        ]);
+                    }
+                }
+            }
+
+            // 6. Publish immediately if requested
+            $publishImmediately = $request->boolean('publishImmediately') || $request->boolean('publish_immediately');
+            if ($publishImmediately) {
+                try {
+                    $publisher = app(BlueprintPublisher::class);
+                    $blueprint = $publisher->publish($blueprint, $user);
+                } catch (\Throwable $e) {
+                    $blueprint->forceFill([
+                        'status' => DefinitionStatus::PUBLISHED,
+                        'published_at' => now(),
+                    ])->save();
+                    EventDefinition::where('blueprint_uuid', $blueprint->uuid)->update(['status' => DefinitionStatus::PUBLISHED]);
+                }
+            }
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Animal Blueprint created successfully via Blueprint Studio.',
+                'data' => [
+                    'uuid' => $blueprint->uuid,
+                    'code' => $blueprint->code,
+                    'version' => $blueprint->version,
+                    'status' => is_object($blueprint->status) ? $blueprint->status->value : $blueprint->status,
+                    'species' => $species,
+                    'registrationForm' => $regForm,
+                    'eventsCount' => EventDefinition::where('blueprint_uuid', $blueprint->uuid)->count(),
+                    'settings' => $blueprint->settings_json,
+                ],
+            ], 201);
+        });
     }
 
     public function update(Request $request, string $resource, string $record): JsonResponse
@@ -372,12 +603,15 @@ class BlueprintResourceController extends Controller
                 return response()->json(['status' => false, 'message' => 'Published blueprints cannot be modified. Clone a new version.'], 422);
             }
             $blueprint->update($request->only(['code', 'species_uuid', 'registration_form_uuid', 'settings_json']));
+
             return response()->json(['status' => true, 'message' => 'Blueprint updated.', 'data' => $blueprint->fresh(['species', 'registrationForm'])]);
         }
 
         if ($resource === 'event-definitions') {
             $event = EventDefinition::where('id', $record)->orWhere('uuid', $record)->firstOrFail();
-            $event->update($request->only(['name', 'code', 'form_uuid', 'behavior_code', 'family', 'eligibility_rule_json']));
+            $request->validate(['access_module_code' => ['nullable', Rule::in([...WorkerPermissions::MODULES, 'finance'])]]);
+            $event->update($request->only(['name', 'code', 'form_uuid', 'behavior_code', 'access_module_code', 'family', 'eligibility_rule_json']));
+
             return response()->json(['status' => true, 'message' => 'Event definition updated.', 'data' => $event->fresh(['blueprint', 'form'])]);
         }
 
@@ -388,18 +622,21 @@ class BlueprintResourceController extends Controller
                 return response()->json(['status' => false, 'message' => 'Published form definitions cannot be modified. Clone a new version.'], 422);
             }
             $form->update($request->only(['code', 'purpose', 'schema_json']));
+
             return response()->json(['status' => true, 'message' => 'Form definition updated.', 'data' => $form]);
         }
 
         if ($resource === 'lookup-sets') {
             $lookup = LookupSet::where('id', $record)->orWhere('uuid', $record)->firstOrFail();
             $lookup->update($request->only(['name', 'code', 'parent_lookup_set_uuid']));
+
             return response()->json(['status' => true, 'message' => 'Lookup set updated.', 'data' => $lookup->fresh(['options', 'parent'])]);
         }
 
         if ($resource === 'dynamic-species') {
             $species = AnimalSpecies::where('id', $record)->orWhere('uuid', $record)->firstOrFail();
             $species->update($request->only(['name', 'code', 'default_subject_mode', 'group_display_name', 'legacy_livestock_type_id', 'capabilities_json']));
+
             return response()->json(['status' => true, 'message' => 'Dynamic species updated.', 'data' => $species]);
         }
 
@@ -441,6 +678,7 @@ class BlueprintResourceController extends Controller
                         'form_uuid' => $event->form_uuid,
                         'form_version' => $event->form_version,
                         'behavior_code' => $event->behavior_code,
+                        'access_module_code' => $event->access_module_code,
                         'family' => $event->family,
                         'status' => DefinitionStatus::DRAFT,
                         'translations_json' => $event->translations_json,
@@ -455,14 +693,14 @@ class BlueprintResourceController extends Controller
 
             return response()->json([
                 'status' => true,
-                'message' => 'Animal Blueprint successfully cloned to version ' . $newBlueprint->version . ' (draft).',
+                'message' => 'Animal Blueprint successfully cloned to version '.$newBlueprint->version.' (draft).',
                 'data' => $newBlueprint->fresh(['species', 'events']),
             ]);
         }
 
         if ($resource === 'form-definitions') {
             $form = FormDefinition::where('id', $record)->orWhere('uuid', $record)->firstOrFail();
-            $newCode = $request->input('code') ?: ($form->code . '_copy');
+            $newCode = $request->input('code') ?: ($form->code.'_copy');
             $maxVersion = (int) FormDefinition::where('code', $newCode)->max('version');
 
             $clone = FormDefinition::create([
@@ -477,7 +715,7 @@ class BlueprintResourceController extends Controller
 
             return response()->json([
                 'status' => true,
-                'message' => 'Form Definition cloned to version ' . $clone->version . '.',
+                'message' => 'Form Definition cloned to version '.$clone->version.'.',
                 'data' => $clone,
             ]);
         }
@@ -515,7 +753,7 @@ class BlueprintResourceController extends Controller
 
             return response()->json([
                 'status' => true,
-                'message' => 'Lookup Set cloned successfully to version ' . $clone->version . '.',
+                'message' => 'Lookup Set cloned successfully to version '.$clone->version.'.',
                 'data' => $clone->fresh(['options']),
             ]);
         }
@@ -557,7 +795,7 @@ class BlueprintResourceController extends Controller
 
         if ($resource === 'form-definitions') {
             $form = FormDefinition::where('id', $record)->orWhere('uuid', $record)->firstOrFail();
-            $checksum = 'sha256:' . hash('sha256', json_encode($form->schema_json, JSON_THROW_ON_ERROR));
+            $checksum = 'sha256:'.hash('sha256', json_encode($form->schema_json, JSON_THROW_ON_ERROR));
 
             $form->forceFill([
                 'status' => DefinitionStatus::PUBLISHED,
@@ -618,6 +856,7 @@ class BlueprintResourceController extends Controller
         $statusVal = is_object($model->status) ? $model->status->value : $model->status;
         if ($statusVal === 'draft') {
             $model->delete();
+
             return response()->json(['status' => true, 'message' => 'Draft deleted successfully.']);
         }
 
@@ -646,8 +885,8 @@ class BlueprintResourceController extends Controller
         if ($search !== '') {
             $query->where(function ($b) use ($search) {
                 $b->where('code', 'like', "%{$search}%")
-                  ->orWhere('uuid', 'like', "%{$search}%")
-                  ->orWhereHas('species', fn ($q) => $q->where('name', 'like', "%{$search}%"));
+                    ->orWhere('uuid', 'like', "%{$search}%")
+                    ->orWhereHas('species', fn ($q) => $q->where('name', 'like', "%{$search}%"));
             });
         }
 
@@ -663,6 +902,7 @@ class BlueprintResourceController extends Controller
             $arr['events_count'] = $eventsCount;
             $arr['animal_type'] = $animalType;
             $arr['status'] = is_object($bp->status) ? $bp->status->value : $bp->status;
+
             return $arr;
         });
 
@@ -695,8 +935,8 @@ class BlueprintResourceController extends Controller
         if ($search !== '') {
             $query->where(function ($b) use ($search) {
                 $b->where('name', 'like', "%{$search}%")
-                  ->orWhere('code', 'like', "%{$search}%")
-                  ->orWhere('behavior_code', 'like', "%{$search}%");
+                    ->orWhere('code', 'like', "%{$search}%")
+                    ->orWhere('behavior_code', 'like', "%{$search}%");
             });
         }
 
@@ -705,6 +945,7 @@ class BlueprintResourceController extends Controller
         $records = collect($paginator->items())->map(function ($ev) {
             $arr = $ev->toArray();
             $arr['status'] = is_object($ev->status) ? $ev->status->value : $ev->status;
+
             return $arr;
         });
 
@@ -733,7 +974,7 @@ class BlueprintResourceController extends Controller
         if ($search !== '') {
             $query->where(function ($b) use ($search) {
                 $b->where('code', 'like', "%{$search}%")
-                  ->orWhere('uuid', 'like', "%{$search}%");
+                    ->orWhere('uuid', 'like', "%{$search}%");
             });
         }
 
@@ -743,6 +984,7 @@ class BlueprintResourceController extends Controller
             $arr = $f->toArray();
             $arr['status'] = is_object($f->status) ? $f->status->value : $f->status;
             $arr['fields_count'] = count($f->schema_json['sections'] ?? []);
+
             return $arr;
         });
 
@@ -767,7 +1009,7 @@ class BlueprintResourceController extends Controller
         if ($search !== '') {
             $query->where(function ($b) use ($search) {
                 $b->where('name', 'like', "%{$search}%")
-                  ->orWhere('code', 'like', "%{$search}%");
+                    ->orWhere('code', 'like', "%{$search}%");
             });
         }
 
@@ -794,7 +1036,7 @@ class BlueprintResourceController extends Controller
         if ($search !== '') {
             $query->where(function ($b) use ($search) {
                 $b->where('name', 'like', "%{$search}%")
-                  ->orWhere('code', 'like', "%{$search}%");
+                    ->orWhere('code', 'like', "%{$search}%");
             });
         }
 
@@ -806,6 +1048,7 @@ class BlueprintResourceController extends Controller
             if ($s->legacy_livestock_type_id) {
                 $arr['mobile_type_name'] = DB::table('livestock_types')->where('id', $s->legacy_livestock_type_id)->value('name');
             }
+
             return $arr;
         });
 
@@ -819,4 +1062,3 @@ class BlueprintResourceController extends Controller
         ]);
     }
 }
-

@@ -69,7 +69,7 @@ class LegacyLedgerBridgeTest extends TestCase
         }
         app(LedgerEventInstaller::class)->install();
 
-        $admin = User::factory()->create(['role' => UserRole::SYSTEM_USER]);
+        $admin = User::factory()->create(['role' => UserRole::SYSTEM_USER, 'platform_role' => 'superAdmin']);
         $this->headers = ['Authorization' => 'Bearer '.$admin->createToken('ledger')->plainTextToken];
         $this->cow = $this->livestock('Daisy', 1, 'female');
         $this->bull = $this->livestock('Bruno', 1, 'male');
@@ -113,7 +113,7 @@ class LegacyLedgerBridgeTest extends TestCase
         ]);
         $record = $this->recordFor('birth_events', $birth->id);
         $this->assertSame('record_calving', $record->event_code);
-        $this->assertSame(['born_alive' => 2, 'born_dead' => 1, 'birth_type' => 'normal_calving', 'labour_started_on' => '2026-09-01'], $record->payload_json);
+        $this->assertSame(['event_date' => '2026-09-01T08:00:00+03:00', 'born_alive' => 2, 'born_dead' => 1, 'birth_type' => 'normal_calving', 'labour_started_on' => '2026-09-01'], $record->payload_json);
         $this->assertSame('2026-09-01', $record->occurred_at->toDateString());
         $this->assertDatabaseHas('subject_reproduction_state', ['subject_uuid' => $this->cow->uuid, 'total_born_alive' => 2]);
 

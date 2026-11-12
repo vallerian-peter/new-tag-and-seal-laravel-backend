@@ -50,7 +50,7 @@ class ReferenceMasterDataCrudTest extends TestCase
         ]);
 
         $farmer = Farmer::create([
-            'farmerNo' => 'FMR-20261030-3333-444',
+            'farmerNo' => 'FMR-2026-333444',
             'firstName' => 'Neema',
             'surname' => 'Kileo',
             'phone1' => '+255712345699',
@@ -73,6 +73,7 @@ class ReferenceMasterDataCrudTest extends TestCase
             'status' => 'active',
         ]);
 
+        $this->admin->forceFill(['platform_role' => 'superAdmin'])->save();
         Sanctum::actingAs($this->admin);
     }
 

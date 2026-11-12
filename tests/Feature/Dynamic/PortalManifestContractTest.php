@@ -32,7 +32,7 @@ class PortalManifestContractTest extends TestCase
 
     public function test_portal_requests_are_compiled_once_by_the_backend_before_the_manifest_is_served(): void
     {
-        $actor = User::factory()->create(['role' => UserRole::SYSTEM_USER]);
+        $actor = User::factory()->create(['role' => UserRole::SYSTEM_USER, 'platform_role' => 'superAdmin']);
         $before = (int) ConfigurationRevision::max('revision');
         DB::table('platform_feature_flags')->updateOrInsert(['key' => 'family.health.authority'], ['enabled' => true, 'value_json' => json_encode(['authority' => 'ledger_shadow']), 'updated_at' => now(), 'created_at' => now()]);
         foreach (['family_authority.changed', 'lookup_set.published'] as $reason) {
@@ -82,7 +82,7 @@ class PortalManifestContractTest extends TestCase
             ]);
         }
         ConfigurationRevision::create(['revision' => $manifest['revision'], 'schema_version' => '1', 'checksum' => $manifest['checksum'], 'manifest_json' => $manifest, 'published_at' => now()]);
-        $actor = User::factory()->create(['role' => UserRole::SYSTEM_USER]);
+        $actor = User::factory()->create(['role' => UserRole::SYSTEM_USER, 'platform_role' => 'superAdmin']);
         $this->withToken($actor->createToken('contract')->plainTextToken);
         $wireManifest = $this->getJson('/api/v1/config/manifest')->assertOk()->json('data');
         $this->assertSame($manifest, $wireManifest);

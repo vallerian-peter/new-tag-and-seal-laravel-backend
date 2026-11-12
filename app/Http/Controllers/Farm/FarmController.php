@@ -11,6 +11,33 @@ use App\Http\Controllers\Controller;
 
 class FarmController extends Controller
 {
+    /** Active farm destinations for online livestock transfers. */
+    public function transferTargets(): JsonResponse
+    {
+        $farms = Farm::with([
+            'farmer:id,firstName,middleName,surname',
+            'region:id,name',
+        ])->where('status', 'active')
+            ->orderBy('name')
+            ->get(['id', 'uuid', 'name', 'farmerId', 'regionId']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Transfer destination farms retrieved successfully',
+            'data' => $farms->map(fn (Farm $farm) => [
+                'uuid' => $farm->uuid,
+                'name' => $farm->name,
+                'farmerName' => trim(implode(' ', array_filter([
+                    $farm->farmer?->firstName,
+                    $farm->farmer?->middleName,
+                    $farm->farmer?->surname,
+                ]))),
+                'regionId' => $farm->regionId,
+                'regionName' => $farm->region?->name,
+            ])->values(),
+        ]);
+    }
+
     /**
      * Display a listing of all farms.
      *

@@ -31,6 +31,8 @@ class EventSubmissionService
         if ($subject->trashed()) {
             throw ValidationException::withMessages(['subject' => 'RECORD_DELETED']);
         }
+        $permissionDefinition = EventDefinition::where('uuid', $input['eventDefinitionUuid'] ?? '')->firstOrFail();
+        abort_unless(app(FarmAccessService::class)->canEvent($actor, $subject->farm_uuid, $permissionDefinition, 'create'), 403);
         $existing = $this->existingSubmission($subject, $input, $actor);
         if ($existing) {
             return $existing;
@@ -81,9 +83,14 @@ class EventSubmissionService
             throw ValidationException::withMessages(['behavior' => 'EVENT_BEHAVIOR_UNSUPPORTED']);
         }
         $roles = $this->catalog->resolve($contract, $form->schema_json, $payload);
+        if ($behavior === EventBehavior::TRANSFER_SUBJECT && isset($roles['destination_farm_uuid'])) {
+            abort_unless(app(FarmAccessService::class)->can($actor, $roles['destination_farm_uuid'], 'livestock.manage'), 403);
+        }
 
         $record = DB::transaction(function () use ($subject, $input, $actor, $definition, $payload, $behavior, $roles): EventRecord {
+            DB::table('farms')->where('uuid', $subject->farm_uuid)->lockForUpdate()->first();
             $locked = AnimalSubject::query()->whereKey($subject->id)->lockForUpdate()->firstOrFail();
+            abort_unless(app(FarmAccessService::class)->canEvent($actor, $locked->farm_uuid, $definition, 'create'), 403);
             // A retry may have waited for the first submission's transaction.
             if ($existing = $this->existingSubmission($locked, $input, $actor)) {
                 return $existing;
@@ -104,7 +111,9 @@ class EventSubmissionService
                 'form_version' => $definition->form_version,
                 'occurred_at' => isset($input['occurredAt'])
                     ? Carbon::parse($input['occurredAt'])->setTimezone(config('app.timezone'))->startOfSecond()
-                    : now(),
+                    : (isset($payload['event_date']) || isset($payload['eventDate'])
+                        ? Carbon::parse($payload['event_date'] ?? $payload['eventDate'])->setTimezone(config('app.timezone'))->startOfSecond()
+                        : now()),
                 'payload_json' => $payload,
                 'record_status' => 'submitted',
                 'created_by_uuid' => $actor->uuid,

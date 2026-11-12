@@ -30,6 +30,8 @@ class StageController extends Controller
                 'id' => $stage->id,
                 'name' => $stage->name,
                 'livestockTypeId' => $stage->livestockTypeId,
+                'isTagApplicable' => $stage->isTagApplicable(),
+                'is_tag_applicable' => $stage->isTagApplicable(),
             ]);
 
         return response()->json([
@@ -54,6 +56,8 @@ class StageController extends Controller
                 'id' => $stage->id,
                 'name' => $stage->name,
                 'livestockTypeId' => $stage->livestockTypeId,
+                'isTagApplicable' => $stage->isTagApplicable(),
+                'is_tag_applicable' => $stage->isTagApplicable(),
             ]);
 
         return response()->json([

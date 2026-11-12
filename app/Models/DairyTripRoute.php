@@ -13,7 +13,12 @@ class DairyTripRoute extends Model
         'uuid',
         'dairy_trip_uuid',
         'dispatch_order_uuid',
+        'dispatch_uuid',
         'mcc_uuid',
+        'centre_uuid',
+        'commodity_code',
+        'quantity',
+        'unit',
         'sequence_order',
         'stop_type',
         'status',
@@ -60,5 +65,4 @@ class DairyTripRoute extends Model
     {
         return $this->belongsTo(DairyFactory::class, 'destination_factory_uuid', 'uuid');
     }
-
 }

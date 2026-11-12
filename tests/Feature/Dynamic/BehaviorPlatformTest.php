@@ -328,6 +328,13 @@ class BehaviorPlatformTest extends TestCase
         $uuid = (string) Str::uuid();
         // The test transaction never commits, so deferred foreign keys are never checked.
         DB::statement('PRAGMA defer_foreign_keys = ON');
+        if (! DB::table('farmers')->where('id', $farmerId)->exists()) {
+            DB::table('farmers')->insert([
+                'id' => $farmerId, 'farmerNo' => 'TEST-'.$farmerId, 'firstName' => 'Test', 'surname' => 'Farmer',
+                'phone1' => '+255700000000', 'gender' => 'male', 'farmerType' => 'individual', 'countryId' => 1,
+                'status' => 'active', 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
         DB::table('farms')->insert([
             'farmerId' => $farmerId, 'uuid' => $uuid, 'referenceNo' => Str::random(10), 'name' => 'Farm',
             'size' => 1, 'physicalAddress' => 'Test', 'countryId' => 1, 'created_at' => now(), 'updated_at' => now(),

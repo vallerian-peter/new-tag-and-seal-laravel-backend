@@ -23,7 +23,15 @@ class CheckRole
             ], 401);
         }
 
-        if (!in_array($request->user()->role, $roles)) {
+        if (! $request->user()->isActive()) {
+            return response()->json(['status' => false, 'message' => 'Account is inactive.'], 403);
+        }
+
+        $platformAdmin = in_array('systemUser', $roles, true)
+            && in_array($request->user()->platform_role, ['admin', 'superAdmin'], true);
+        $legacyAllowed = in_array($request->user()->role, $roles, true)
+            && ($request->user()->role !== 'systemUser' || $platformAdmin);
+        if (! $legacyAllowed && ! $platformAdmin) {
             return response()->json([
                 'status' => false,
                 'message' => 'Unauthorized. You do not have permission to access this resource.'

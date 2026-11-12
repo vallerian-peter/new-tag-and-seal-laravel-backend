@@ -283,7 +283,7 @@ class LegacyBridge
 
         return match ($field['component']) {
             'integer' => is_numeric($value) ? (int) round((float) $value) : null,
-            'decimal', 'measurement' => is_numeric($value) ? $value + 0 : null,
+            'decimal', 'measurement' => is_numeric($value) ? $value + 0 : (is_numeric(preg_replace('/[^0-9.]/', '', (string) $value)) && preg_replace('/[^0-9.]/', '', (string) $value) !== '' ? preg_replace('/[^0-9.]/', '', (string) $value) + 0 : null),
             'date' => $this->date($value)?->toDateString(),
             'date_time' => $this->date($value)?->toIso8601String(),
             'single_select' => isset($field['lookup'])
@@ -322,7 +322,10 @@ class LegacyBridge
         ] + $event['match'];
         foreach ($spec['fields'] as $field) {
             if ($field['column']) {
-                $values[$field['column']] = $this->toLegacyValue($field, $speciesCode, $payload[$field['key']] ?? null);
+                $val = $this->toLegacyValue($field, $speciesCode, $payload[$field['key']] ?? null);
+                if ($val !== null || ! array_key_exists($field['column'], $values)) {
+                    $values[$field['column']] = $val;
+                }
             }
         }
         foreach ($spec['derived'] ?? [] as $column => $rule) {

@@ -14,6 +14,9 @@ class FactoryOperator extends Model
         'factory_uuid',
         'user_id',
         'staff_id',
+        'first_name', 'middle_name', 'last_name',
+        'identity_card_type_id', 'identity_number', 'tin_number',
+        'role',
         'is_active',
     ];
 
@@ -37,5 +40,4 @@ class FactoryOperator extends Model
     {
         return $this->belongsTo(User::class, 'user_id', 'id');
     }
-
 }

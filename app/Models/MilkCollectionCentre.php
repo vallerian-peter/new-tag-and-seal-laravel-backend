@@ -43,19 +43,8 @@ class MilkCollectionCentre extends Model
         return $this->belongsTo(District::class, 'district_id', 'id');
     }
 
-    public function tanks()
-    {
-        return $this->hasMany(MilkTank::class, 'mcc_uuid', 'uuid');
-    }
-
-    public function batches()
-    {
-        return $this->hasMany(MilkBatch::class, 'mcc_uuid', 'uuid');
-    }
-
     public function intakes()
     {
         return $this->hasMany(MilkIntake::class, 'mcc_uuid', 'uuid');
     }
-
 }

@@ -53,7 +53,7 @@ class AnimalsAndLivestockCrudTest extends TestCase
         ]);
 
         $farmer = Farmer::create([
-            'farmerNo' => 'FMR-20261030-1111-222',
+            'farmerNo' => 'FMR-2026-111222',
             'firstName' => 'Juma',
             'surname' => 'Mwakasege',
             'phone1' => '+255712345678',
@@ -84,6 +84,7 @@ class AnimalsAndLivestockCrudTest extends TestCase
             'status' => 'published',
         ]);
 
+        $this->admin->forceFill(['platform_role' => 'superAdmin'])->save();
         Sanctum::actingAs($this->admin);
     }
 

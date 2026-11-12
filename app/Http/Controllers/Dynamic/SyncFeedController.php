@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Dynamic;
 
 use App\Http\Controllers\Controller;
+use App\Models\EventRecord;
 use App\Models\SyncChange;
 use App\Services\Dynamic\FarmAccessService;
 use App\Services\Dynamic\SyncChangeRecorder;
@@ -42,7 +43,14 @@ class SyncFeedController extends Controller
 
         return response()->json([
             'status' => true,
-            'data' => $page->map(fn (SyncChange $change) => [
+            'data' => $page->filter(function (SyncChange $change) use ($access, $request) {
+                if ($change->entity_type !== 'event_record' || $change->action === 'delete') {
+                    return true;
+                }
+                $record = EventRecord::where('uuid', $change->entity_uuid)->first();
+
+                return $record && $access->canReadRecord($request->user(), $record);
+            })->map(fn (SyncChange $change) => [
                 'cursor' => $change->id,
                 'farmUuid' => $change->farm_uuid,
                 'entityType' => $change->entity_type,

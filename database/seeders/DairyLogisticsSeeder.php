@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\DairyFactory;
-use App\Models\DairyFactoryTank;
 use App\Models\District;
 use App\Models\TransporterCompany;
 use App\Models\TransporterVehicle;
@@ -47,7 +46,7 @@ class DairyLogisticsSeeder extends Seeder
             ],
         );
 
-        $factory = DairyFactory::firstOrCreate(
+        DairyFactory::firstOrCreate(
             ['factory_code' => 'FAC-DEMO-001'],
             [
                 'name' => 'Tag & Seal Demo Dairy Plant',
@@ -58,16 +57,6 @@ class DairyLogisticsSeeder extends Seeder
                 'district_id' => $district->id,
                 'approval_status' => 'approved',
                 'is_active' => true,
-            ],
-        );
-
-        DairyFactoryTank::firstOrCreate(
-            ['factory_uuid' => $factory->uuid, 'tank_code' => 'SILO-DEMO-01'],
-            [
-                'capacity_liters' => 50000,
-                'current_stock_liters' => 0,
-                'target_temperature_celsius' => 4,
-                'status' => 'active_chilling',
             ],
         );
     }

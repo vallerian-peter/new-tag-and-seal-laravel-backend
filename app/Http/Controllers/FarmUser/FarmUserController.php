@@ -3,17 +3,18 @@
 namespace App\Http\Controllers\FarmUser;
 
 use App\Enums\UserRole;
-use App\Enums\UserStatus;
 use App\Http\Controllers\Controller;
-use App\Mail\FarmUserInvitationMail;
 use App\Models\Farm;
 use App\Models\FarmUser;
 use App\Models\User;
+use App\Services\Hiring\FarmOwnership;
+use App\Services\Hiring\OnboardingService;
+use App\Services\PhoneAuthentication;
 use App\Services\SmsService;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class FarmUserController extends Controller
@@ -22,114 +23,7 @@ class FarmUserController extends Controller
 
     public function __construct()
     {
-        $this->smsService = new SmsService();
-    }
-
-    /**
-     * Get farm owner contact details (phone and email) from farm UUID
-     *
-     * @param string $farmUuid
-     * @return array{phone: string|null, email: string|null}
-     */
-    private function getFarmOwnerDetails(string $farmUuid): array
-    {
-        try {
-            $farm = Farm::where('uuid', $farmUuid)->with('farmer')->first();
-
-            if (!$farm || !$farm->farmer) {
-                Log::warning("⚠️ Farm or farmer not found for UUID: {$farmUuid}");
-                return ['phone' => null, 'email' => null];
-            }
-
-            $farmer = $farm->farmer;
-            return [
-                'phone' => $farmer->phone1 ?? $farmer->phone2 ?? null,
-                'email' => $farmer->email ?? null,
-            ];
-        } catch (\Exception $e) {
-            Log::error("❌ Error getting farm owner details for UUID {$farmUuid}: " . $e->getMessage());
-            return ['phone' => null, 'email' => null];
-        }
-    }
-
-    /**
-     * Send SMS invitation to farm user
-     *
-     * @param FarmUser $farmUser
-     * @param string $email
-     * @param string $password
-     * @return void
-     */
-    private function sendFarmUserInvitationSms(FarmUser $farmUser, string $email, string $password): void
-    {
-        try {
-            // Get farm details (use first farm if multiple)
-            $farmUuids = $farmUser->getFarmUuidsArray();
-            if (empty($farmUuids)) {
-                Log::warning("⚠️ No farm UUIDs found for farm user: {$farmUser->email}");
-                return;
-            }
-
-            $firstFarmUuid = $farmUuids[0];
-            $farm = Farm::where('uuid', $firstFarmUuid)->first();
-
-            if (!$farm) {
-                Log::warning("⚠️ Farm not found for UUID: {$firstFarmUuid}");
-                return;
-            }
-
-            $farmName = $farm->name ?? 'Unknown Farm';
-            $farmOwnerDetails = $this->getFarmOwnerDetails($firstFarmUuid);
-
-            // Build SMS message
-            $message = $this->smsService->buildFarmUserWelcomeMessage(
-                $email,
-                $password,
-                $farmName,
-                $farmUser->roleTitle,
-                $farmOwnerDetails['phone'],
-                $farmOwnerDetails['email']
-            );
-
-            // Send SMS to farm user's phone
-            $phoneNumber = $farmUser->phone;
-            if (empty($phoneNumber)) {
-                Log::warning("⚠️ No phone number found for farm user: {$farmUser->email}");
-                return;
-            }
-
-            $result = $this->smsService->sendSms($message, $phoneNumber);
-
-            if (is_string($result)) {
-                // Error occurred
-                Log::warning("⚠️ Failed to send SMS to {$phoneNumber}: {$result}");
-            } else {
-                Log::info("✅ SMS invitation sent successfully to: {$phoneNumber}");
-            }
-        } catch (\Exception $e) {
-            Log::error("❌ Error sending SMS invitation to farm user {$farmUser->email}: " . $e->getMessage());
-        }
-    }
-
-    /**
-     * Send Email invitation to farm user
-     *
-     * @param FarmUser $farmUser
-     * @param string $email
-     * @param string $password
-     * @return void
-     */
-    private function sendFarmUserInvitationEmail(FarmUser $farmUser, string $email, string $password): void
-    {
-        try {
-            Log::info("📧 sendFarmUserInvitationEmail called for: {$email}");
-
-            Mail::to($email)->send(new FarmUserInvitationMail($farmUser, $email, $password));
-            Log::info("✅ Email invitation sent successfully to: {$email}");
-        } catch (\Exception $e) {
-            Log::error("❌ Error sending Email invitation to farm user {$email}: " . $e->getMessage());
-            Log::error("❌ Stack trace: " . $e->getTraceAsString());
-        }
+        $this->smsService = new SmsService;
     }
 
     public function fetchByFarmUuids(array $farmUuids): array
@@ -146,9 +40,9 @@ class FarmUserController extends Controller
                     // Direct match for single UUID string
                     $q->where('farmUuid', $farmUuid)
                       // JSON array contains UUID (only if farmUuid is valid JSON)
-                      ->orWhereRaw('JSON_VALID(farmUuid) = 1 AND JSON_CONTAINS(farmUuid, ?)', [json_encode($farmUuid)])
+                        ->orWhereRaw('JSON_VALID(farmUuid) = 1 AND JSON_CONTAINS(farmUuid, ?)', [json_encode($farmUuid)])
                       // LIKE match for partial string matches (handles both string and JSON string)
-                      ->orWhere('farmUuid', 'LIKE', '%' . $farmUuid . '%');
+                        ->orWhere('farmUuid', 'LIKE', '%'.$farmUuid.'%');
                 });
             }
         })
@@ -157,6 +51,7 @@ class FarmUserController extends Controller
 
         return $farmUsers->map(function (FarmUser $farmUser) {
             $farmUuidsArray = $farmUser->getFarmUuidsArray();
+
             return [
                 'id' => $farmUser->id,
                 'uuid' => $farmUser->uuid,
@@ -175,13 +70,12 @@ class FarmUserController extends Controller
         })->toArray();
     }
 
-
     public function processFarmUsers(array $farmUsers, int $farmerId, ?int $userId = null): array
     {
         $syncedFarmUsers = [];
 
-        Log::info("========== PROCESSING FARM USERS START ==========");
-        Log::info("Total farm users to process: " . count($farmUsers));
+        Log::info('========== PROCESSING FARM USERS START ==========');
+        Log::info('Total farm users to process: '.count($farmUsers));
         Log::info("Authenticated Farmer ID: {$farmerId}");
         if ($userId) {
             Log::info("Authenticated User ID: {$userId}");
@@ -197,17 +91,18 @@ class FarmUserController extends Controller
 
                 Log::info("Processing farm user: UUID={$uuid}, Action={$syncAction}, Email={$farmUserData['email']}");
 
-                if (!$uuid) {
+                if (! $uuid) {
                     Log::warning('⚠️ Farm user without UUID skipped', ['farmUser' => $farmUserData]);
+
                     continue;
                 }
 
                 // Convert data types from Flutter to MySQL format
                 $createdAt = isset($farmUserData['createdAt'])
-                    ? \Carbon\Carbon::parse($farmUserData['createdAt'])->format('Y-m-d H:i:s')
+                    ? Carbon::parse($farmUserData['createdAt'])->format('Y-m-d H:i:s')
                     : now();
                 $updatedAt = isset($farmUserData['updatedAt'])
-                    ? \Carbon\Carbon::parse($farmUserData['updatedAt'])->format('Y-m-d H:i:s')
+                    ? Carbon::parse($farmUserData['updatedAt'])->format('Y-m-d H:i:s')
                     : now();
 
                 // Handle multiple farm UUIDs (supports both farmUuid and farmUuids)
@@ -215,13 +110,14 @@ class FarmUserController extends Controller
                 if (isset($farmUserData['farmUuids']) && is_array($farmUserData['farmUuids'])) {
                     // New format: farmUuids array
                     $farmUuids = array_filter($farmUserData['farmUuids']);
-                } elseif (isset($farmUserData['farmUuid']) && !empty($farmUserData['farmUuid'])) {
+                } elseif (isset($farmUserData['farmUuid']) && ! empty($farmUserData['farmUuid'])) {
                     // Legacy format: single farmUuid (backward compatibility)
                     $farmUuids = [$farmUserData['farmUuid']];
                 }
 
                 if (empty($farmUuids)) {
                     Log::warning('⚠️ Farm user without farm UUID(s) skipped', ['farmUser' => $farmUserData]);
+
                     continue;
                 }
 
@@ -232,8 +128,8 @@ class FarmUserController extends Controller
 
                         if ($existingFarmUser) {
                             // Farm user exists - check if local is newer
-                            $localUpdatedAt = \Carbon\Carbon::parse($updatedAt);
-                            $serverUpdatedAt = \Carbon\Carbon::parse($existingFarmUser->updated_at);
+                            $localUpdatedAt = Carbon::parse($updatedAt);
+                            $serverUpdatedAt = Carbon::parse($existingFarmUser->updated_at);
 
                             if ($localUpdatedAt->greaterThan($serverUpdatedAt)) {
                                 // Local is newer - update FarmUser profile
@@ -259,9 +155,9 @@ class FarmUserController extends Controller
                             }
                         } else {
                             // Farm user doesn't exist - create new
-                            Log::info("Creating new farm user: {$farmUserData['email']} with " . count($farmUuids) . " farm(s)");
+                            Log::info("Creating new farm user: {$farmUserData['email']} with ".count($farmUuids).' farm(s)');
 
-                            $farmUser = new FarmUser();
+                            $farmUser = new FarmUser;
                             $farmUser->uuid = $uuid;
                             $farmUser->setFarmUuids($farmUuids); // Use setFarmUuids to handle JSON encoding
                             $farmUser->firstName = $farmUserData['firstName'];
@@ -291,8 +187,8 @@ class FarmUserController extends Controller
 
                         if ($farmUser) {
                             // Compare timestamps
-                            $localUpdatedAt = \Carbon\Carbon::parse($updatedAt);
-                            $serverUpdatedAt = \Carbon\Carbon::parse($farmUser->updated_at);
+                            $localUpdatedAt = Carbon::parse($updatedAt);
+                            $serverUpdatedAt = Carbon::parse($farmUser->updated_at);
 
                             if ($localUpdatedAt->greaterThan($serverUpdatedAt)) {
                                 // Local is newer - perform update
@@ -324,31 +220,17 @@ class FarmUserController extends Controller
                         break;
 
                     case 'deleted':
-                        // Hard delete both farm user and linked user account
+                        // End this employment only. Identity and other farm assignments survive.
                         $farmUser = FarmUser::where('uuid', $uuid)->first();
-
                         if ($farmUser) {
-                            Log::info("Deleting farm user: {$farmUser->email} (UUID: {$uuid})");
-
-                            // Delete associated login user (if exists)
-                            $user = User::where('role', UserRole::FARM_INVITED_USER)
-                                ->where('roleId', $farmUser->id)
-                                ->first();
-
-                            if ($user) {
-                                $userEmail = $user->email;
-                                $userId = $user->id;
-                                $user->delete();
-                                Log::info("✅ Deleted user account for farm user: {$userEmail} (User ID: {$userId})");
-                            } else {
-                                Log::info("⏭️ No linked user account found for farm user ID {$farmUser->id}");
+                            $actor = User::findOrFail($createdByUserId);
+                            foreach (DB::table('career_onboardings')->where('source', 'manual')->where('owner_user_id', $actor->id)->get() as $placement) {
+                                $terms = json_decode($placement->terms, true) ?: [];
+                                if (($terms['legacyFarmUserUuid'] ?? null) === $uuid) {
+                                    app(OnboardingService::class)->end($actor, $placement->id, $placement->status === 'activated' ? 'ended' : 'not_joined', 'Removed from farm workers');
+                                }
                             }
-
-                            $farmUserEmail = $farmUser->email;
-                            $farmUser->delete();
-                            Log::info("✅ Farm user deleted: {$farmUserEmail} (UUID: {$uuid})");
-                        } else {
-                            Log::info("⏭️ Farm user already deleted on server: UUID {$uuid}");
+                            // The profile is also used for login; employment access is revoked above.
                         }
 
                         $syncedFarmUsers[] = ['uuid' => $uuid];
@@ -359,7 +241,7 @@ class FarmUserController extends Controller
                         break;
                 }
             } catch (\Exception $e) {
-                Log::error("❌ Error processing farm user: " . $e->getMessage(), [
+                Log::error('❌ Error processing farm user: '.$e->getMessage(), [
                     'farmUserData' => $farmUserData,
                     'trace' => $e->getTraceAsString(),
                 ]);
@@ -367,8 +249,8 @@ class FarmUserController extends Controller
             }
         }
 
-        Log::info("========== PROCESSING FARM USERS END ==========");
-        Log::info("Total farm users synced: " . count($syncedFarmUsers));
+        Log::info('========== PROCESSING FARM USERS END ==========');
+        Log::info('Total farm users synced: '.count($syncedFarmUsers));
 
         return $syncedFarmUsers;
     }
@@ -378,119 +260,33 @@ class FarmUserController extends Controller
      * If missing, creates the User account with role=farmInvitedUser, roleId=farmUser->id,
      * status=active, and password=email (default per requirement).
      * If exists, ensures role, roleId, status, and email are aligned.
-     *
-     * @param FarmUser $farmUser
-     * @param int|null $createdByUserId
-     * @param string|null $overridePassword
-     * @param bool $sendInvitationIfCreated
-     * @return User
      */
-    public function ensureUserAccount(
-        FarmUser $farmUser,
-        ?int $createdByUserId = null,
-        ?string $overridePassword = null,
-        bool $sendInvitationIfCreated = true
-    ): User {
-        // Ensure farmUser profile itself has active status
-        if (empty($farmUser->status)) {
-            $farmUser->status = 'active';
-            $farmUser->save();
-        }
-
-        $email = $farmUser->email;
-        $plainPassword = $overridePassword ?? $email;
-
-        // 1. Try finding linked User by role and roleId
-        $user = User::where('role', UserRole::FARM_INVITED_USER)
-            ->where('roleId', $farmUser->id)
-            ->first();
-
-        // 2. If not found by roleId, check by email
-        if (!$user && !empty($email)) {
-            $user = User::where('email', $email)->first();
-            if ($user) {
-                // Link this existing user record to the farmUser
-                $user->role = UserRole::FARM_INVITED_USER;
-                $user->roleId = $farmUser->id;
-                $user->status = UserStatus::ACTIVE;
-                if ($createdByUserId) {
-                    $user->updatedBy = $createdByUserId;
+    public function ensureUserAccount(FarmUser $farmUser, ?int $createdByUserId = null, ?string $overridePassword = null, bool $sendInvitationIfCreated = true): ?User
+    {
+        $linked = User::where('role', UserRole::FARM_INVITED_USER)->where('roleId', $farmUser->id)->first();
+        if ($linked) {
+            return $linked;
+        } // Preserve legacy account identity, status and password.
+        $phone = app(PhoneAuthentication::class)->normalize($farmUser->phone ?? '');
+        $userId = $phone ? DB::table('phone_identities')->where('phone', $phone)->value('user_id') : null;
+        $actor = $createdByUserId ? User::find($createdByUserId) : null;
+        if ($actor && $phone) {
+            foreach ($farmUser->getFarmUuidsArray() as $farm) {
+                if (! app(FarmOwnership::class)->owns($actor, $farm)) {
+                    continue;
                 }
-                if ($overridePassword) {
-                    $user->password = Hash::make($overridePassword);
+                $existing = DB::table('career_onboardings')->where('owner_user_id', $actor->id)->where('source', 'manual')->where('farm_uuid', $farm)->where('terms->legacyFarmUserUuid', $farmUser->uuid)->exists();
+                if (! $existing) {
+                    app(OnboardingService::class)->manual($actor, [
+                        'requestUuid' => (string) Str::uuid(), 'farmUuid' => $farm,
+                        'name' => trim($farmUser->firstName.' '.$farmUser->lastName), 'phone' => $phone,
+                        'roleTitle' => $farmUser->roleTitle ?: 'worker', 'permissions' => ['farm.view'],
+                        'terms' => ['legacyFarmUserUuid' => $farmUser->uuid],
+                    ]);
                 }
-                $user->save();
-                Log::info("🔗 Linked existing user (ID={$user->id}, email={$email}) to FarmUser ID={$farmUser->id}");
-                return $user;
             }
         }
 
-        if ($user) {
-            // Already exists and linked: keep email and status up to date
-            $needsSave = false;
-            if ($user->email !== $email) {
-                $user->email = $email;
-                $needsSave = true;
-            }
-            if ($user->status !== UserStatus::ACTIVE) {
-                $user->status = UserStatus::ACTIVE;
-                $needsSave = true;
-            }
-            if ($overridePassword) {
-                $user->password = Hash::make($overridePassword);
-                $needsSave = true;
-            }
-            if ($needsSave) {
-                if ($createdByUserId) {
-                    $user->updatedBy = $createdByUserId;
-                }
-                $user->save();
-                Log::info("✅ Updated linked user (ID={$user->id}) for FarmUser ID={$farmUser->id}");
-            }
-            return $user;
-        }
-
-        // 3. User does not exist at all -> create new
-        $username = '';
-        if (!empty($farmUser->lastName)) {
-            $username = preg_replace('/[^a-zA-Z0-9_]/', '', strtolower($farmUser->lastName));
-        }
-        if (empty($username) && !empty($email) && str_contains($email, '@')) {
-            $username = preg_replace('/[^a-zA-Z0-9_]/', '', strtolower(strstr($email, '@', true)));
-        }
-        if (empty($username)) {
-            $username = 'farmuser' . $farmUser->id;
-        }
-
-        // Ensure username is unique
-        $baseUsername = $username;
-        $counter = 1;
-        while (User::where('username', $username)->exists()) {
-            $username = $baseUsername . $counter;
-            $counter++;
-        }
-
-        $user = User::create([
-            'username' => $username,
-            'email' => $email,
-            'password' => Hash::make($plainPassword),
-            'role' => UserRole::FARM_INVITED_USER,
-            'roleId' => $farmUser->id,
-            'status' => UserStatus::ACTIVE,
-            'createdBy' => $createdByUserId,
-            'updatedBy' => $createdByUserId,
-        ]);
-
-        Log::info("✅ Created new User (ID={$user->id}, username={$username}) for FarmUser ID={$farmUser->id} ({$email})");
-
-        if ($sendInvitationIfCreated) {
-            $this->sendFarmUserInvitationSms($farmUser, $email, $plainPassword);
-            $this->sendFarmUserInvitationEmail($farmUser, $email, $plainPassword);
-        }
-
-        return $user;
+        return $userId ? User::find($userId) : null;
     }
 }
-
-
-

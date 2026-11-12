@@ -142,7 +142,7 @@ class FinanceResourceController extends Controller
                     ->orWhere('notes', 'like', "%{$search}%")
                     ->orWhereHas('farm', fn ($q) => $q->where('name', 'like', "%{$search}%")->orWhere('referenceNo', 'like', "%{$search}%"))
                     ->orWhereHas('farmer', fn ($q) => $q->where('firstName', 'like', "%{$search}%")->orWhere('surname', 'like', "%{$search}%"))
-                    ->orWhereHas('extensionOfficer', fn ($q) => $q->where('firstName', 'like', "%{$search}%")->orWhere('surname', 'like', "%{$search}%"));
+                    ->orWhereHas('extensionOfficer', fn ($q) => $q->where('firstName', 'like', "%{$search}%")->orWhere('lastName', 'like', "%{$search}%"));
             });
         }
 
@@ -511,7 +511,7 @@ class FinanceResourceController extends Controller
             $farmer = $bill->farmer ?? $bill->farm?->farmer;
             $farmerName = $farmer ? trim(collect([$farmer->firstName, $farmer->middleName, $farmer->surname])->filter()->implode(' ')) : '-';
             $officer = $bill->extensionOfficer;
-            $officerName = $officer ? trim(collect([$officer->firstName, $officer->middleName, $officer->surname])->filter()->implode(' ')) : '-';
+            $officerName = $officer ? trim(collect([$officer->firstName, $officer->middleName, $officer->lastName])->filter()->implode(' ')) : '-';
 
             return [
                 'billNo' => $bill->billNo ?? '-',
@@ -590,7 +590,7 @@ class FinanceResourceController extends Controller
 
         $officer = $bill->extensionOfficer;
         $officerName = $officer
-            ? trim(collect([$officer->firstName, $officer->middleName, $officer->surname])->filter()->implode(' '))
+            ? trim(collect([$officer->firstName, $officer->middleName, $officer->lastName])->filter()->implode(' '))
             : '—';
 
         return [
@@ -967,12 +967,12 @@ class FinanceResourceController extends Controller
 
         $extensionOfficers = ExtensionOfficer::query()
             ->orderBy('firstName')
-            ->orderBy('surname')
+            ->orderBy('lastName')
             ->limit(250)
-            ->get(['id', 'firstName', 'middleName', 'surname', 'email', 'phone'])
+            ->get(['id', 'firstName', 'middleName', 'lastName', 'email', 'phone'])
             ->map(fn (ExtensionOfficer $officer) => [
                 'value' => (string) $officer->id,
-                'label' => trim(collect([$officer->firstName, $officer->middleName, $officer->surname])->filter()->implode(' ')),
+                'label' => trim(collect([$officer->firstName, $officer->middleName, $officer->lastName])->filter()->implode(' ')),
                 'description' => collect([$officer->email, $officer->phone])->filter()->implode(' · '),
             ])
             ->values();

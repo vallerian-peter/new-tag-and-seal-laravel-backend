@@ -38,6 +38,7 @@ class LocationsCrudTest extends TestCase
             'status' => UserStatus::ACTIVE,
         ]);
 
+        $this->admin->forceFill(['platform_role' => 'superAdmin'])->save();
         Sanctum::actingAs($this->admin);
     }
 

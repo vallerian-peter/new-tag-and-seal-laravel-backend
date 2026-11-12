@@ -6,8 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\AnimalCommerceReservation;
 use App\Models\MarketplaceListing;
 use App\Models\PurchaseOrder;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Validation\Rule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class CommerceResourceController extends Controller
 {
@@ -62,26 +66,73 @@ class CommerceResourceController extends Controller
         ]);
     }
 
+    /** Resolve a paid-order dispute after the refund or continuation decision is verified. */
+    public function resolveOrderDispute(Request $request, string $order): JsonResponse
+    {
+        $data = $request->validate([
+            'resolution' => ['required', 'in:continue,refund_complete'],
+            'resolution_note' => ['required', 'string', 'max:2000'],
+        ]);
+
+        return DB::transaction(function () use ($order, $data, $request): JsonResponse {
+            $purchaseOrder = PurchaseOrder::with('items')
+                ->where('uuid', $order)
+                ->orWhere('order_code', $order)
+                ->lockForUpdate()
+                ->firstOrFail();
+            abort_unless($purchaseOrder->status === 'disputed', 422, 'Only disputed orders can be resolved.');
+
+            $history = trim(($purchaseOrder->dispute_reason ?? '')."\nAdmin resolution: ".$data['resolution_note']);
+            if ($data['resolution'] === 'continue') {
+                abort_unless($purchaseOrder->payment_evidence_submitted_at, 422, 'Payment evidence must exist before continuing the order.');
+                $purchaseOrder->update([
+                    'status' => 'ready_for_handover',
+                    'settlement_verified_at' => $purchaseOrder->settlement_verified_at ?? now(),
+                    'settlement_verified_by_user_id' => $purchaseOrder->settlement_verified_by_user_id ?? $request->user()->id,
+                    'dispute_reason' => $history,
+                ]);
+            } else {
+                foreach ($purchaseOrder->items as $item) {
+                    $listing = $item->listing_uuid
+                        ? MarketplaceListing::where('uuid', $item->listing_uuid)->lockForUpdate()->first()
+                        : null;
+                    if ($listing) {
+                        $listing->increment('available_quantity', $item->quantity);
+                        $listing->decrement('reserved_quantity', min($listing->reserved_quantity, $item->quantity));
+                        if ($listing->status === 'sold' && $listing->available_quantity > 0) {
+                            $listing->update(['status' => 'active']);
+                        }
+                    }
+                }
+                AnimalCommerceReservation::where('reference_uuid', $purchaseOrder->uuid)
+                    ->where('status', 'active')
+                    ->update([
+                        'status' => 'released',
+                        'released_at' => now(),
+                        'release_reason' => 'Admin confirmed refund and resolved dispute.',
+                    ]);
+                $purchaseOrder->update([
+                    'status' => 'cancelled',
+                    'dispute_reason' => $history,
+                    'cancellation_reason' => 'Admin confirmed refund completion.',
+                ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Disputed order resolved.',
+                'data' => $purchaseOrder->fresh(['items.livestock', 'seller', 'buyer']),
+            ]);
+        });
+    }
+
     private function indexListings(Request $request): JsonResponse
     {
-        $search = trim((string) $request->query('search', ''));
-        $status = (string) $request->query('status', 'all');
-        $perPage = min(max((int) $request->query('per_page', 15), 5), 100);
-
         $query = MarketplaceListing::query()->with(['seller', 'farm', 'items.livestock']);
-
-        if ($status !== '' && $status !== 'all') {
-            $query->where('status', $status);
-        }
-
-        if ($search !== '') {
-            $query->where(function ($b) use ($search) {
-                $b->where('listing_title', 'like', "%{$search}%")
-                  ->orWhere('uuid', 'like', "%{$search}%");
-            });
-        }
-
-        $paginated = $query->latest()->paginate($perPage);
+        $paginated = $this->filteredPage($request, $query,
+            ['listing_title', 'uuid'],
+            ['seller' => ['username', 'email'], 'farm' => ['name']],
+            ['draft', 'active', 'under_negotiation', 'reserved', 'sold', 'withdrawn', 'expired']);
 
         return response()->json([
             'status' => true,
@@ -103,16 +154,11 @@ class CommerceResourceController extends Controller
 
     private function indexReservations(Request $request): JsonResponse
     {
-        $perPage = min(max((int) $request->query('per_page', 15), 5), 100);
-        $status = (string) $request->query('status', 'all');
-
         $query = AnimalCommerceReservation::query()->with(['livestock', 'heldBy']);
-
-        if ($status !== '' && $status !== 'all') {
-            $query->where('status', $status);
-        }
-
-        $paginated = $query->latest()->paginate($perPage);
+        $paginated = $this->filteredPage($request, $query,
+            ['uuid', 'livestock_uuid', 'reference_uuid'],
+            ['livestock' => ['name', 'identificationNumber'], 'heldBy' => ['username', 'email']],
+            ['active', 'fulfilled', 'released', 'expired']);
 
         return response()->json([
             'status' => true,
@@ -124,7 +170,9 @@ class CommerceResourceController extends Controller
                 'total' => $paginated->total(),
                 'last_page' => $paginated->lastPage(),
                 'meta' => [
+                    'total_reservations' => AnimalCommerceReservation::count(),
                     'active_reservations' => AnimalCommerceReservation::where('status', 'active')->count(),
+                    'fulfilled_reservations' => AnimalCommerceReservation::where('status', 'fulfilled')->count(),
                 ],
             ],
         ]);
@@ -132,16 +180,11 @@ class CommerceResourceController extends Controller
 
     private function indexOrders(Request $request): JsonResponse
     {
-        $perPage = min(max((int) $request->query('per_page', 15), 5), 100);
-        $status = (string) $request->query('status', 'all');
-
         $query = PurchaseOrder::query()->with(['seller', 'buyer', 'originFarm', 'items.livestock']);
-
-        if ($status !== '' && $status !== 'all') {
-            $query->where('status', $status);
-        }
-
-        $paginated = $query->latest()->paginate($perPage);
+        $paginated = $this->filteredPage($request, $query,
+            ['order_code', 'uuid'],
+            ['seller' => ['username', 'email'], 'buyer' => ['username', 'email']],
+            ['pending_settlement', 'ready_for_handover', 'handed_over', 'transferred', 'cancelled', 'disputed']);
 
         return response()->json([
             'status' => true,
@@ -160,5 +203,41 @@ class CommerceResourceController extends Controller
             ],
         ]);
     }
+    /** Search and status apply before pagination, with deterministic ordering across pages. */
+    private function filteredPage(Request $request, Builder $query, array $columns, array $relations, array $statuses): LengthAwarePaginator
+    {
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:160'],
+            'status' => ['nullable', Rule::in(array_merge(['all'], $statuses))],
+            'sort' => ['nullable', Rule::in(['asc', 'desc'])],
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'per_page' => ['sometimes', 'integer', 'min:5', 'max:100'],
+        ]);
+        $status = $filters['status'] ?? 'all';
+        if ($status !== 'all') {
+            $query->where('status', $status);
+        }
+        $search = trim($filters['search'] ?? '');
+        if ($search !== '') {
+            $query->where(function (Builder $matches) use ($search, $columns, $relations) {
+                foreach ($columns as $column) {
+                    $matches->orWhere($column, 'like', '%'.$search.'%');
+                }
+                foreach ($relations as $relation => $fields) {
+                    $matches->orWhereHas($relation, function (Builder $related) use ($search, $fields) {
+                        $related->where(function (Builder $names) use ($search, $fields) {
+                            foreach ($fields as $field) {
+                                $names->orWhere($field, 'like', '%'.$search.'%');
+                            }
+                        });
+                    });
+                }
+            });
+        }
+        $direction = $filters['sort'] ?? 'desc';
+
+        return $query->orderBy('created_at', $direction)->orderBy('id', $direction)->paginate($filters['per_page'] ?? 10);
+    }
+
 }
 

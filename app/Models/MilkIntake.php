@@ -12,7 +12,6 @@ class MilkIntake extends Model
     protected $fillable = [
         'uuid',
         'mcc_uuid',
-        'batch_uuid',
         'farmer_user_id',
         'clerk_user_id',
         'gross_liters_delivered',
@@ -52,11 +51,6 @@ class MilkIntake extends Model
         return $this->belongsTo(MilkCollectionCentre::class, 'mcc_uuid', 'uuid');
     }
 
-    public function batch()
-    {
-        return $this->belongsTo(MilkBatch::class, 'batch_uuid', 'uuid');
-    }
-
     public function farmer()
     {
         return $this->belongsTo(User::class, 'farmer_user_id', 'id');
@@ -71,5 +65,4 @@ class MilkIntake extends Model
     {
         return $this->hasOne(DairyPayoutAccrual::class, 'intake_uuid', 'uuid');
     }
-
 }

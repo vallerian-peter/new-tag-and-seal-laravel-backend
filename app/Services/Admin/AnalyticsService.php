@@ -411,11 +411,11 @@ class AnalyticsService
             ->orderByDesc(DB::raw('coalesce(e.events, 0)'))
             ->limit(500)
             ->get([
-                'f.referenceNo', 'f.name as farmName', 'f.size', 'f.sizeUnit', 'f.status',
+                'f.uuid as farmUuid', 'f.referenceNo', 'f.name as farmName', 'f.size', 'f.sizeUnit', 'f.status',
                 'owner.firstName', 'owner.middleName', 'owner.surname',
                 DB::raw("coalesce(c.name, 'Unassigned') as country"), DB::raw("coalesce(r.name, 'Unassigned') as region"),
                 DB::raw('coalesce(a.animals, 0) as animals'), DB::raw('coalesce(e.events, 0) as events'), 'e.last_activity as lastActivity',
-            ])->map(fn (object $row): object => (object) ['referenceNo' => $row->referenceNo, 'farmName' => $row->farmName, 'ownerName' => trim(implode(' ', array_filter([$row->firstName, $row->middleName, $row->surname]))) ?: 'Unassigned', 'size' => $row->size, 'sizeUnit' => $row->sizeUnit, 'country' => $row->country, 'region' => $row->region, 'status' => $row->status, 'animals' => (int) $row->animals, 'events' => (int) $row->events, 'lastActivity' => $row->lastActivity]);
+            ])->map(fn (object $row): object => (object) ['farmUuid' => $row->farmUuid, 'referenceNo' => $row->referenceNo, 'farmName' => $row->farmName, 'ownerName' => trim(implode(' ', array_filter([$row->firstName, $row->middleName, $row->surname]))) ?: 'Unassigned', 'size' => $row->size, 'sizeUnit' => $row->sizeUnit, 'country' => $row->country, 'region' => $row->region, 'status' => $row->status, 'animals' => (int) $row->animals, 'events' => (int) $row->events, 'lastActivity' => $row->lastActivity]);
     }
 
     private function farmerRows(CarbonImmutable $from, CarbonImmutable $to, array $filters): Collection

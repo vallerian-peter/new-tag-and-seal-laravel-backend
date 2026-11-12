@@ -33,6 +33,7 @@ class AnimalResourceController extends Controller
         'species' => Specie::class,
         'breeds' => Breed::class,
         'acquisition-methods' => LivestockObtainedMethod::class,
+        'stages' => Stage::class,
     ];
 
     public function index(Request $request, string $resource): JsonResponse
@@ -101,7 +102,7 @@ class AnimalResourceController extends Controller
                 'mothers' => $this->parentLivestockOptions('female'),
                 'fathers' => $this->parentLivestockOptions('male'),
             ],
-            'species', 'breeds' => [
+            'species', 'breeds', 'stages' => [
                 'livestockTypes' => $this->livestockTypeOptions(),
             ],
             default => [],
@@ -330,6 +331,7 @@ class AnimalResourceController extends Controller
             'species' => 'Species',
             'breeds' => 'Breed',
             'acquisition-methods' => 'Acquisition method',
+            'stages' => 'Stage',
             default => 'Record',
         };
     }
@@ -364,6 +366,19 @@ class AnimalResourceController extends Controller
             'breeds' => $query
                 ->with(['livestockType:id,name'])
                 ->withCount(['livestocks']),
+            'stages' => (function () use ($query) {
+                $q = $query;
+                try {
+                    $q->with(['livestockType:id,name']);
+                } catch (\Throwable) {}
+                try {
+                    if (Schema::hasColumn('livestocks', 'stageId')) {
+                        $q->withCount(['livestock']);
+                    }
+                } catch (\Throwable) {}
+
+                return $q;
+            })(),
             'acquisition-methods' => $query->withCount(['livestocks']),
             default => $query,
         };
@@ -376,7 +391,7 @@ class AnimalResourceController extends Controller
                 ? $query->whereIn('lifecycle_status', ['notActive', 'not-active', 'archived'])
                 : $query->where('lifecycle_status', $status),
             'legacy-livestock' => $query->where('status', $status),
-            'species', 'breeds' => ctype_digit($status) ? $query->where('livestockTypeId', (int) $status) : null,
+            'species', 'breeds', 'stages' => ctype_digit($status) ? $query->where('livestockTypeId', (int) $status) : null,
             default => null,
         };
     }
@@ -416,7 +431,7 @@ class AnimalResourceController extends Controller
                 $q->orWhere('group', 'like', $like);
             }
 
-            if (in_array($resource, ['species', 'breeds'], true)) {
+            if (in_array($resource, ['species', 'breeds', 'stages'], true)) {
                 $q->orWhereHas('livestockType', fn (Builder $tq) => $tq->where('name', 'like', $like));
             }
         });
@@ -467,6 +482,27 @@ class AnimalResourceController extends Controller
                 ['label' => 'Methods in use', 'value' => Livestock::query()->whereNotNull('livestockObtainedMethodId')->distinct('livestockObtainedMethodId')->count('livestockObtainedMethodId'), 'note' => 'Methods referenced by livestock records'],
                 ['label' => 'Linked livestock', 'value' => Livestock::query()->whereNotNull('livestockObtainedMethodId')->count(), 'note' => 'Livestock with recorded acquisition method'],
             ],
+            'stages' => (function () {
+                $total = 0;
+                $tagRequired = 0;
+                $tagDeferred = 0;
+                try {
+                    $total = Stage::query()->count();
+                    if (Schema::hasColumn('stages', 'is_tag_applicable')) {
+                        $tagRequired = Stage::query()->where('is_tag_applicable', true)->count();
+                        $tagDeferred = Stage::query()->where('is_tag_applicable', false)->count();
+                    } else {
+                        $tagRequired = $total;
+                        $tagDeferred = 0;
+                    }
+                } catch (\Throwable) {}
+
+                return [
+                    ['label' => 'Total Stages', 'value' => $total, 'note' => 'Growth stages across all animal types'],
+                    ['label' => 'Tag Required', 'value' => $tagRequired, 'note' => 'Stages requiring physical ear tag'],
+                    ['label' => 'Tag Deferred', 'value' => $tagDeferred, 'note' => 'Young stages deferred until later'],
+                ];
+            })(),
             default => [],
         };
     }
@@ -525,6 +561,11 @@ class AnimalResourceController extends Controller
             ],
             'acquisition-methods' => [
                 'name' => [$req, 'string', 'max:255', Rule::unique('livestock_obtained_methods', 'name')->ignore($record?->getKey())],
+            ],
+            'stages' => [
+                'name' => [$req, 'string', 'max:255'],
+                'livestockTypeId' => [$req, 'integer', 'exists:livestock_types,id'],
+                'is_tag_applicable' => ['nullable', 'boolean'],
             ],
             default => [],
         };
@@ -636,6 +677,22 @@ class AnimalResourceController extends Controller
                 'livestockTypeId' => $record->getAttribute('livestockTypeId') !== null ? (int) $record->getAttribute('livestockTypeId') : null,
                 'livestockTypeName' => $record->relationLoaded('livestockType') ? $record->getRelation('livestockType')?->name : null,
                 'livestocksCount' => (int) ($record->getAttribute('livestocks_count') ?? 0),
+            ]);
+        }
+
+        if ($resource === 'stages') {
+            $isTag = $record->getAttribute('is_tag_applicable');
+            if ($isTag === null && method_exists($record, 'isTagApplicable')) {
+                $isTag = $record->isTagApplicable();
+            }
+
+            return array_merge($base, [
+                'name' => (string) $record->getAttribute('name'),
+                'livestockTypeId' => $record->getAttribute('livestockTypeId') !== null ? (int) $record->getAttribute('livestockTypeId') : null,
+                'livestockTypeName' => $record->relationLoaded('livestockType') ? $record->getRelation('livestockType')?->name : null,
+                'is_tag_applicable' => (bool) ($isTag ?? true),
+                'isTagApplicable' => (bool) ($isTag ?? true),
+                'animalsCount' => (int) ($record->getAttribute('livestock_count') ?? 0),
             ]);
         }
 

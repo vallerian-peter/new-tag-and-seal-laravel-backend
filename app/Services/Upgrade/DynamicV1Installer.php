@@ -148,9 +148,20 @@ class DynamicV1Installer
         $events = [
             ['record_weight', 'Record weight', 'update_weight', [['weight', 'Weight', 'decimal', true]]],
             ['record_vaccination', 'Record vaccination', 'record_only', [['vaccine', 'Vaccine', 'text', true], ['remarks', 'Remarks', 'multiline_text', false]]],
-            ['record_production', 'Record production', 'record_production_yield', [['quantity', 'Quantity', 'decimal', true], ['unit', 'Unit', 'text', true]]],
         ];
-        if ($speciesCode === 'chicken') {
+        if (in_array($speciesCode, ['cattle', 'goat', 'sheep'], true)) {
+            $events[] = ['record_milking', 'Milking', 'record_production_yield', [
+                ['amount', 'Milk quantity (L)', 'decimal', true],
+                ['session', 'Session', 'single_select', false],
+            ]];
+            if (in_array($speciesCode, ['goat', 'sheep'], true)) {
+                $events[] = ['record_fiber', 'Fiber (Wool)', 'record_production_yield', [
+                    ['amount', 'Weight (kg)', 'decimal', true],
+                    ['fiber_grade', 'Grade / Quality', 'text', false],
+                    ['remarks', 'Remarks', 'multiline_text', false],
+                ]];
+            }
+        } elseif ($speciesCode === 'chicken') {
             $events[] = ['record_egg_collection', 'Record eggs', 'record_egg_or_clutch', [
                 ['production_date', 'Production date', 'date', true],
                 ['collection_session', 'Collection session', 'single_select', true],
@@ -159,6 +170,8 @@ class DynamicV1Installer
                 ['dirty_eggs', 'Dirty eggs', 'integer', false],
                 ['remarks', 'Remarks', 'multiline_text', false],
             ]];
+        } else {
+            $events[] = ['record_production', 'Record production', 'record_production_yield', [['quantity', 'Quantity', 'decimal', true], ['unit', 'Unit', 'text', true]]];
         }
 
         foreach ($events as $sort => [$code, $name, $behavior, $fields]) {
@@ -205,8 +218,6 @@ class DynamicV1Installer
             'fields' => [
                 $this->field('display_name', 'Display name', 'text', 'string', false),
                 $this->field('breed_name', 'Breed', 'text', 'string', false),
-                $this->field('purpose', 'Production purpose', 'text', 'string', false),
-                $this->field('notes', 'Notes', 'multiline_text', 'string', false),
             ],
         ]], 'subject_modes' => $modes];
     }
@@ -228,6 +239,9 @@ class DynamicV1Installer
         if ($key === 'collection_session') {
             $validation['allowed_values'] = ['morning', 'afternoon', 'evening', 'total_day'];
         }
+        if ($key === 'session') {
+            $validation['allowed_values'] = ['morning', 'afternoon', 'evening', 'night'];
+        }
 
         $field = [
             'field_uuid' => $this->uuid("field/$key"),
@@ -241,7 +255,7 @@ class DynamicV1Installer
             'validation' => $validation,
             'sort_order' => 0,
         ];
-        if ($key === 'collection_session') {
+        if (isset($validation['allowed_values'])) {
             $field['options'] = array_map(fn (string $value) => [
                 'value' => $value,
                 'label' => ['en' => str($value)->replace('_', ' ')->title()->toString()],

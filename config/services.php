@@ -41,4 +41,18 @@ return [
         'sender_email' => env('BREVO_SENDER_EMAIL', 'vallerianmchau123456@gmail.com'),
     ],
 
+    'phone_otp' => [
+        'provider' => env('PHONE_OTP_SMS_PROVIDER', 'beem'),
+        'url' => env('PHONE_OTP_SMS_URL'),
+        'username' => env('PHONE_OTP_SMS_USERNAME'),
+        'password' => env('PHONE_OTP_SMS_PASSWORD'),
+        'sender' => env('PHONE_OTP_SMS_SENDER'),
+    ],
+
+    'beem_sms' => [
+        'api_key' => env('BEEM_SMS_API_KEY'),
+        'secret_key' => env('BEEM_SMS_SECRET_KEY'),
+        'sender' => env('BEEM_SMS_SENDER_ID'),
+    ],
+
 ];

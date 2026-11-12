@@ -465,16 +465,10 @@ class ExtensionOfficerFarmInviteController extends Controller
                         'regionId' => $officerPayload['regionId'] ?? $officerPayload['region_id'] ?? null,
                         'districtId' => $officerPayload['districtId'] ?? $officerPayload['district_id'] ?? null,
                         'wardId' => $officerPayload['wardId'] ?? $officerPayload['ward_id'] ?? null,
-                        'isVerified' => isset($officerPayload['isVerified']) ? (bool) $officerPayload['isVerified'] : (isset($officerPayload['is_verified']) ? (bool) $officerPayload['is_verified'] : null),
+                        'isVerified' => false,
                     ];
 
-                    if ($extensionOfficer) {
-                        // Update existing officer with incoming data (only non-null fields)
-                        $extensionOfficer->fill(array_filter($officerData, function ($v) {
-                            return $v !== null;
-                        }));
-                        $extensionOfficer->save();
-                    } else {
+                    if (! $extensionOfficer) {
                         // Create new officer record if email provided
                         if (! empty($officerData['email'])) {
                             $extensionOfficer = ExtensionOfficer::create(array_filter($officerData, function ($v) {

@@ -22,9 +22,9 @@ class GoatStagesSeeder extends Seeder
         }
 
         $stages = [
-            ['name' => 'Kid', 'livestockTypeId' => $goatType->id],
-            ['name' => 'Grower', 'livestockTypeId' => $goatType->id],
-            ['name' => 'Adult', 'livestockTypeId' => $goatType->id],
+            ['name' => 'Kid', 'livestockTypeId' => $goatType->id, 'is_tag_applicable' => false],
+            ['name' => 'Grower', 'livestockTypeId' => $goatType->id, 'is_tag_applicable' => true],
+            ['name' => 'Adult', 'livestockTypeId' => $goatType->id, 'is_tag_applicable' => true],
         ];
 
         foreach ($stages as $stage) {

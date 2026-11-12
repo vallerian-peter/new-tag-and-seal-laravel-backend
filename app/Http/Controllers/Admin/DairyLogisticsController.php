@@ -4,17 +4,12 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\DairyFactory;
-use App\Models\DairyFactoryStockMovement;
-use App\Models\DairyFactoryTank;
 use App\Models\DairyTrip;
 use App\Models\DairyTripRoute;
-use App\Models\FactoryOperator;
-use App\Models\MilkDispatchOrder;
 use App\Models\MilkFactoryDelivery;
 use App\Models\TransporterCompany;
 use App\Models\TransporterDriver;
 use App\Models\TransporterVehicle;
-use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -38,9 +33,9 @@ class DairyLogisticsController extends Controller
             $search = $request->query('search');
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('license_number', 'like', "%{$search}%")
-                  ->orWhere('contact_person', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%");
+                    ->orWhere('license_number', 'like', "%{$search}%")
+                    ->orWhere('contact_person', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%");
             });
         }
 
@@ -191,7 +186,7 @@ class DairyLogisticsController extends Controller
 
     public function listFactories(Request $request): JsonResponse
     {
-        $query = DairyFactory::with(['region', 'district'])->withCount(['tanks', 'operators']);
+        $query = DairyFactory::with(['region', 'district'])->withCount(['operators']);
 
         if ($request->filled('status')) {
             $query->where('approval_status', $request->query('status'));
@@ -201,8 +196,8 @@ class DairyLogisticsController extends Controller
             $search = $request->query('search');
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('factory_code', 'like', "%{$search}%")
-                  ->orWhere('contact_name', 'like', "%{$search}%");
+                    ->orWhere('factory_code', 'like', "%{$search}%")
+                    ->orWhere('contact_name', 'like', "%{$search}%");
             });
         }
 
@@ -254,7 +249,7 @@ class DairyLogisticsController extends Controller
     public function getFactory(string $uuid): JsonResponse
     {
         $factory = DairyFactory::where('uuid', $uuid)
-            ->with(['region', 'district', 'tanks', 'operators.user'])
+            ->with(['region', 'district', 'operators.user'])
             ->firstOrFail();
 
         return response()->json([
@@ -304,39 +299,6 @@ class DairyLogisticsController extends Controller
             'success' => true,
             'message' => 'Dairy factory registration rejected.',
             'data' => $factory,
-        ]);
-    }
-
-    public function addFactoryTank(Request $request, string $factoryUuid): JsonResponse
-    {
-        $factory = DairyFactory::where('uuid', $factoryUuid)->firstOrFail();
-
-        $validated = $request->validate([
-            'tank_code' => 'required|string|max:50',
-            'capacity_liters' => 'required|numeric|min:500|max:100000',
-            'target_temperature_celsius' => 'nullable|numeric',
-        ]);
-
-        $tank = DairyFactoryTank::create(array_merge($validated, [
-            'factory_uuid' => $factory->uuid,
-            'current_stock_liters' => 0.00,
-            'status' => 'active_chilling',
-        ]));
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Factory tank added successfully.',
-            'data' => $tank,
-        ], 201);
-    }
-
-    public function listFactoryTanks(string $factoryUuid): JsonResponse
-    {
-        $tanks = DairyFactoryTank::where('factory_uuid', $factoryUuid)->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => $tanks,
         ]);
     }
 
@@ -413,7 +375,7 @@ class DairyLogisticsController extends Controller
             ], 422);
         }
 
-        $tripNumber = $validated['trip_number'] ?? ('TRIP-' . strtoupper(Str::random(6)));
+        $tripNumber = $validated['trip_number'] ?? ('TRIP-'.strtoupper(Str::random(6)));
 
         return DB::transaction(function () use ($validated, $vehicle, $tripNumber, $maxTankerCap, $incomingLiters, $destinationFactoryUuid) {
             $trip = DairyTrip::create([
@@ -509,7 +471,7 @@ class DairyLogisticsController extends Controller
         if ($maxCap > 0 && ($currentCargo + $newLiters > $maxCap)) {
             return response()->json([
                 'success' => false,
-                'message' => "Tanker capacity exceeded: Truck capacity is {$maxCap} L and already holds {$currentCargo} L. Cannot add {$newLiters} L (would total " . ($currentCargo + $newLiters) . " L).",
+                'message' => "Tanker capacity exceeded: Truck capacity is {$maxCap} L and already holds {$currentCargo} L. Cannot add {$newLiters} L (would total ".($currentCargo + $newLiters).' L).',
             ], 422);
         }
 
@@ -585,6 +547,8 @@ class DairyLogisticsController extends Controller
                 'status' => 'arrived',
                 'phase' => 'ARRIVED',
             ]);
+        DB::table('cooperative_dispatches')->where('trip_uuid', $trip->uuid)->where('status', 'on_trip')
+            ->update(['status' => 'delivered', 'updated_at' => now()]);
 
         return response()->json([
             'success' => true,
@@ -618,131 +582,89 @@ class DairyLogisticsController extends Controller
     }
 
     // ==========================================
-    // 4. FACTORY OPERATOR INTAKE & BULK INVENTORY
+    // 4. FACTORY RECEIPT & RECONCILIATION
     // ==========================================
 
     /**
-     * Factory Operator receives incoming tanker delivery, checks seals and QA,
-     * checks factory and silo capacities, reconciles volume discrepancies,
-     * and directly allocates milk into Factory Bulk Storage Tank.
-     * No corporate approval required (per PDF spec and user instruction).
+     * The factory acknowledges a trip: received and accepted litres, arrival
+     * temperature and seals, compared with what the centres dispatched.
      */
     public function receiveFactoryDelivery(Request $request, string $factoryUuid): JsonResponse
     {
         $factory = DairyFactory::where('uuid', $factoryUuid)->firstOrFail();
 
         $validated = $request->validate([
-            'trip_uuid' => 'nullable|exists:dairy_trips,uuid',
-            'dispatch_order_uuid' => 'nullable|exists:milk_dispatch_orders,uuid',
-            'factory_tank_uuid' => 'required|exists:dairy_factory_tanks,uuid',
-            'received_volume_liters' => 'required|numeric|min:1',
+            'trip_uuid' => 'required|string|exists:dairy_trips,uuid',
+            'received_volume_liters' => 'required|numeric|min:0',
+            'accepted_volume_liters' => 'nullable|numeric|min:0|lte:received_volume_liters',
             'arrival_temperature_celsius' => 'required|numeric',
             'seals_intact' => 'required|boolean',
             'factory_qa_status' => 'required|in:accepted_full,accepted_with_deduction,rejected_spoiled',
-            'spillage_reason' => 'nullable|string|max:500',
-            'notes' => 'nullable|string|max:500',
+            'spillage_reason' => 'nullable|string|max:255',
+            'notes' => 'nullable|string|max:1000',
         ]);
 
-        $tank = DairyFactoryTank::where('uuid', $validated['factory_tank_uuid'])
-            ->where('factory_uuid', $factory->uuid)
-            ->firstOrFail();
-
-        $receivedVolume = (float) $validated['received_volume_liters'];
-
-        // 1. Factory Capacity Check
-        $currentFactoryInv = (float) $factory->current_inventory_liters;
-        $totalFactoryCap = (float) $factory->total_storage_capacity_liters;
-        if ($totalFactoryCap > 0 && ($currentFactoryInv + $receivedVolume > $totalFactoryCap)) {
-            return response()->json([
-                'success' => false,
-                'message' => "Factory storage capacity exceeded: Factory {$factory->name} capacity is {$totalFactoryCap} L, currently storing {$currentFactoryInv} L. Cannot accept {$receivedVolume} L.",
-            ], 422);
-        }
-
-        // 2. Silo / Bulk Tank Capacity Check
-        $tankStock = (float) $tank->current_stock_liters;
-        $tankCap = (float) $tank->capacity_liters;
-        if ($tankStock + $receivedVolume > $tankCap) {
-            return response()->json([
-                'success' => false,
-                'message' => "Silo {$tank->tank_code} capacity exceeded: Silo capacity is {$tankCap} L with {$tankStock} L stored. Cannot fit {$receivedVolume} L.",
-            ], 422);
-        }
-
-        return DB::transaction(function () use ($factory, $tank, $validated, $receivedVolume, $request) {
-            $dispatchedVolume = 0.00;
-            $dispatchOrderUuid = $validated['dispatch_order_uuid'] ?? null;
-
-            if (!empty($validated['trip_uuid'])) {
-                $trip = DairyTrip::where('uuid', $validated['trip_uuid'])->first();
-                if ($trip) {
-                    $dispatchedVolume = (float) $trip->total_liters;
-                    $trip->update([
-                        'status' => 'completed',
-                        'phase' => 'COMPLETED',
-                        'current_cargo_liters' => 0.00,
-                        'completed_at' => now(),
-                    ]);
-                    DairyTripRoute::where('dairy_trip_uuid', $trip->uuid)->update([
-                        'status' => 'delivered',
-                        'phase' => 'DELIVERED',
-                    ]);
-                }
+        return DB::transaction(function () use ($factory, $validated, $request) {
+            $trip = DairyTrip::where('uuid', $validated['trip_uuid'])->lockForUpdate()->firstOrFail();
+            if ($trip->destination_factory_uuid !== $factory->uuid) {
+                return $this->refuse('This trip is going to another factory.');
+            }
+            if (MilkFactoryDelivery::where('trip_uuid', $trip->uuid)->exists()) {
+                return response()->json(['success' => false, 'message' => 'This trip was already received.'], 409);
+            }
+            if (! in_array($trip->status, ['in_transit', 'arrived'], true)) {
+                return $this->refuse('Only a trip on the road or arrived can be received.');
             }
 
-            if (!empty($dispatchOrderUuid)) {
-                $order = MilkDispatchOrder::where('uuid', $dispatchOrderUuid)->first();
-                if ($order) {
-                    $dispatchedVolume = (float) $order->dispatched_volume_liters;
-                    $order->update(['status' => 'reconciled']);
-                }
+            $dispatched = (float) $trip->total_liters;
+            $received = round((float) $validated['received_volume_liters'], 2);
+            $discrepancy = round($received - $dispatched, 2);
+            if ($discrepancy < 0 && empty($validated['spillage_reason'])) {
+                return $this->refuse('Give the reason for the shortage.');
             }
+            $accepted = $validated['factory_qa_status'] === 'rejected_spoiled'
+                ? 0.0
+                : (float) ($validated['accepted_volume_liters'] ?? $received);
 
-            $discrepancyLiters = round($receivedVolume - $dispatchedVolume, 2);
-            $deliveryNoteNumber = 'FGRN-' . strtoupper(Str::random(8));
-
-            // Record Factory Delivery
             $delivery = MilkFactoryDelivery::create([
-                'dispatch_order_uuid' => $dispatchOrderUuid ?? (string) Str::uuid(),
-                'factory_qa_officer_user_id' => $request->user()?->id ?? 1,
-                'received_volume_liters' => $receivedVolume,
+                'trip_uuid' => $trip->uuid,
+                'factory_uuid' => $factory->uuid,
+                'factory_qa_officer_user_id' => $request->user()->id,
+                'dispatched_volume_liters' => $dispatched,
+                'received_volume_liters' => $received,
+                'accepted_volume_liters' => $accepted,
                 'arrival_temperature_celsius' => $validated['arrival_temperature_celsius'],
                 'seals_intact' => $validated['seals_intact'],
                 'factory_qa_status' => $validated['factory_qa_status'],
-                'discrepancy_liters' => $discrepancyLiters,
+                'discrepancy_liters' => $discrepancy,
                 'spillage_reason' => $validated['spillage_reason'] ?? null,
-                'delivery_note_number' => $deliveryNoteNumber,
+                'notes' => $validated['notes'] ?? null,
+                'delivery_note_number' => 'FGRN-'.strtoupper(Str::random(8)),
                 'received_at' => now(),
             ]);
 
-            // If accepted (full or deduction), allocate directly into Factory Tank inventory
-            if ($validated['factory_qa_status'] !== 'rejected_spoiled') {
-                DairyFactoryStockMovement::create([
-                    'factory_uuid' => $factory->uuid,
-                    'factory_tank_uuid' => $tank->uuid,
-                    'movement_type' => 'tanker_intake',
-                    'quantity_liters' => $receivedVolume,
-                    'reference_uuid' => $delivery->uuid,
-                    'recorded_by_user_id' => $request->user()?->id ?? 1,
-                    'notes' => 'Received from tanker. Delivery note: ' . $deliveryNoteNumber,
-                    'created_at' => now(),
-                ]);
-
-                // Increment tank stock & factory total inventory
-                $tank->increment('current_stock_liters', $receivedVolume);
-                $factory->increment('current_inventory_liters', $receivedVolume);
-            }
+            $trip->update([
+                'status' => 'completed',
+                'phase' => 'COMPLETED',
+                'current_cargo_liters' => 0.00,
+                'arrived_at' => $trip->arrived_at ?? now(),
+                'completed_at' => now(),
+            ]);
+            DairyTripRoute::where('dairy_trip_uuid', $trip->uuid)->update(['status' => 'delivered', 'phase' => 'DELIVERED']);
+            DB::table('cooperative_dispatches')->where('trip_uuid', $trip->uuid)
+                ->update(['status' => 'reconciled', 'updated_at' => now()]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Tanker delivery processed and stored directly into factory bulk tank inventory.',
-                'data' => [
-                    'delivery' => $delivery,
-                    'tank' => $tank->fresh(),
-                    'factory' => $factory->fresh(),
-                ],
+                'message' => 'Factory receipt recorded.',
+                'data' => ['delivery' => $delivery],
             ], 201);
         });
+    }
+
+    private function refuse(string $message): JsonResponse
+    {
+        return response()->json(['success' => false, 'message' => $message], 422);
     }
 
     // ==========================================
@@ -773,14 +695,15 @@ class DairyLogisticsController extends Controller
         ]);
     }
 
-    public function getFactoryInventory(string $uuid): JsonResponse
+    public function getFactoryReceipts(string $uuid): JsonResponse
     {
-        $factory = DairyFactory::with(['tanks.stockMovements', 'operators.user'])
-            ->where('uuid', $uuid)->firstOrFail();
+        $factory = DairyFactory::where('uuid', $uuid)->firstOrFail();
+        $receipts = MilkFactoryDelivery::with('trip')->where('factory_uuid', $factory->uuid)
+            ->latest('received_at')->limit(200)->get();
 
         return response()->json([
             'success' => true,
-            'data' => $factory,
+            'data' => ['factory' => $factory, 'receipts' => $receipts],
         ]);
     }
 }

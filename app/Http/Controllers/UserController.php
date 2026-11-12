@@ -36,6 +36,7 @@ class UserController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        abort_unless($request->user()->hasPlatformPermission('accounts.view'), 403);
         $query = User::query();
 
         // Filter by role
@@ -71,6 +72,7 @@ class UserController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        abort_unless($request->user()->hasPlatformPermission('permissions.manage'), 403);
         $validator = Validator::make($request->all(), [
             'username' => 'required|string|max:255|unique:users',
             'email' => 'required|string|email|max:255|unique:users',
@@ -89,6 +91,9 @@ class UserController extends Controller
         }
 
         $data = $request->all();
+        if (($data['role'] ?? null) === 'systemUser') {
+            abort_unless($request->user()->platform_role === 'superAdmin', 403);
+        }
 
         // Auto-create SystemUser profile if needed
         if (in_array($data['role'], [\App\Enums\UserRole::SYSTEM_USER, \App\Enums\UserRole::EXTENSION_OFFICER, \App\Enums\UserRole::VET]) && empty($data['roleId'])) {
@@ -101,6 +106,9 @@ class UserController extends Controller
         }
 
         $user = User::create($data);
+        if ($user->role === 'systemUser') {
+            $user->forceFill(['platform_role' => 'admin'])->save();
+        }
         $user->load('profile');
 
         return response()->json([
@@ -114,8 +122,9 @@ class UserController extends Controller
      * Admin: Update the specified user.
      * PUT /api/v1/users/{id}
      */
-    public function show(User $user): JsonResponse
+    public function show(Request $request, User $user): JsonResponse
     {
+        abort_unless($request->user()->hasPlatformPermission('accounts.view'), 403);
         return response()->json([
             'status' => true,
             'message' => 'User retrieved successfully',
@@ -129,6 +138,11 @@ class UserController extends Controller
      */
     public function update(Request $request, User $user): JsonResponse
     {
+        abort_unless($request->user()->hasPlatformPermission('permissions.manage'), 403);
+        abort_if($request->user()->is($user) && ($request->has('role') || $request->has('status')), 403);
+        if ($user->platform_role === 'superAdmin' || ($request->input('role') === 'systemUser' && $user->role !== 'systemUser')) {
+            abort_unless($request->user()->platform_role === 'superAdmin', 403);
+        }
         $validator = Validator::make($request->all(), [
             'username' => 'sometimes|string|unique:users,username,' . $user->id,
             'email' => 'sometimes|email|unique:users,email,' . $user->id,
@@ -155,6 +169,9 @@ class UserController extends Controller
         $updateData['updatedBy'] = Auth::id();
 
         $user->update($updateData);
+        if (($updateData['status'] ?? null) === 'notActive' || isset($updateData['password'])) {
+            $user->tokens()->delete();
+        }
 
         return response()->json([
             'status' => true,
@@ -167,8 +184,14 @@ class UserController extends Controller
      * Admin: Remove the specified user.
      * DELETE /api/v1/users/{id}
      */
-    public function destroy(User $user): JsonResponse
+    public function destroy(Request $request, User $user): JsonResponse
     {
+        abort_unless($request->user()->hasPlatformPermission('permissions.manage'), 403);
+        abort_if($request->user()->is($user), 403);
+        if ($user->platform_role === 'superAdmin') {
+            abort_unless($request->user()->platform_role === 'superAdmin', 403);
+            abort_if(User::where('platform_role', 'superAdmin')->where('status', 'active')->count() <= 1, 403);
+        }
         // Prevent deletion of system users
         if ($user->isSystemUser()) {
             return response()->json([
@@ -189,8 +212,9 @@ class UserController extends Controller
      * Admin: Get user statistics.
      * GET /api/v1/users/statistics
      */
-    public function statistics(): JsonResponse
+    public function statistics(Request $request): JsonResponse
     {
+        abort_unless($request->user()->hasPlatformPermission('accounts.view'), 403);
         $stats = [
             'total_users' => User::count(),
             'system_users' => User::byRole('systemUser')->count(),

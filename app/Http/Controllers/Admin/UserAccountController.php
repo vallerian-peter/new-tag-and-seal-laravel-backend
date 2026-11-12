@@ -160,6 +160,13 @@ class UserAccountController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $this->validateUserAndProfile($request);
+        if (($validated['role'] ?? null) === UserRole::SYSTEM_USER || ! empty($validated['platformPermissions'])) {
+            abort_unless($request->user()->hasPlatformPermission('permissions.manage'), 403);
+        }
+        if (($validated['role'] ?? null) === UserRole::SYSTEM_USER) {
+            abort_unless($request->user()->platform_role === 'superAdmin', 403);
+        }
+        $this->guardPermissionManagementGrant($request, $validated['platformPermissions'] ?? []);
 
         $user = DB::transaction(function () use ($request, $validated): User {
             $permissionIds = $validated['platformPermissions'] ?? [];
@@ -177,6 +184,9 @@ class UserAccountController extends Controller
                 'createdBy' => $creatorId,
                 'updatedBy' => $creatorId,
             ]);
+            if ($validated['role'] === UserRole::SYSTEM_USER) {
+                $user->forceFill(['platform_role' => 'admin'])->save();
+            }
 
             $this->syncPermissions($user, $permissionIds, $request->user()->uuid);
 
@@ -195,6 +205,21 @@ class UserAccountController extends Controller
         $validated = $this->validateUserAndProfile($request, $user);
         $nextRole = $validated['role'] ?? $user->role;
         $nextStatus = $validated['status'] ?? $user->status;
+        if ($user->platform_role !== 'appUser' && ! $request->user()->is($user)) {
+            abort_unless($request->user()->hasPlatformPermission('permissions.manage'), 403);
+        }
+        if ($user->platform_role === 'superAdmin' && ! $request->user()->is($user)) {
+            abort_unless($request->user()->platform_role === 'superAdmin', 403);
+        }
+        if (array_key_exists('platformPermissions', $validated)) {
+            abort_unless($request->user()->hasPlatformPermission('permissions.manage'), 403);
+            abort_if($request->user()->is($user), 403, 'You cannot change your own permissions.');
+            $this->guardPermissionManagementGrant($request, $validated['platformPermissions']);
+        }
+        if ($nextRole === UserRole::SYSTEM_USER && $user->role !== UserRole::SYSTEM_USER) {
+            abort_unless($request->user()->hasPlatformPermission('permissions.manage'), 403);
+            abort_unless($request->user()->platform_role === 'superAdmin', 403);
+        }
         $this->guardProtectedAdmin($request, $user, $nextRole, $nextStatus);
 
         DB::transaction(function () use ($request, $user, $validated, $nextRole, $nextStatus): void {
@@ -227,6 +252,9 @@ class UserAccountController extends Controller
             }
 
             $user->update($userPayload);
+            if ($nextStatus !== UserStatus::ACTIVE || ! empty($validated['password'])) {
+                $user->tokens()->delete();
+            }
 
             if (is_array($permissionIds)) {
                 $this->syncPermissions($user, $permissionIds, $request->user()->uuid);
@@ -244,6 +272,13 @@ class UserAccountController extends Controller
     {
         if ($request->user()->is($user)) {
             return response()->json(['status' => false, 'message' => 'You cannot delete your own account.'], 422);
+        }
+        if ($user->platform_role !== 'appUser') {
+            abort_unless($request->user()->hasPlatformPermission('permissions.manage'), 403);
+        }
+        if ($user->platform_role === 'superAdmin') {
+            abort_unless($request->user()->platform_role === 'superAdmin', 403);
+            abort_if(User::query()->where('platform_role', 'superAdmin')->where('status', UserStatus::ACTIVE)->count() <= 1, 403, 'The last active super administrator cannot be removed.');
         }
         if ($user->role === UserRole::SYSTEM_USER && User::query()->where('role', UserRole::SYSTEM_USER)->count() <= 1) {
             return response()->json(['status' => false, 'message' => 'The final system administrator cannot be deleted.'], 422);
@@ -511,14 +546,7 @@ class UserAccountController extends Controller
 
     private function generateFarmerNumber(): string
     {
-        $date = now()->format('Ymd');
-        do {
-            $partFour = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
-            $partThree = str_pad((string) random_int(0, 999), 3, '0', STR_PAD_LEFT);
-            $candidate = "FMR-{$date}-{$partFour}-{$partThree}";
-        } while (Farmer::where('farmerNo', $candidate)->exists());
-
-        return $candidate;
+        return \App\Services\FarmerNumberGenerator::generate();
     }
 
     private function guardProtectedAdmin(Request $request, User $user, string $nextRole, string $nextStatus): void
@@ -729,7 +757,7 @@ class UserAccountController extends Controller
             return;
         }
         DB::table('user_platform_permissions')->where('user_uuid', $user->uuid)->delete();
-        if ($user->role !== UserRole::SYSTEM_USER || empty($permissionIds)) {
+        if (empty($permissionIds)) {
             return;
         }
         $now = now();
@@ -740,5 +768,12 @@ class UserAccountController extends Controller
             'created_at' => $now,
             'updated_at' => $now,
         ])->values()->all());
+    }
+
+    private function guardPermissionManagementGrant(Request $request, array $permissionIds): void
+    {
+        if ($request->user()->platform_role !== 'superAdmin' && DB::table('platform_permissions')->where('code', 'permissions.manage')->whereIn('id', $permissionIds)->exists()) {
+            abort(403, 'Only a super administrator can grant permission management access.');
+        }
     }
 }

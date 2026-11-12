@@ -24,7 +24,27 @@ class AuthenticationTest extends TestCase
             ->assertOk()
             ->assertJsonPath('status', true)
             ->assertJsonPath('data.user.id', $user->id)
-            ->assertJsonStructure(['data' => ['access_token', 'accessToken']]);
+            ->assertJsonStructure([
+                'data' => [
+                    'access_token',
+                    'accessToken',
+                    'memberships' => [
+                        'features',
+                        'cooperativeStaff',
+                        'cooperativeFarmers',
+                        'cooperativeStaffEntry' => [
+                            'phone',
+                            'display_name',
+                            'cooperatives',
+                            'identity_card_types',
+                            'memberships',
+                        ],
+                        'transportation' => ['drivers', 'companies'],
+                        'factories',
+                        'farmAccess' => ['data', 'farmerIds'],
+                    ],
+                ],
+            ]);
 
         $this->assertDatabaseCount('personal_access_tokens', 1);
     }

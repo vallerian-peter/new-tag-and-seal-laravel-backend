@@ -40,4 +40,28 @@ return Application::configure(basePath: dirname(__DIR__))
             'status' => false, 'code' => 'LEGACY_RETIRED', 'table' => $error->table, 'family' => $error->family,
             'message' => $error->getMessage(),
         ], 410));
+
+        $exceptions->render(function (\Illuminate\Database\QueryException $error, \Illuminate\Http\Request $request) {
+            if ($request->is('api/*') || $request->wantsJson()) {
+                \Illuminate\Support\Facades\Log::error('API Database QueryException: '.$error->getMessage());
+
+                return response()->json([
+                    'status' => false,
+                    'message' => 'A database query error occurred while processing your request. Please ensure all migrations have been applied.',
+                    'code' => 'DATABASE_QUERY_ERROR',
+                ], 500);
+            }
+        });
+
+        $exceptions->render(function (\PDOException $error, \Illuminate\Http\Request $request) {
+            if ($request->is('api/*') || $request->wantsJson()) {
+                \Illuminate\Support\Facades\Log::error('API Database PDOException: '.$error->getMessage());
+
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Unable to connect to the database service. Please ensure the MySQL server is running.',
+                    'code' => 'DATABASE_CONNECTION_ERROR',
+                ], 503);
+            }
+        });
     })->create();

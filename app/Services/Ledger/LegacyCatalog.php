@@ -31,6 +31,7 @@ class LegacyCatalog
                     self::event('record_farrowing', 'Farrowing', 'Kuzaa (nguruwe)', 'record_birth', ['pig'], 'farrowing', ['eventType' => 'farrowing'], 'female'),
                 ],
                 'fields' => [
+                    self::field('eventDate', 'event_date', 'date_time', false, ['label' => ['en' => 'Event date', 'sw' => 'Tarehe ya tukio']]),
                     self::field('aliveCount', 'born_alive', 'integer', true, ['role' => 'born_alive', 'label' => ['en' => 'Born alive', 'sw' => 'Waliozaliwa hai']]),
                     self::field('deadCount', 'born_dead', 'integer', false, ['role' => 'born_dead', 'label' => ['en' => 'Born dead', 'sw' => 'Waliozaliwa wafu']]),
                     self::field('birthTypeId', 'birth_type', 'single_select', true, ['lookup' => 'birth_types', 'role' => 'birth_type', 'label' => ['en' => 'Birth type', 'sw' => 'Aina ya uzazi']]),
@@ -48,6 +49,7 @@ class LegacyCatalog
                 'family' => 'births',
                 'events' => [self::event('record_abortion', 'Aborted pregnancy', 'Mimba iliyoharibika', 'record_only', self::MAMMALS, 'abortedPregnancy', [], 'female')],
                 'fields' => [
+                    self::field('eventDate', 'event_date', 'date_time', false, ['label' => ['en' => 'Event date', 'sw' => 'Tarehe ya tukio']]),
                     self::field('abortionDate', 'abortion_date', 'date', true, ['label' => ['en' => 'Abortion date', 'sw' => 'Tarehe ya kuharibika']]),
                     self::field('reproductiveProblemId', 'reproductive_problem', 'single_select', false, ['lookup' => 'reproductive_problems', 'label' => ['en' => 'Reproductive problem', 'sw' => 'Tatizo la uzazi wa mnyama']]),
                     self::field('remarks', 'remarks', 'multiline_text', false),
@@ -58,6 +60,7 @@ class LegacyCatalog
                 'family' => 'health',
                 'events' => [self::event('record_vaccination', 'Vaccination', 'Chanjo', 'record_only', self::LEGACY_SPECIES, 'vaccination')],
                 'fields' => [
+                    self::field('eventDate', 'event_date', 'date_time', false, ['label' => ['en' => 'Event date', 'sw' => 'Tarehe ya tukio']]),
                     self::field('vaccinationNo', 'vaccination_number', 'text', true, ['label' => ['en' => 'Vaccination number', 'sw' => 'Namba ya chanjo']]),
                     self::field('vaccineUuid', 'vaccine', 'text', false, ['label' => ['en' => 'Vaccine', 'sw' => 'Chanjo']]),
                     self::field('diseaseId', 'disease', 'single_select', true, ['lookup' => 'diseases', 'label' => ['en' => 'Disease', 'sw' => 'Ugonjwa']]),
@@ -70,6 +73,7 @@ class LegacyCatalog
                 'family' => 'health',
                 'events' => [self::event('record_deworming', 'Deworming', 'Dawa ya minyoo', 'record_treatment', self::LEGACY_SPECIES, 'deworming')],
                 'fields' => [
+                    self::field('eventDate', 'event_date', 'date_time', false, ['label' => ['en' => 'Event date', 'sw' => 'Tarehe ya tukio']]),
                     self::field('medicineId', 'medicine', 'single_select', true, ['lookup' => 'medicines', 'role' => 'product', 'label' => ['en' => 'Medicine', 'sw' => 'Dawa']]),
                     self::field('administrationRouteId', 'administration_route', 'single_select', true, ['lookup' => 'administration_routes', 'label' => ['en' => 'Administration route', 'sw' => 'Njia ya kutoa dawa']]),
                     self::field('quantity', 'quantity', 'text', true, ['label' => ['en' => 'Quantity', 'sw' => 'Kiasi']]),
@@ -83,6 +87,7 @@ class LegacyCatalog
                 'family' => 'health',
                 'events' => [self::event('record_medication', 'Treatment', 'Matibabu', 'record_treatment', self::LEGACY_SPECIES, 'treatment')],
                 'fields' => [
+                    self::field('eventDate', 'event_date', 'date_time', false, ['label' => ['en' => 'Event date', 'sw' => 'Tarehe ya tukio']]),
                     self::field('diseaseId', 'disease', 'single_select', true, ['lookup' => 'diseases', 'label' => ['en' => 'Disease', 'sw' => 'Ugonjwa']]),
                     self::field('medicineId', 'medicine', 'single_select', true, ['lookup' => 'medicines', 'role' => 'product', 'label' => ['en' => 'Medicine', 'sw' => 'Dawa']]),
                     self::field('quantity', 'quantity', 'text', false, ['label' => ['en' => 'Quantity', 'sw' => 'Kiasi']]),
@@ -96,6 +101,7 @@ class LegacyCatalog
                 'family' => 'production',
                 'events' => [self::event('record_milking', 'Milking', 'Kukamua', 'record_production_yield', self::RUMINANTS, 'milking', [], 'female')],
                 'fields' => [
+                    self::field('eventDate', 'event_date', 'date_time', false, ['label' => ['en' => 'Event date', 'sw' => 'Tarehe ya tukio']]),
                     self::field('amount', 'milk_quantity', 'measurement', true, ['role' => 'quantity', 'unit' => 'l', 'label' => ['en' => 'Milk quantity', 'sw' => 'Kiasi cha maziwa']]),
                     self::field(null, 'product', 'single_select', true, ['role' => 'product', 'constant' => 'milk', 'options' => [['value' => 'milk', 'label' => ['en' => 'Milk', 'sw' => 'Maziwa']]], 'label' => ['en' => 'Product', 'sw' => 'Bidhaa']]),
                     self::field('session', 'session', 'single_select', false, ['options' => self::options(['morning' => ['Morning', 'Asubuhi'], 'evening' => ['Evening', 'Jioni'], 'night' => ['Night', 'Usiku'], 'midnight' => ['Midnight', 'Usiku wa manane']]), 'label' => ['en' => 'Session', 'sw' => 'Kipindi']]),
@@ -115,6 +121,7 @@ class LegacyCatalog
                 'family' => 'breeding',
                 'events' => [self::event('record_insemination', 'Insemination', 'Uhimilishaji', 'record_only', self::MAMMALS, 'insemination', [], 'female')],
                 'fields' => [
+                    self::field('eventDate', 'event_date', 'date_time', false, ['label' => ['en' => 'Event date', 'sw' => 'Tarehe ya tukio']]),
                     self::field('currentHeatTypeId', 'heat_type', 'single_select', true, ['lookup' => 'heat_types', 'label' => ['en' => 'Heat type', 'sw' => 'Aina ya joto']]),
                     self::field('inseminationServiceId', 'insemination_service', 'single_select', true, ['lookup' => 'insemination_services', 'label' => ['en' => 'Service', 'sw' => 'Huduma']]),
                     self::field('semenStrawTypeId', 'semen_straw_type', 'single_select', true, ['lookup' => 'semen_straw_types', 'label' => ['en' => 'Semen straw type', 'sw' => 'Aina ya mbegu']]),
@@ -135,6 +142,7 @@ class LegacyCatalog
                 'family' => 'breeding',
                 'events' => [self::event('record_pregnancy_test', 'Pregnancy test', 'Kipimo cha mimba', 'record_only', self::MAMMALS, 'pregnancy', [], 'female')],
                 'fields' => [
+                    self::field('eventDate', 'event_date', 'date_time', false, ['label' => ['en' => 'Event date', 'sw' => 'Tarehe ya tukio']]),
                     self::field('testResultId', 'test_result', 'single_select', true, ['lookup' => 'test_results', 'label' => ['en' => 'Test result', 'sw' => 'Matokeo ya kipimo']]),
                     self::field('noOfMonths', 'months_pregnant', 'integer', false, ['label' => ['en' => 'Months pregnant', 'sw' => 'Miezi ya mimba']]),
                     self::field('testDate', 'test_date', 'date', false, ['label' => ['en' => 'Test date', 'sw' => 'Tarehe ya kipimo']]),
@@ -146,6 +154,7 @@ class LegacyCatalog
                 'family' => 'breeding',
                 'events' => [self::event('record_dryoff', 'Dry-off', 'Kukausha', 'record_only', self::RUMINANTS, 'dryoff', [], 'female')],
                 'fields' => [
+                    self::field('eventDate', 'event_date', 'date_time', false, ['label' => ['en' => 'Event date', 'sw' => 'Tarehe ya tukio']]),
                     self::field('startDate', 'dry_off_start', 'date', true, ['label' => ['en' => 'Dry-off start', 'sw' => 'Mwanzo wa kukausha']]),
                     self::field('endDate', 'dry_off_end', 'date', false, ['label' => ['en' => 'Dry-off end', 'sw' => 'Mwisho wa kukausha']]),
                     self::field('reason', 'reason', 'text', false, ['label' => ['en' => 'Reason', 'sw' => 'Sababu']]),
@@ -156,6 +165,7 @@ class LegacyCatalog
                 'family' => 'growth',
                 'events' => [self::event('record_weight', 'Weight change', 'Badiliko la uzito', 'update_weight', self::LEGACY_SPECIES, 'weightChange')],
                 'fields' => [
+                    self::field('eventDate', 'event_date', 'date_time', false, ['label' => ['en' => 'Event date', 'sw' => 'Tarehe ya tukio']]),
                     self::field('newWeight', 'new_weight', 'measurement', true, ['role' => 'weight', 'unit' => 'kg', 'label' => ['en' => 'New weight', 'sw' => 'Uzito mpya']]),
                     self::field('oldWeight', 'old_weight', 'measurement', false, ['unit' => 'kg', 'label' => ['en' => 'Previous weight', 'sw' => 'Uzito wa awali']]),
                     self::field('remarks', 'remarks', 'multiline_text', false),
@@ -166,9 +176,10 @@ class LegacyCatalog
                 'family' => 'growth',
                 'events' => [self::event('record_feeding', 'Feeding', 'Ulishaji', 'record_only', self::LEGACY_SPECIES, 'feeding')],
                 'fields' => [
+                    self::field('eventDate', 'event_date', 'date_time', false, ['label' => ['en' => 'Event date', 'sw' => 'Tarehe ya tukio']]),
                     self::field('feedingTypeId', 'feeding_type', 'single_select', true, ['lookup' => 'feeding_types', 'label' => ['en' => 'Feed type', 'sw' => 'Aina ya chakula']]),
-                    self::field('amount', 'amount', 'text', true, ['label' => ['en' => 'Amount', 'sw' => 'Kiasi']]),
-                    self::field('nextFeedingTime', 'next_feeding_time', 'text', true, ['label' => ['en' => 'Next feeding time', 'sw' => 'Muda wa kulisha tena']]),
+                    self::field('amount', 'amount', 'measurement', true, ['unit' => 'kg', 'label' => ['en' => 'Amount (kg)', 'sw' => 'Kiasi (kg)']]),
+                    self::field('nextFeedingTime', 'next_feeding_time', 'date_time', true, ['label' => ['en' => 'Next feeding time', 'sw' => 'Muda wa kulisha tena']]),
                     self::field('remarks', 'remarks', 'multiline_text', false),
                 ],
             ],
@@ -176,6 +187,7 @@ class LegacyCatalog
                 'family' => 'growth',
                 'events' => [self::event('record_iron_injection', 'Iron injection', 'Sindano ya madini chuma', 'record_treatment', ['pig'], 'ironInjection')],
                 'fields' => [
+                    self::field('eventDate', 'event_date', 'date_time', false, ['label' => ['en' => 'Event date', 'sw' => 'Tarehe ya tukio']]),
                     self::field('medicineId', 'medicine', 'single_select', false, ['lookup' => 'medicines', 'role' => 'product', 'label' => ['en' => 'Medicine', 'sw' => 'Dawa']]),
                     self::field('dosage', 'dosage', 'text', false, ['label' => ['en' => 'Dosage', 'sw' => 'Kipimo']]),
                     self::field('notes', 'notes', 'multiline_text', false, ['label' => ['en' => 'Notes', 'sw' => 'Maelezo']]),
@@ -185,6 +197,7 @@ class LegacyCatalog
                 'family' => 'growth',
                 'events' => [self::event('record_teeth_clipping', 'Teeth clipping', 'Kukata meno', 'record_only', ['pig'], 'teethClipping')],
                 'fields' => [
+                    self::field('eventDate', 'event_date', 'date_time', false, ['label' => ['en' => 'Event date', 'sw' => 'Tarehe ya tukio']]),
                     self::field('method', 'method', 'text', false, ['label' => ['en' => 'Method', 'sw' => 'Njia']]),
                     self::field('notes', 'notes', 'multiline_text', false, ['label' => ['en' => 'Notes', 'sw' => 'Maelezo']]),
                 ],
@@ -193,6 +206,7 @@ class LegacyCatalog
                 'family' => 'growth',
                 'events' => [self::event('record_tail_docking', 'Tail docking', 'Kukata mkia', 'record_only', ['pig'], 'tailDocking')],
                 'fields' => [
+                    self::field('eventDate', 'event_date', 'date_time', false, ['label' => ['en' => 'Event date', 'sw' => 'Tarehe ya tukio']]),
                     self::field('method', 'method', 'text', false, ['label' => ['en' => 'Method', 'sw' => 'Njia']]),
                     self::field('notes', 'notes', 'multiline_text', false, ['label' => ['en' => 'Notes', 'sw' => 'Maelezo']]),
                 ],
@@ -201,6 +215,7 @@ class LegacyCatalog
                 'family' => 'growth',
                 'events' => [self::event('record_marking', 'Marking', 'Kuweka alama', 'record_only', self::LEGACY_SPECIES, 'livestockMarking')],
                 'fields' => [
+                    self::field('eventDate', 'event_date', 'date_time', false, ['label' => ['en' => 'Event date', 'sw' => 'Tarehe ya tukio']]),
                     self::field('markingType', 'marking_type', 'text', true, ['label' => ['en' => 'Marking type', 'sw' => 'Aina ya alama']]),
                     self::field('description', 'description', 'multiline_text', false, ['label' => ['en' => 'Description', 'sw' => 'Maelezo ya alama']]),
                     self::field('notes', 'notes', 'multiline_text', false, ['label' => ['en' => 'Notes', 'sw' => 'Maelezo']]),
@@ -210,6 +225,7 @@ class LegacyCatalog
                 'family' => 'growth',
                 'events' => [self::event('record_stage_change', 'Stage change', 'Badiliko la hatua', 'transition_stage', self::MAMMALS, 'stageChange')],
                 'fields' => [
+                    self::field('eventDate', 'event_date', 'date_time', false, ['label' => ['en' => 'Event date', 'sw' => 'Tarehe ya tukio']]),
                     self::field('toStageId', 'new_stage', 'single_select', true, ['lookup' => 'stages', 'role' => 'stage_code', 'label' => ['en' => 'New stage', 'sw' => 'Hatua mpya']]),
                     self::field('fromStageId', 'previous_stage', 'single_select', false, ['lookup' => 'stages', 'label' => ['en' => 'Previous stage', 'sw' => 'Hatua ya awali']]),
                     self::field('notes', 'notes', 'multiline_text', false, ['label' => ['en' => 'Notes', 'sw' => 'Maelezo']]),
@@ -220,6 +236,7 @@ class LegacyCatalog
                 'family' => 'health',
                 'events' => [self::event('record_prepuce_condition', 'Prepuce condition', 'Hali ya govi', 'record_treatment', ['cattle', 'pig'], 'prepuceCondition', [], 'male')],
                 'fields' => [
+                    self::field('eventDate', 'event_date', 'date_time', false, ['label' => ['en' => 'Event date', 'sw' => 'Tarehe ya tukio']]),
                     self::field('conditionTypeId', 'condition_type', 'single_select', false, ['lookup' => 'prepuce_condition_types', 'label' => ['en' => 'Condition', 'sw' => 'Hali']]),
                     self::field('severityId', 'severity', 'single_select', false, ['lookup' => 'prepuce_severities', 'label' => ['en' => 'Severity', 'sw' => 'Ukali']]),
                     self::field('causeRiskId', 'cause_risk', 'single_select', false, ['lookup' => 'prepuce_cause_risks', 'label' => ['en' => 'Cause or risk', 'sw' => 'Chanzo au hatari']]),
@@ -241,6 +258,7 @@ class LegacyCatalog
                 'family' => 'movement',
                 'events' => [self::event('record_transfer', 'Transfer', 'Uhamisho', 'record_only', self::LEGACY_SPECIES, 'transfer')],
                 'fields' => [
+                    self::field('eventDate', 'event_date', 'date_time', false, ['label' => ['en' => 'Event date', 'sw' => 'Tarehe ya tukio']]),
                     self::field('toFarmUuid', 'destination_farm', 'text', true, ['label' => ['en' => 'Destination farm', 'sw' => 'Shamba unakohamia']]),
                     self::field('transporterId', 'transporter', 'text', false, ['label' => ['en' => 'Transporter', 'sw' => 'Msafirishaji']]),
                     self::field('reason', 'reason', 'text', false, ['label' => ['en' => 'Reason', 'sw' => 'Sababu']]),
@@ -254,6 +272,7 @@ class LegacyCatalog
                 'family' => 'movement',
                 'events' => [self::event('record_disposal', 'Disposal', 'Kuondoa mnyama', 'record_only', self::LEGACY_SPECIES, 'disposal')],
                 'fields' => [
+                    self::field('eventDate', 'event_date', 'date_time', false, ['label' => ['en' => 'Event date', 'sw' => 'Tarehe ya tukio']]),
                     self::field('disposalTypeId', 'disposal_type', 'single_select', true, ['lookup' => 'disposal_types', 'label' => ['en' => 'Disposal type', 'sw' => 'Aina ya kuondoa']]),
                     self::field('reasons', 'reasons', 'multiline_text', true, ['label' => ['en' => 'Reasons', 'sw' => 'Sababu']]),
                     self::field('saleWeight', 'sale_weight', 'measurement', false, ['unit' => 'kg', 'label' => ['en' => 'Sale weight', 'sw' => 'Uzito wa kuuza']]),

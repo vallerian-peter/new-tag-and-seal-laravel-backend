@@ -98,10 +98,20 @@ class LivestockController extends Controller
      */
     public function fetchByFarmUuids(array $farmUuids): array
     {
+        $activeReservationUuids = \App\Models\AnimalCommerceReservation::where('status', 'active')
+            ->pluck('livestock_uuid')
+            ->flip()
+            ->all();
+
         return Livestock::whereIn('farmUuid', $farmUuids)
             ->orderBy('created_at', 'desc')
             ->get()
-            ->map(function ($livestock) {
+            ->map(function ($livestock) use ($activeReservationUuids) {
+                $status = $livestock->status ?? 'active';
+                if ($status === 'active' && isset($activeReservationUuids[$livestock->uuid])) {
+                    $status = 'onSale';
+                }
+
                 return [
                     'id' => $livestock->id,
                     'farmUuid' => $livestock->farmUuid ?? '',
@@ -121,7 +131,7 @@ class LivestockController extends Controller
                     'gender' => $livestock->gender ?? '',
                     'breedId' => $livestock->breedId ?? 0,
                     'speciesId' => $livestock->speciesId ?? 0,
-                    'status' => $livestock->status ?? 'active',
+                    'status' => $status,
                     'livestockObtainedMethodId' => $livestock->livestockObtainedMethodId ?? 0,
                     'dateFirstEnteredToFarm' => $livestock->dateFirstEnteredToFarm?->toDateString() ?? '',
                     'weightAsOnRegistration' => $livestock->weightAsOnRegistration ?? '0',

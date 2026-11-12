@@ -60,6 +60,33 @@ return [
             'report' => false,
         ],
 
+        'r2_public_media' => [
+            'driver' => 's3',
+            'key' => env('R2_ACCESS_KEY_ID'),
+            'secret' => env('R2_SECRET_ACCESS_KEY'),
+            'region' => env('R2_PUBLIC_MEDIA_REGION', 'auto'),
+            'bucket' => env('R2_PUBLIC_MEDIA_BUCKET', 'tagseal-public-media'),
+            'url' => env('R2_PUBLIC_MEDIA_URL'),
+            'endpoint' => env('R2_PUBLIC_MEDIA_ENDPOINT'),
+            'use_path_style_endpoint' => false,
+            'visibility' => 'public',
+            'throw' => true,
+            'report' => true,
+        ],
+
+        'r2_private_documents' => [
+            'driver' => 's3',
+            'key' => env('R2_ACCESS_KEY_ID'),
+            'secret' => env('R2_SECRET_ACCESS_KEY'),
+            'region' => env('R2_PRIVATE_DOCUMENTS_REGION', 'auto'),
+            'bucket' => env('R2_PRIVATE_DOCUMENTS_BUCKET', 'tagseal-private-documents'),
+            'endpoint' => env('R2_PRIVATE_DOCUMENTS_ENDPOINT'),
+            'use_path_style_endpoint' => false,
+            'visibility' => 'private',
+            'throw' => true,
+            'report' => true,
+        ],
+
     ],
 
     /*

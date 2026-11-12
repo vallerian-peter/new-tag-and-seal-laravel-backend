@@ -14,7 +14,6 @@ class MilkStockMovement extends Model
     protected $fillable = [
         'uuid',
         'mcc_uuid',
-        'milk_tank_uuid',
         'movement_type',
         'quantity_liters',
         'reference_uuid',
@@ -38,10 +37,4 @@ class MilkStockMovement extends Model
     {
         return $this->belongsTo(MilkCollectionCentre::class, 'mcc_uuid', 'uuid');
     }
-
-    public function tank()
-    {
-        return $this->belongsTo(MilkTank::class, 'milk_tank_uuid', 'uuid');
-    }
-
 }

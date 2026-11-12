@@ -12,6 +12,7 @@ use App\Models\Farmer;
 use App\Models\FarmUser;
 use App\Models\SystemUser;
 use App\Models\User;
+use App\Services\PhoneAuthentication;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
@@ -121,6 +122,7 @@ class PeopleResourceController extends Controller
 
     public function store(Request $request, string $resource): JsonResponse
     {
+        abort_if($resource === 'farm-users', 405, 'Use the Farm Workers onboarding registry. Login accounts and employment history are managed separately.');
         $modelClass = $this->model($resource);
         $data = $this->validated($request, $resource);
         $record = DB::transaction(function () use ($request, $resource, $modelClass, $data): Model {
@@ -173,6 +175,7 @@ class PeopleResourceController extends Controller
 
     public function update(Request $request, string $resource, int $record): JsonResponse
     {
+        abort_if($resource === 'farm-users', 405, 'Use the Farm Workers onboarding registry. Login accounts and employment history are managed separately.');
         if ($request->boolean('restore') || $request->input('action') === 'restore') {
             return $this->restore($request, $resource, $record);
         }
@@ -260,6 +263,7 @@ class PeopleResourceController extends Controller
 
     public function destroy(Request $request, string $resource, int $record): JsonResponse
     {
+        abort_if($resource === 'farm-users', 405, 'Use the Farm Workers onboarding registry. Login accounts and employment history are managed separately.');
         $modelClass = $this->model($resource);
         $item = $modelClass::findOrFail($record);
 
@@ -792,14 +796,7 @@ class PeopleResourceController extends Controller
 
     private function generateFarmerNumber(): string
     {
-        $date = now()->format('Ymd');
-        do {
-            $partFour = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
-            $partThree = str_pad((string) random_int(0, 999), 3, '0', STR_PAD_LEFT);
-            $candidate = "FMR-{$date}-{$partFour}-{$partThree}";
-        } while (Farmer::where('farmerNo', $candidate)->exists());
-
-        return $candidate;
+        return \App\Services\FarmerNumberGenerator::generate();
     }
 
     private function ensureLinkedUserAccount(
@@ -810,7 +807,7 @@ class PeopleResourceController extends Controller
         ?string $password,
         int $actorId,
         ?string $accountRole = null,
-    ): User {
+    ): ?User {
         $role = match ($resource) {
             'farmers' => UserRole::FARMER,
             'extension-officers' => UserRole::EXTENSION_OFFICER,
@@ -846,6 +843,13 @@ class PeopleResourceController extends Controller
             ]);
 
             return $existing;
+        }
+
+        // A second login for a phone that already signs in blocks phone login for both accounts.
+        $phones = app(PhoneAuthentication::class);
+        $phone = $phones->normalize((string) ($record->phone1 ?? $record->phone ?? ''));
+        if ($phone && $phones->matchingUserIds($phone) !== []) {
+            return null;
         }
 
         return User::create([

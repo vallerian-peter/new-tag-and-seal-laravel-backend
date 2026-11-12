@@ -42,14 +42,13 @@ class DisposalController extends Controller
     /**
      * Fetch disposals for given farm and livestock UUIDs.
      */
-    public function fetchDisposalsWithUuid($farmUuids, $livestockUuids): array
+    public function fetchDisposalsWithUuid($farmUuids, $livestockUuids = []): array
     {
-        if (empty($farmUuids) || empty($livestockUuids)) {
+        if (empty($farmUuids)) {
             return [];
         }
 
         return Disposal::whereIn('farmUuid', (array) $farmUuids)
-            ->whereIn('livestockUuid', (array) $livestockUuids)
             ->get()
             ->map(function (Disposal $log) {
                 return [
@@ -303,11 +302,13 @@ class DisposalController extends Controller
             // Get disposal type name for logging
             $disposalType = DisposalType::find($disposalTypeId);
             $disposalTypeName = $disposalType ? $disposalType->name : "Unknown (ID: {$disposalTypeId})";
+            $isSold = $disposalType && in_array(strtolower(trim($disposalType->name)), ['sold', 'sale'], true);
 
-            // Update livestock status to 'notActive' (matches frontend format)
-            $livestock->update(['status' => 'notActive']);
+            // Update livestock status to 'sold' for sale disposals, or 'notActive' otherwise
+            $newStatus = $isSold ? 'sold' : 'notActive';
+            $livestock->update(['status' => $newStatus]);
 
-            Log::info("✅ Livestock status updated to 'notActive' for disposal type '{$disposalTypeName}' (ID: {$disposalTypeId}): UUID {$livestockUuid}");
+            Log::info("✅ Livestock status updated to '{$newStatus}' for disposal type '{$disposalTypeName}' (ID: {$disposalTypeId}): UUID {$livestockUuid}");
         } catch (\Exception $e) {
             Log::error('❌ Failed to update livestock status for disposal', [
                 'livestockUuid' => $livestockUuid,

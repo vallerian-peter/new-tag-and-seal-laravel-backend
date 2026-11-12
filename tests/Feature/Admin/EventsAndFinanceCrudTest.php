@@ -91,6 +91,7 @@ class EventsAndFinanceCrudTest extends TestCase
             'status' => 'published',
         ]);
 
+        $this->admin->forceFill(['platform_role' => 'superAdmin'])->save();
         Sanctum::actingAs($this->admin);
 
         $animalResponse = $this->postJson('/api/v1/admin/animals/animals', [
@@ -205,6 +206,35 @@ class EventsAndFinanceCrudTest extends TestCase
 
         $this->deleteJson("/api/v1/admin/events/identification-events/{$id}")
             ->assertOk();
+    }
+
+    public function test_all_finance_dashboards_and_bill_search_use_officer_last_name(): void
+    {
+        $db = \Illuminate\Support\Facades\DB::class;
+        $region = $db::table('regions')->insertGetId(['name' => 'Region', 'shortName' => 'RG', 'countryId' => $this->farm->countryId]);
+        $district = $db::table('districts')->insertGetId(['name' => 'District', 'regionId' => $region]);
+        $ward = $db::table('wards')->insertGetId(['name' => 'Ward', 'districtId' => $district]);
+        $officer = $db::table('extension_officers')->insertGetId([
+            'firstName' => 'Asha', 'middleName' => 'Jane', 'lastName' => 'UniqueOfficer',
+            'email' => 'finance-officer@example.test', 'phone' => '+255712345678',
+            'password' => 'unused', 'gender' => 'female', 'countryId' => $this->farm->countryId,
+            'regionId' => $region, 'districtId' => $district, 'wardId' => $ward,
+        ]);
+        $bill = $this->postJson('/api/v1/admin/finance/bills', [
+            'farmUuid' => $this->farm->uuid, 'extensionOfficerId' => $officer,
+            'subjectType' => 'Vaccination', 'quantity' => 1, 'amount' => 1000, 'status' => 'pending',
+        ])->assertCreated()->assertJsonPath('data.extensionOfficerName', 'Asha Jane UniqueOfficer');
+
+        foreach (['bills', 'income', 'expenditure', 'income-expenditure'] as $resource) {
+            $this->getJson('/api/v1/admin/finance/'.$resource)->assertOk()
+                ->assertJsonPath('data.options.extensionOfficers.0.label', 'Asha Jane UniqueOfficer');
+            $this->getJson('/api/v1/admin/finance/'.$resource.'/options')->assertOk()
+                ->assertJsonPath('data.extensionOfficers.0.label', 'Asha Jane UniqueOfficer');
+        }
+        $this->getJson('/api/v1/admin/finance/bills?search=UniqueOfficer')->assertOk()
+            ->assertJsonPath('data.meta.total', 1)->assertJsonPath('data.items.0.id', $bill->json('data.id'));
+        $this->getJson('/api/v1/admin/finance/income-expenditure')->assertOk()
+            ->assertJsonPath('data.billRows.0.officer', 'Asha Jane UniqueOfficer');
     }
 
     public function test_finance_bills_income_expenditure_and_report(): void
