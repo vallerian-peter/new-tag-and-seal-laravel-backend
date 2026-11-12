@@ -65,6 +65,11 @@ class UserRole
     public const BUYER = 'buyer';
 
     /**
+     * Auction Officer - Auctioneer attached to an auction centre (verified by an admin)
+     */
+    public const AUCTION_OFFICER = 'auctionOfficer';
+
+    /**
      * Get all available roles
      */
     public static function all(): array
@@ -81,6 +86,7 @@ class UserRole
             self::WAREHOUSE_MANAGER,
             self::MCC_OPERATOR,
             self::BUYER,
+            self::AUCTION_OFFICER,
         ];
     }
 
@@ -155,6 +161,7 @@ class UserRole
             self::WAREHOUSE_MANAGER => 'Warehouse / Factory Manager',
             self::MCC_OPERATOR => 'MCC Collection Clerk',
             self::BUYER => 'Livestock / Dairy Buyer',
+            self::AUCTION_OFFICER => 'Auction Officer',
             default => 'Unknown',
         };
     }
@@ -176,6 +183,8 @@ class UserRole
             self::WAREHOUSE_MANAGER => 'Executive manager overseeing dairy factories, warehouses, silos, and plant operators',
             self::MCC_OPERATOR => 'Milk collection centre operator performing farmer intake and chilling',
             self::BUYER => 'Commercial buyer purchasing livestock or bulk dairy products',
+            self::AUCTION_OFFICER => 'Auctioneer who conducts live auctions at an auction centre once verified',
+
             default => 'No description available',
         };
     }

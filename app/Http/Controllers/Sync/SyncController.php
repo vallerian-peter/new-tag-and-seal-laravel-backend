@@ -481,6 +481,7 @@ class SyncController extends Controller
                 'extensionofficer',
                 'vet',
                 'farminviteduser',
+                'auctionofficer',
             ])) {
                 $data['userSpecificData'] = $this->getFieldWorkerData($user->roleId);
             } elseif (in_array($normalizedRole, ['systemuser'])) {
@@ -630,6 +631,36 @@ class SyncController extends Controller
      *
      * @param  int  $farmUserId  (This is User.roleId which points to FarmUser.id)
      */
+    /**
+     * Data for a veterinarian: farms, livestock and logs of the service requests
+     * they are currently assigned to (plus 30 days of completed jobs).
+     */
+    private function getVetData(\App\Models\User $user): array
+    {
+        $farmUuids = \App\Services\VetServices\VetServiceRequestService::farmUuidsForVetUser($user);
+        $vet = \App\Models\Vet::where('userId', $user->id)->first();
+
+        $farms = ! empty($farmUuids) ? $this->farmController->fetchByUuids($farmUuids) : [];
+        $livestock = ! empty($farmUuids) ? $this->livestockController->fetchByFarmUuids($farmUuids) : [];
+        $livestockUuids = array_column($livestock, 'uuid');
+        $logs = ! empty($farmUuids) ? $this->logController->fetchLogsByFarmLivestockUuids($farmUuids, $livestockUuids) : [];
+        $vaccines = ! empty($farmUuids) ? $this->vaccineController->fetchByFarmUuids($farmUuids) : [];
+
+        return [
+            'type' => 'field_worker',
+            'farmUser' => null,
+            'vet' => $vet ? \App\Http\Controllers\VetServices\VetProfileController::privateProfileFor($vet) : null,
+            'farms' => $farms,
+            'livestock' => $livestock,
+            'logs' => $logs,
+            'vaccines' => $vaccines,
+            'farmsCount' => count($farms),
+            'livestockCount' => count($livestock),
+            'logsCount' => is_array($logs) ? count($logs) : 0,
+            'vaccinesCount' => count($vaccines),
+        ];
+    }
+
     private function getFieldWorkerData(int $farmUserId): array
     {
         try {
@@ -638,6 +669,30 @@ class SyncController extends Controller
             $roleNormalized = is_object($authenticated) && isset($authenticated->role)
                 ? strtolower(str_replace([' ', '_', '-'], '', trim((string) $authenticated->role)))
                 : '';
+
+            // Veterinarians sync the farms attached to their active service requests
+            if ($roleNormalized === 'vet' && is_object($authenticated)) {
+                return $this->getVetData($authenticated);
+            }
+
+            // Auction officers work from the auction module; they hold no farm data
+            if ($roleNormalized === 'auctionofficer' && is_object($authenticated)) {
+                $officer = \App\Models\AuctionOfficer::where('userId', $authenticated->id)->first();
+
+                return [
+                    'type' => 'field_worker',
+                    'farmUser' => null,
+                    'auctionOfficer' => $officer?->toWire(true),
+                    'farms' => [],
+                    'livestock' => [],
+                    'logs' => [],
+                    'vaccines' => [],
+                    'farmsCount' => 0,
+                    'livestockCount' => 0,
+                    'logsCount' => 0,
+                    'vaccinesCount' => 0,
+                ];
+            }
 
             // If caller is an Extension Officer, handle EO path regardless of FarmUser presence
             if (in_array($roleNormalized, ['extensionofficer'])) {
@@ -2322,9 +2377,19 @@ class SyncController extends Controller
             return $farmUuids;
         }
 
-        // For farm invited users and vets
-        if (in_array($normalizedRole, ['farminviteduser', 'vet'])) {
-            $farmUser = FarmUser::find($user->roleId);
+        // Vets get the farms of the service requests they are working on
+        if ($normalizedRole === 'vet') {
+            return \App\Services\VetServices\VetServiceRequestService::farmUuidsForVetUser($user);
+        }
+
+        // Auction officers have no farms of their own
+        if ($normalizedRole === 'auctionofficer') {
+            return [];
+        }
+
+        // For farm invited users
+        if (in_array($normalizedRole, ['farminviteduser'])) {
+            $farmUser = \App\Models\FarmUser::find($user->roleId);
 
             if (! $farmUser) {
                 \Log::warning("FarmUser not found for roleId: {$user->roleId}");

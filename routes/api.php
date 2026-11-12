@@ -1,6 +1,11 @@
 <?php
 
 use App\Enums\UserRole;
+use App\Http\Controllers\Auction\AuctionCentreController;
+use App\Http\Controllers\Auction\AuctionLotController;
+use App\Http\Controllers\Auction\AuctionOfficerController;
+use App\Http\Controllers\Auction\AuctionPlanController;
+use App\Http\Controllers\Auction\AuctionSessionController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PhoneAuthController;
 use App\Http\Controllers\BirthProblem\BirthProblemController;
@@ -47,8 +52,13 @@ use App\Http\Controllers\Sync\SyncController;
 use App\Http\Controllers\TailDockingMethod\TailDockingMethodController;
 use App\Http\Controllers\TeethClippingMethod\TeethClippingMethodController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\Vet\VetController;
+use App\Http\Controllers\VetServices\VetProfileController;
+use App\Http\Controllers\VetServices\VetServiceMessageController;
+use App\Http\Controllers\VetServices\VetServiceRequestController;
 use App\Http\Middleware\EnsureActiveAccount;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -117,6 +127,9 @@ Route::get('/v2/marketplace/photos/{filename}', [MarketplaceListingController::c
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth:sanctum', EnsureActiveAccount::class])->group(function () {
+    // Reverb / Pusher-protocol channel authorisation (presence channels)
+    Broadcast::routes();
+
     Route::match(['get', 'post'], '/auth/refresh', [PhoneAuthController::class, 'refresh']);
     Route::get('/v2/farms/{farmUuid}/access', [FarmAccessController::class, 'current']);
     Route::get('/v2/farms/{farmUuid}/members', [FarmAccessController::class, 'index']);
@@ -296,6 +309,57 @@ Route::middleware(['auth:sanctum', EnsureActiveAccount::class])->group(function 
         });
 
         /*
+        |--------------------------------------------------------------------------
+        | Vet Services & Auctions Admin Routes (System User Only)
+        |--------------------------------------------------------------------------
+        */
+        Route::prefix('admin/entities')
+            ->middleware('check.role:'.UserRole::SYSTEM_USER)
+            ->group(function () {
+                // Vets
+                Route::get('vets', [VetController::class, 'adminIndex']);
+                Route::post('vets', [VetController::class, 'adminStore']);
+                Route::get('vets/{vet}', [VetController::class, 'adminShow']);
+                Route::put('vets/{vet}', [VetController::class, 'adminUpdate']);
+                Route::post('vets/{vet}/verify', [VetController::class, 'adminVerify']);
+                Route::get('vets/{vet}/license-document', [VetController::class, 'adminLicenseDocument']);
+                Route::get('vet-service-requests', [VetController::class, 'adminRequests']);
+                Route::delete('vets/{vet}', [VetController::class, 'adminDestroy']);
+
+                // Auction centres (livestock markets) and their auctioneers
+                Route::get('auction-centres', [AuctionCentreController::class, 'adminIndex']);
+                Route::post('auction-centres', [AuctionCentreController::class, 'adminStore']);
+                Route::get('auction-centres/{centre}', [AuctionCentreController::class, 'adminShow']);
+                Route::put('auction-centres/{centre}', [AuctionCentreController::class, 'adminUpdate']);
+                Route::delete('auction-centres/{centre}', [AuctionCentreController::class, 'adminDestroy']);
+                Route::get('auction-centres/{centre}/members', [AuctionCentreController::class, 'adminMembers']);
+                Route::post('auction-centres/{centre}/members', [AuctionCentreController::class, 'adminAddMember']);
+                Route::put('auction-centres/{centre}/members/{member}', [AuctionCentreController::class, 'adminUpdateMember']);
+                Route::delete('auction-centres/{centre}/members/{member}', [AuctionCentreController::class, 'adminRemoveMember']);
+                Route::get('auction-centres/{centre}/officers', [AuctionPlanController::class, 'assignableOfficers']);
+
+                // Auction officers: self-registered (pending) or portal-created; verify before they can conduct auctions
+                Route::get('auction-officers', [AuctionOfficerController::class, 'adminIndex']);
+                Route::post('auction-officers', [AuctionOfficerController::class, 'adminStore']);
+                Route::get('auction-officers/{officer}', [AuctionOfficerController::class, 'adminShow']);
+                Route::put('auction-officers/{officer}', [AuctionOfficerController::class, 'adminUpdate']);
+                Route::post('auction-officers/{officer}/verify', [AuctionOfficerController::class, 'adminVerify']);
+                Route::delete('auction-officers/{officer}', [AuctionOfficerController::class, 'adminDestroy']);
+
+                // Auction planning: schedule sessions at a centre, assign the officer, attach animals
+                Route::get('auction-sessions', [AuctionPlanController::class, 'index']);
+                Route::post('auction-sessions', [AuctionPlanController::class, 'store']);
+                Route::get('auction-sessions/{uuid}', [AuctionPlanController::class, 'show']);
+                Route::put('auction-sessions/{uuid}', [AuctionPlanController::class, 'update']);
+                Route::post('auction-sessions/{uuid}/cancel', [AuctionPlanController::class, 'cancel']);
+                Route::post('auction-sessions/{uuid}/republish', [AuctionPlanController::class, 'republish']);
+                Route::post('auction-sessions/{uuid}/lots', [AuctionPlanController::class, 'addLot']);
+                Route::put('auction-lots/{uuid}', [AuctionPlanController::class, 'updateLot']);
+                Route::delete('auction-lots/{uuid}', [AuctionPlanController::class, 'removeLot']);
+                Route::get('auction-livestock', [AuctionPlanController::class, 'livestock']);
+            });
+
+        /*
         | Sync Routes (Shared - All authenticated roles can sync)
         |--------------------------------------------------------------------------
         | These routes allow all authenticated users (farmers, extension officers,
@@ -361,8 +425,106 @@ Route::middleware(['auth:sanctum', EnsureActiveAccount::class])->group(function 
         });
 
         // Veterinarian Routes
-        Route::prefix('vets')->middleware('check.role:'.UserRole::VET.','.UserRole::SYSTEM_USER)->group(function () {
-            // Vet-specific routes can be added here
+        /*
+        |--------------------------------------------------------------------------
+        | Live Livestock Auctions ("Mnada wa Mifugo Mubashara")
+        |--------------------------------------------------------------------------
+        | Media runs on LiveKit; bids, lots, chat and presence are broadcast over
+        | Reverb (presence channel auction.{uuid}). Sessions are hosted by farmers
+        | or system users; any signed-in account can watch and bid.
+        */
+        Route::prefix('auctions')->group(function () {
+            Route::get('realtime-config', [AuctionSessionController::class, 'realtimeConfig']);
+            Route::get('centres', [AuctionCentreController::class, 'index']);
+            Route::get('centres/mine', [AuctionCentreController::class, 'mine']);
+            Route::get('officers/me', [AuctionOfficerController::class, 'me']);
+            Route::post('officers/apply', [AuctionOfficerController::class, 'apply']);
+            Route::put('officers/me', [AuctionOfficerController::class, 'update']);
+            Route::get('centres/{uuid}', [AuctionCentreController::class, 'show']);
+            Route::get('centres/{uuid}/livestock', [AuctionCentreController::class, 'livestock']);
+            Route::get('centres/{uuid}/sessions', [AuctionCentreController::class, 'sessions']);
+            Route::get('holds', [AuctionLotController::class, 'holds']);
+            Route::get('my-bids', [AuctionLotController::class, 'myBids']);
+            Route::get('purchases', [AuctionSessionController::class, 'purchases']);
+            Route::get('sales', [AuctionSessionController::class, 'sales']);
+            Route::get('sales/{uuid}/receipt', [AuctionSessionController::class, 'receipt']);
+            Route::get('records', [AuctionSessionController::class, 'records']);
+            Route::post('sales/{uuid}/mark-paid', [AuctionSessionController::class, 'markPaid']);
+
+            Route::get('sessions', [AuctionSessionController::class, 'index']);
+            Route::post('sessions', [AuctionSessionController::class, 'store'])->middleware('throttle:10,1');
+            Route::get('sessions/{uuid}', [AuctionSessionController::class, 'show']);
+            Route::put('sessions/{uuid}', [AuctionSessionController::class, 'update']);
+            Route::post('sessions/{uuid}/cancel', [AuctionSessionController::class, 'cancel']);
+            Route::post('sessions/{uuid}/republish', [AuctionSessionController::class, 'republish']);
+            Route::post('sessions/{uuid}/start', [AuctionSessionController::class, 'start']);
+            Route::post('sessions/{uuid}/join', [AuctionSessionController::class, 'join']);
+            Route::post('sessions/{uuid}/heartbeat', [AuctionSessionController::class, 'heartbeat']);
+            Route::post('sessions/{uuid}/leave', [AuctionSessionController::class, 'leave']);
+            Route::post('sessions/{uuid}/end', [AuctionSessionController::class, 'end']);
+            Route::get('sessions/{uuid}/state', [AuctionSessionController::class, 'state']);
+            Route::post('sessions/{uuid}/chat', [AuctionSessionController::class, 'chat'])->middleware('throttle:60,1');
+            Route::get('sessions/{uuid}/events', [AuctionSessionController::class, 'events']);
+            Route::get('sessions/{uuid}/history', [AuctionSessionController::class, 'history']);
+            Route::post('sessions/{uuid}/lots', [AuctionLotController::class, 'store']);
+
+            Route::put('lots/{uuid}', [AuctionLotController::class, 'update']);
+            Route::delete('lots/{uuid}', [AuctionLotController::class, 'destroy']);
+            Route::post('lots/{uuid}/open', [AuctionLotController::class, 'open']);
+            Route::post('lots/{uuid}/close', [AuctionLotController::class, 'close']);
+            Route::post('lots/{uuid}/bid', [AuctionLotController::class, 'bid'])->middleware('throttle:120,1');
+            Route::post('lots/{uuid}/weight-reading', [AuctionLotController::class, 'weightReading'])->middleware('throttle:600,1');
+            Route::post('lots/{uuid}/weight', [AuctionLotController::class, 'lockWeight']);
+            Route::post('lots/{uuid}/physical-sale', [AuctionLotController::class, 'physicalSale']);
+            Route::post('lots/{uuid}/pass', [AuctionLotController::class, 'pass']);
+            Route::post('lots/{uuid}/decide', [AuctionLotController::class, 'decide']);
+            Route::get('lots/{uuid}/bids', [AuctionLotController::class, 'bids']);
+        });
+
+        /*
+        |--------------------------------------------------------------------------
+        | On-demand Veterinary Services ("Bolt ya Madaktari wa Mifugo")
+        |--------------------------------------------------------------------------
+        | Open to every authenticated role: farmers/farm users raise requests, any
+        | account may apply to become a vet, vets act on requests. Fine-grained
+        | authorisation lives in VetServiceRequestService.
+        */
+        Route::prefix('vet-services')->group(function () {
+            // Vet profile (self-service)
+            Route::post('vets/apply', [VetProfileController::class, 'apply']);
+            Route::get('vets/me', [VetProfileController::class, 'me']);
+            Route::put('vets/me', [VetProfileController::class, 'update']);
+            Route::post('vets/me/availability', [VetProfileController::class, 'setAvailability']);
+            Route::post('vets/me/location', [VetProfileController::class, 'updateLocation']);
+            Route::post('vets/me/license-document', [VetProfileController::class, 'uploadLicenseDocument']);
+            Route::get('vets/me/inbox', [VetServiceRequestController::class, 'inbox']);
+            Route::get('vets/me/jobs', [VetServiceRequestController::class, 'jobs']);
+
+            // Farmer-facing vet discovery
+            Route::get('vets/nearby', [VetProfileController::class, 'nearby']);
+            Route::get('vets/{uuid}', [VetProfileController::class, 'show']);
+
+            // Requests
+            Route::get('requests', [VetServiceRequestController::class, 'index']);
+            Route::post('requests', [VetServiceRequestController::class, 'store']);
+            Route::get('requests/feed', [VetServiceRequestController::class, 'feed']);
+            Route::get('requests/{uuid}', [VetServiceRequestController::class, 'show']);
+            Route::get('requests/{uuid}/events', [VetServiceRequestController::class, 'events']);
+            Route::post('requests/{uuid}/cancel', [VetServiceRequestController::class, 'cancel']);
+            Route::post('requests/{uuid}/retry-dispatch', [VetServiceRequestController::class, 'retryDispatch']);
+            Route::post('requests/{uuid}/rate', [VetServiceRequestController::class, 'rate']);
+
+            // Vet actions on a request
+            Route::post('requests/{uuid}/accept', [VetServiceRequestController::class, 'accept']);
+            Route::post('requests/{uuid}/decline', [VetServiceRequestController::class, 'decline']);
+            Route::post('requests/{uuid}/withdraw', [VetServiceRequestController::class, 'withdraw']);
+            Route::post('requests/{uuid}/advance', [VetServiceRequestController::class, 'advance']);
+            Route::post('requests/{uuid}/treatment', [VetServiceRequestController::class, 'recordTreatment']);
+
+            // Messaging
+            Route::get('requests/{uuid}/messages', [VetServiceMessageController::class, 'index']);
+            Route::post('requests/{uuid}/messages', [VetServiceMessageController::class, 'store']);
+            Route::post('requests/{uuid}/messages/read', [VetServiceMessageController::class, 'markRead']);
         });
 
         /*
